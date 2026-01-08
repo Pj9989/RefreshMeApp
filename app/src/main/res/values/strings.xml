@@ -1,0 +1,104 @@
+﻿<resources>
+    <string name="app_name">RefreshMe Barber &amp; Stylist</string>
+    <string name="stylist_image_description">Stylist image</string>
+    <string name="directions_button_description">Get directions to the stylist</string>
+    <string name="wifi_icon_description">WiFi available</string>
+    <string name="parking_icon_description">Parking available</string>
+    <string name="credit_card_icon_description">Credit card accepted</string>
+    <string name="call_button_description">Call the stylist</string>
+    <string name="instagram_button_description">Open stylist\'s Instagram profile</string>
+    <string name="facebook_button_description">Open stylist\'s Facebook profile</string>
+    <string name="twitter_button_description">Open stylist\'s Twitter profile</string>
+    <string name="book_appointment_button_description">Book an appointment</string>
+    <string name="scroll_to_top_button_description">Scroll to top</string>
+    <string name="error_loading_stylist">Error loading stylist details.</string>
+    <string name="retry_button">Retry</string>
+    <string name="share">Share</string>
+    <string name="share_stylist_text">Check out this stylist, %1$s at %2$s!</string>
+    <string name="favorite">Favorite</string>
+    <string name="call">Call</string>
+    <string name="confirm_appointment">Confirm Appointment</string>
+    <string name="book_appointment">Book Appointment</string>
+    <string name="write_a_review">Write a Review</string>
+    <string name="your_review">Your review</string>
+    <string name="cancel">Cancel</string>
+    <string name="submit">Submit</string>
+    <string name="home">Home</string>
+    <string name="nearby">Nearby</string>
+    <string name="my_appointments">My Appointments</string>
+    <string name="about">About</string>
+    <string name="services">Services</string>
+    <string name="reviews">Reviews</string>
+    <string name="gallery">Gallery</string>
+    <string name="review_count_format">(%d reviews)</string>
+    <string name="location_permission_denied">Location permission denied. Cannot show current location.</string>
+    <string name="settings">Settings</string>
+
+    <!-- Filter Dialog -->
+    <string name="filter_and_sort">Filter and Sort</string>
+    <string name="sort_by">Sort by</string>
+    <string name="distance">Distance</string>
+    <string name="rating">Rating</string>
+    <string name="filter_by">Filter by</string>
+    <string name="open_now">Open now</string>
+    <string name="minimum_rating">Minimum Rating</string>
+    <string name="apply">Apply</string>
+
+    <!-- Service Item -->
+    <string name="edit_service">Edit service</string>
+    <string name="delete_service">Delete service</string>
+
+    <!-- Chat -->
+    <string name="type_a_message">Type a message…</string>
+    <string name="send_message">Send message</string>
+
+    <!-- Home Screen -->
+    <string name="find_and_book_your_next_appointment">Find and book your next appointment</string>
+    <string name="nearby_stylists">Nearby Stylists</string>
+    <string name="messages">Messages</string>
+    <string name="sign_out">Sign Out</string>
+
+    <!-- Error Handling -->
+    <string name="no_app_to_handle_action">No app available to handle this action.</string>
+    <string name="google_maps_not_installed">Google Maps is not installed.</string>
+
+    <!-- Notifications -->
+    <string name="default_notification_channel_id">default_channel</string>
+    <string name="default_notification_channel_name">Default Channel</string>
+    <string name="activity_maps">Map</string>
+
+    <!-- item_stylist -->
+    <string name="availability_indicator">Availability indicator</string>
+    <string name="verified_stylist">Verified stylist</string>
+    <string name="toggle_favorite">Toggle favorite</string>
+
+    <!-- Stylist List -->
+    <string name="ill_pull_up">I\'ll Pull Up</string>
+    <string name="come_to_me">Come to Me</string>
+    <string name="favorites_only">Favorites Only</string>
+
+    <!-- SubscriptionActivity -->
+    <string name="subscription_active_title">✅ Active Subscription</string>
+    <string name="subscription_active_message">You have full access to all stylist features</string>
+    <string name="subscription_inactive_title">Subscribe to Access Stylists</string>
+    <string name="subscription_inactive_message">$10/month - Cancel anytime</string>
+    <string name="sign_in_first">Please sign in first</string>
+    <string name="error_checking_subscription">Error checking subscription: %s</string>
+    <string name="no_payment_info_received">Error: No payment information received</string>
+    <string name="error_creating_subscription">Error: %s</string>
+    <string name="payment_canceled">Payment canceled</string>
+    <string name="payment_failed">Payment failed: %s</string>
+    <string name="payment_successful">Payment successful! Subscription is active.</string>
+    <string name="back_button">Back</string>
+    <string name="set_your_weekly_hours">Set Your Weekly Hours</string>
+    <string name="save">Save</string>
+    <string name="upload_image">Upload Image</string>
+    <string name="user_name">User Name</string>
+    <string name="enable_disable_notifications">Enable/disable notifications</string>
+    <string name="location_permission">Location permission: </string>
+    <string name="app_version">App version: </string>
+    <string name="about_app_description">RefreshMe is an app to help you find and book appointments with stylists near you.</string>
+    <string name="contact_support">Contact Support</string>
+    <string name="edit_profile">Edit Profile</string>
+
+</resources>

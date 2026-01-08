@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    tools:context=".stylist.StylistEarningsFragment">
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Totals Section -->
+            <TextView
+                style="?attr/textAppearanceTitleMedium"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Totals" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Today: $150.00" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="This Week: $750.00" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="This Month: $3000.00" />
+
+            <!-- Divider between Totals and Payouts -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                android:background="?attr/colorOnSurfaceVariant" />
+
+            <!-- Payouts Section -->
+            <TextView
+                style="?attr/textAppearanceTitleMedium"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Payouts" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Next Payout: $1200.00 (Scheduled for 07/01/24)" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Last Payout: $1150.00 (Paid on 06/24/24)" />
+
+            <!-- Change to Outlined Button style -->
+            <com.google.android.material.button.MaterialButton
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_marginTop="8dp"
+                android:text="View Payout History" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</ScrollView>

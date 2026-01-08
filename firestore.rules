@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions to check user roles
+    function getRole(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    }
+
+    function isCustomer() {
+      return request.auth != null && getRole(request.auth.uid) == 'CUSTOMER';
+    }
+
+    function isStylist() {
+      return request.auth != null && getRole(request.auth.uid) == 'STYLIST';
+    }
+    
+    // === /stylists/{stylistId} Rules ===
+    match /stylists/{stylistId} {
+      // Allow public read access for all authenticated users
+      allow read: if request.auth != null;
+      // Allow write access for authenticated users (for populating data)
+      // TODO: Restrict write access in production
+      allow write: if request.auth != null; 
+    }
+
+    // === /users/{uid} Rules ===
+    match /users/{uid} {
+      // Allow all authenticated users to read any user profile to check role
+      allow read: if request.auth != null;
+      // Only a user can write their own profile (e.g., set initial role/data)
+      allow write: if request.auth.uid == uid;
+
+      // === /users/{uid}/favorites/{favoriteId} Rules ===
+      match /favorites/{favoriteId} {
+        // Customers can write (create, update, delete) only their own favorites
+        allow write: if isCustomer() && request.auth.uid == uid;
+        // Customers can read their own favorites
+        allow read: if request.auth.uid == uid;
+      }
+    }
+
+    // === /requests/{requestId} Rules ===
+    match /requests/{requestId} {
+      // Read access: allow stylist and customer involved to read
+      allow read: if request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.stylistId;
+
+      // CREATE: Customer creates with status OPEN
+      allow create: if isCustomer()
+        && request.resource.data.status == 'OPEN'
+        && request.resource.data.customerId == request.auth.uid
+        // Ensure other fields are present and valid (stylistId must point to a stylist profile)
+        && exists(/databases/$(database)/documents/stylists/$(request.resource.data.stylistId));
+
+      // UPDATE: Stylist advances status to COMPLETED
+      allow update: if isStylist()
+        // Stylist must be the one involved in the request
+        && request.auth.uid == resource.data.stylistId
+        // New status must be COMPLETED
+        && request.resource.data.status == 'COMPLETED'
+        // Only the 'status' field is allowed to change
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        // Status must be advancing (e.g., from 'OPEN' to 'COMPLETED')
+        && resource.data.status != 'COMPLETED';
+    }
+
+    // === /bookings/{bookingId} Rules ===
+    match /bookings/{bookingId} {
+        // Allow create if the user is authenticated and the booking belongs to them
+        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+        // Allow read if the user is the owner of the booking or the stylist
+        allow read: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.stylistId);
+    }
+    
+    // === /serviceRequests/{serviceRequestId} Rules ===
+    match /serviceRequests/{serviceRequestId} {
+        // Allow create if the user is authenticated and the request belongs to them
+        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+        // Allow read if the user is the owner of the request or the stylist
+        allow read: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.stylistId);
+    }
+    
+    // === /appointments/{appointmentId} Rules ===
+    match /appointments/{appointmentId} {
+        // Allow create if the user is authenticated and the appointment belongs to them
+        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+        // Allow read if the user is the owner of the appointment or the stylist
+        allow read: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.stylistId);
+    }
+  }
+}

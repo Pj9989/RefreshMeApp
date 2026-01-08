@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "225062199526",
+    "project_id": "style-now-2anxq",
+    "storage_bucket": "style-now-2anxq.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:225062199526:android:8c21d5d5a0602190125b27",
+        "android_client_info": {
+          "package_name": "com.refreshme.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAuzsAyT6MF1Oko353pEWoDVMasb9wkBHo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:225062199526:android:4919348ddc6a5049125b27",
+        "android_client_info": {
+          "package_name": "com.refreshmeapp.ui"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAuzsAyT6MF1Oko353pEWoDVMasb9wkBHo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

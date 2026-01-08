@@ -1,0 +1,14 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/stylistHome"
+        android:title="Dashboard"
+        android:icon="@drawable/ic_house" />
+    <item
+        android:id="@+id/stylistBookings"
+        android:title="Bookings"
+        android:icon="@drawable/ic_calendar" />
+    <item
+        android:id="@+id/stylistEarnings"
+        android:title="Earnings"
+        android:icon="@drawable/ic_store" />
+</menu>

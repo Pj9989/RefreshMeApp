@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    tools:context=".SettingsFragment">
+
+    <TextView
+        android:id="@+id/settings_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/settings"
+        android:textSize="24sp"
+        android:layout_marginBottom="24dp"/>
+
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/notifications_toggle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/enable_disable_notifications" />
+
+    <TextView
+        android:id="@+id/location_permission_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/location_permission" />
+
+    <TextView
+        android:id="@+id/app_version_display"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android.text="@string/app_version" />
+
+    <TextView
+        android:id="@+id/about_section_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="@string/about"
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/about_section_description"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/about_app_description" />
+
+    <Button
+        android:id="@+id/contact_support_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="@string/contact_support" />
+
+</LinearLayout>

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Filter by Specialty"
+        android:textStyle="bold" />
+
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/specialty_chip_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:singleSelection="true">
+        <!-- Chips will be added dynamically -->
+    </com.google.android.material.chip.ChipGroup>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Filter by Rating"
+        android:textStyle="bold" />
+
+    <RatingBar
+        android:id="@+id/rating_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:numStars="5"
+        android:stepSize="1" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Filter by Availability"
+        android:textStyle="bold" />
+
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/availability_chip_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:singleLine="true">
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_at_home_service"
+            style="@style/Widget.MaterialComponents.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="At-home service" />
+    </com.google.android.material.chip.ChipGroup>
+
+    <Button
+        android:id="@+id/clear_filters_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Clear all filters" />
+
+</LinearLayout>

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:padding="20dp"
+    android:background="#1A1A1A">
+
+    <TextView
+        android:id="@+id/tvWelcome"
+        style="@style/TextAppearance.RefreshMe.WelcomeBack"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Welcome back, [User Name]!"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/tvTitle"
+        style="@style/TextAppearance.RefreshMe.DashboardTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android.text="RefreshMe Dashboard"
+        android:layout_marginBottom="24dp" />
+
+    <Button
+        android:id="@+id/btnFindStylist"
+        style="@style/TextAppearance.RefreshMe.ButtonText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Find Stylist Now"
+        android:background="@drawable/button_background"
+        android:elevation="8dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp" />
+
+    <Button
+        android:id="@+id/btnMyBookings"
+        style="@style/TextAppearance.RefreshMe.ButtonText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="My Bookings"
+        android:background="@drawable/button_background"
+        android:elevation="8dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp" />
+
+    <Button
+        android:id="@+id/btnSignOut"
+        style="@style/TextAppearance.RefreshMe.ButtonText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Sign Out"
+        android:background="@drawable/button_background"
+        android:elevation="8dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp" />
+
+    <TextView
+        android:id="@+id/tvFeaturedStylists"
+        style="@style/TextAppearance.RefreshMe.FeaturedStylists"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Featured Stylists"
+        android:layout_marginTop="32dp"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvStylists"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"/>
+
+</LinearLayout>
