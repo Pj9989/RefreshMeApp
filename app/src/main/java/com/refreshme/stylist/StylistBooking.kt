@@ -12,8 +12,8 @@ data class StylistBooking(
     val customerPhone: String = "",
     val customerPhoto: String? = null,
     val serviceName: String = "",
-    val servicePrice: Double = 0.0,
-    val bookingTime: Timestamp? = null,
+    val price: Double = 0.0, // Renamed from servicePrice
+    val startTime: Timestamp? = null, // Renamed from bookingTime
     val location: String = "",
     val status: BookingStatus = BookingStatus.PENDING,
     val notes: String = "",
@@ -23,7 +23,7 @@ data class StylistBooking(
      * Format booking time for display
      */
     fun getFormattedTime(): String {
-        val date = bookingTime?.toDate() ?: return "Time not set"
+        val date = startTime?.toDate() ?: return "Time not set" // Use startTime
         val formatter = java.text.SimpleDateFormat("MMM dd, yyyy 'at' h:mm a", java.util.Locale.getDefault())
         return formatter.format(date)
     }
@@ -32,7 +32,7 @@ data class StylistBooking(
      * Format price for display
      */
     fun getFormattedPrice(): String {
-        return "$${"%.2f".format(servicePrice)}"
+        return "$${"%.2f".format(price)}" // Use price
     }
 }
 

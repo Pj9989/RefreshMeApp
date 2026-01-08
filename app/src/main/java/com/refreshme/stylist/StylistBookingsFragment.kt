@@ -1,10 +1,12 @@
 package com.refreshme.stylist
 
+import android.content.Context // Added for onAttach
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
-import android:view.ViewGroup
+import android.view.ViewGroup
 import android.widget.Toast
+import android.widget.TextView // Added import for TextView
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -17,11 +19,27 @@ import com.refreshme.R
 
 class StylistBookingsFragment : Fragment() {
 
+    // Task 3: Badge update listener interface
+    interface BadgeUpdateListener {
+        fun updateBookingsBadge(count: Int)
+    }
+    
     private lateinit var recyclerView: RecyclerView
     private lateinit var tabLayout: TabLayout
+    private lateinit var emptyStateTextView: TextView // Added
     private lateinit var adapter: BookingCardAdapter
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
+    
+    private var badgeUpdateListener: BadgeUpdateListener? = null // Listener instance
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        // Check if the hosting context (Activity/Parent Fragment) implements the interface
+        if (context is BadgeUpdateListener) {
+            badgeUpdateListener = context
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -31,6 +49,7 @@ class StylistBookingsFragment : Fragment() {
         
         recyclerView = view.findViewById(R.id.bookingsRecyclerView)
         tabLayout = view.findViewById(R.id.tabLayout)
+        emptyStateTextView = view.findViewById(R.id.emptyStateTextView) // Initialized
         
         setupRecyclerView()
         setupTabs()
@@ -83,10 +102,18 @@ class StylistBookingsFragment : Fragment() {
             BookingFilter.CANCELLED -> query.whereEqualTo("status", "CANCELLED")
         }
         
-        query.orderBy("bookingTime", Query.Direction.DESCENDING)
+        // Add sorting by startTime (renamed from bookingTime) in ascending order for UPCOMING filter for better UX,
+        // and descending for COMPLETED/CANCELLED (most recent first).
+        val direction = if (filter == BookingFilter.UPCOMING) Query.Direction.ASCENDING else Query.Direction.DESCENDING
+        query.orderBy("startTime", direction) // Changed "bookingTime" to "startTime"
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
+                    // Error = warning (handled by Toast)
                     Toast.makeText(context, "Error loading bookings", Toast.LENGTH_SHORT).show()
+                    emptyStateTextView.visibility = View.GONE
+                    recyclerView.visibility = View.GONE
+                    // adapter.submitList(emptyList()) // Keep existing data if possible, or clear on error
+                    badgeUpdateListener?.updateBookingsBadge(0) // Clear badge on error
                     return@addSnapshotListener
                 }
                 
@@ -98,8 +125,8 @@ class StylistBookingsFragment : Fragment() {
                             customerName = doc.getString("customerName") ?: "Unknown",
                             customerPhone = doc.getString("customerPhone") ?: "",
                             serviceName = doc.getString("serviceName") ?: "",
-                            servicePrice = doc.getDouble("servicePrice") ?: 0.0,
-                            bookingTime = doc.getTimestamp("bookingTime"),
+                            price = doc.getDouble("price") ?: 0.0, // Changed "servicePrice" to "price"
+                            startTime = doc.getTimestamp("startTime"), // Changed "bookingTime" to "startTime"
                             location = doc.getString("location") ?: "",
                             status = BookingStatus.valueOf(doc.getString("status") ?: "PENDING"),
                             notes = doc.getString("notes") ?: "",
@@ -110,10 +137,25 @@ class StylistBookingsFragment : Fragment() {
                     }
                 } ?: emptyList()
                 
-                // If no real bookings, show dummy data for testing
+                // Task 3: Calculate and update badge count (only for UPCOMING tab)
+                if (filter == BookingFilter.UPCOMING) {
+                    val pendingCount = bookings.count { it.status == BookingStatus.PENDING }
+                    badgeUpdateListener?.updateBookingsBadge(pendingCount)
+                }
+                
+                // Differentiate EMPTY vs DATA (Empty = calm message)
                 if (bookings.isEmpty()) {
-                    adapter.submitList(getDummyBookings())
+                    emptyStateTextView.text = when(filter) {
+                        BookingFilter.UPCOMING -> "No upcoming bookings\nGo online to start receiving requests"
+                        BookingFilter.COMPLETED -> "No completed bookings yet"
+                        BookingFilter.CANCELLED -> "No cancelled bookings"
+                    }
+                    emptyStateTextView.visibility = View.VISIBLE
+                    recyclerView.visibility = View.GONE
+                    adapter.submitList(emptyList())
                 } else {
+                    emptyStateTextView.visibility = View.GONE
+                    recyclerView.visibility = View.VISIBLE
                     adapter.submitList(bookings)
                 }
             }
@@ -152,48 +194,6 @@ class StylistBookingsFragment : Fragment() {
     private fun handleMessageCustomer(booking: StylistBooking) {
         // TODO: Navigate to chat screen with customer
         Toast.makeText(context, "Opening chat with ${booking.customerName}", Toast.LENGTH_SHORT).show()
-    }
-
-    /**
-     * Dummy bookings for testing UI
-     */
-    private fun getDummyBookings(): List<StylistBooking> {
-        val now = System.currentTimeMillis()
-        return listOf(
-            StylistBooking(
-                id = "dummy1",
-                customerName = "Marcus Johnson",
-                customerPhone = "(704) 555-0123",
-                serviceName = "Haircut + Beard Trim",
-                servicePrice = 45.0,
-                bookingTime = Timestamp(java.util.Date(now + 3600000)), // 1 hour from now
-                location = "123 Main St, Charlotte, NC",
-                status = BookingStatus.CONFIRMED,
-                notes = "Please bring clippers"
-            ),
-            StylistBooking(
-                id = "dummy2",
-                customerName = "Jessica Parker",
-                customerPhone = "(704) 555-0456",
-                serviceName = "Women's Cut & Style",
-                servicePrice = 65.0,
-                bookingTime = Timestamp(java.util.Date(now + 7200000)), // 2 hours from now
-                location = "456 Oak Ave, Charlotte, NC",
-                status = BookingStatus.PENDING,
-                notes = ""
-            ),
-            StylistBooking(
-                id = "dummy3",
-                customerName = "David Smith",
-                customerPhone = "(704) 555-0789",
-                serviceName = "Kids Haircut",
-                servicePrice = 25.0,
-                bookingTime = Timestamp(java.util.Date(now + 10800000)), // 3 hours from now
-                location = "789 Elm St, Charlotte, NC",
-                status = BookingStatus.CONFIRMED,
-                notes = "Child is 8 years old"
-            )
-        )
     }
 
     private enum class BookingFilter {
