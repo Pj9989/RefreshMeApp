@@ -4,6 +4,7 @@ import android.app.Application
 import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
+import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 
 class RefreshMeApplication : Application() {
 
@@ -13,11 +14,19 @@ class RefreshMeApplication : Application() {
         // Initialize Firebase
         FirebaseApp.initializeApp(this)
         
-        // Initialize Firebase App Check with Play Integrity
+        // Initialize Firebase App Check
         val firebaseAppCheck = FirebaseAppCheck.getInstance()
-        firebaseAppCheck.installAppCheckProviderFactory(
-            PlayIntegrityAppCheckProviderFactory.getInstance()
-        )
+        
+        // Use debug provider for debug builds, Play Integrity for release
+        if (BuildConfig.DEBUG) {
+            firebaseAppCheck.installAppCheckProviderFactory(
+                DebugAppCheckProviderFactory.getInstance()
+            )
+        } else {
+            firebaseAppCheck.installAppCheckProviderFactory(
+                PlayIntegrityAppCheckProviderFactory.getInstance()
+            )
+        }
         
         if (BuildConfig.DEBUG) {
             DatabaseSeeder.seedData()
