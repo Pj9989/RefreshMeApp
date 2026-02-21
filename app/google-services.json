@@ -20,10 +20,13 @@
       ],
       "api_key": [
         {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        },
+        {
           "current_key": "AIzaSyDFSbJBi204-Osgy_VGf04O2ifDXxBJBWI"
         },
         {
-          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+          "current_key": "AIzaSyC1BxCjeM4ZboiVZwQncUegsSZ_cTDwCyw"
         }
       ],
       "services": {
@@ -52,10 +55,13 @@
       ],
       "api_key": [
         {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        },
+        {
           "current_key": "AIzaSyDFSbJBi204-Osgy_VGf04O2ifDXxBJBWI"
         },
         {
-          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+          "current_key": "AIzaSyC1BxCjeM4ZboiVZwQncUegsSZ_cTDwCyw"
         }
       ],
       "services": {
@@ -78,6 +84,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "12424011789-o3qrq7orbb82t2i8u9im12119rk3877q.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.refreshme.app",
+            "certificate_hash": "4bcb782fb993d41ec66a6dc5c28de0c92c3e6fa9"
+          }
+        },
+        {
           "client_id": "12424011789-sltcauc7ncgoa2j0rhtb1mufbcik4gq1.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -92,10 +106,13 @@
       ],
       "api_key": [
         {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        },
+        {
           "current_key": "AIzaSyDFSbJBi204-Osgy_VGf04O2ifDXxBJBWI"
         },
         {
-          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+          "current_key": "AIzaSyC1BxCjeM4ZboiVZwQncUegsSZ_cTDwCyw"
         }
       ],
       "services": {
@@ -118,11 +135,43 @@
       },
       "oauth_client": [
         {
+          "client_id": "12424011789-05eombahisgk3u6jh57c176fdcd3v9k9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.refreshme.barber",
+            "certificate_hash": "5429a4831e1817de348fc40e94334f340eb1654e"
+          }
+        },
+        {
+          "client_id": "12424011789-0eg3pca05n51qo272udgjtl9lnd9d59b.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.refreshme.barber",
+            "certificate_hash": "409a5617668815ad310ad0e1df46710c8e8ef81c"
+          }
+        },
+        {
+          "client_id": "12424011789-ddqlootocam22u1384phj613jnn9s2b2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.refreshme.barber",
+            "certificate_hash": "409a5037668015ad310ad0e1df4671dc8e8ef81c"
+          }
+        },
+        {
           "client_id": "12424011789-o5qf7kp1qd9u7rkv5gm8rjijfki7v7o0.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.refreshme.barber",
             "certificate_hash": "fc07a7d8547c73344cfe2c91042d6cc6a3c4e547"
+          }
+        },
+        {
+          "client_id": "12424011789-p1mk1bfcqte54hs46f5gbr4eekgf3ce4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.refreshme.barber",
+            "certificate_hash": "3429a4b31e1817de34bfc4ce94334f34deb1c56e"
           }
         },
         {
@@ -132,10 +181,13 @@
       ],
       "api_key": [
         {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        },
+        {
           "current_key": "AIzaSyDFSbJBi204-Osgy_VGf04O2ifDXxBJBWI"
         },
         {
-          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+          "current_key": "AIzaSyC1BxCjeM4ZboiVZwQncUegsSZ_cTDwCyw"
         }
       ],
       "services": {
@@ -164,10 +216,13 @@
       ],
       "api_key": [
         {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        },
+        {
           "current_key": "AIzaSyDFSbJBi204-Osgy_VGf04O2ifDXxBJBWI"
         },
         {
-          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+          "current_key": "AIzaSyC1BxCjeM4ZboiVZwQncUegsSZ_cTDwCyw"
         }
       ],
       "services": {
