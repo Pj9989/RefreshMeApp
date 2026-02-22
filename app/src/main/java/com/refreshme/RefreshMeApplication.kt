@@ -2,9 +2,10 @@ package com.refreshme
 
 import android.app.Application
 import com.google.firebase.FirebaseApp
-import com.google.firebase.appcheck.FirebaseAppCheck
-import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
-import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
+// Temporarily commented out App Check to fix 403 error
+// import com.google.firebase.appcheck.FirebaseAppCheck
+// import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
+// import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 
 class RefreshMeApplication : Application() {
 
@@ -14,6 +15,9 @@ class RefreshMeApplication : Application() {
         // Initialize Firebase
         FirebaseApp.initializeApp(this)
         
+        // Temporarily disabled App Check to fix 403 error during testing
+        // TODO: Re-enable App Check after registering debug token in Firebase Console
+        /*
         // Initialize Firebase App Check
         val firebaseAppCheck = FirebaseAppCheck.getInstance()
         
@@ -27,6 +31,7 @@ class RefreshMeApplication : Application() {
                 PlayIntegrityAppCheckProviderFactory.getInstance()
             )
         }
+        */
         
         if (BuildConfig.DEBUG) {
             DatabaseSeeder.seedData()
