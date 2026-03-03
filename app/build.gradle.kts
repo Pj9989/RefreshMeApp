@@ -91,7 +91,11 @@ kapt {
 
 dependencies {
     // Stripe Android SDK
-    implementation("com.stripe:stripe-android:20.49.0")
+    implementation("com.stripe:stripe-android:22.8.1")
+    // Stripe Identity SDK (correct artifact ID - NOT com.stripe:stripe-identity)
+    implementation("com.stripe:identity:22.8.1")
+    // Google Play Billing
+    implementation("com.android.billingclient:billing:8.3.0")
 
     // Firebase Functions
     implementation("com.google.firebase:firebase-functions-ktx:20.4.0")
