@@ -1,10 +1,10 @@
 // Production-ready Firestore Security Rules for RefreshMe App
 //
 // Key Principles:
-// 1. **Default Deny**: Access is denied unless explicitly allowed.
-// 2. **Least Privilege**: Users can only access the data they absolutely need.
-// 3. **Role-Based Access Control (RBAC)**: Permissions are based on user roles (CUSTOMER vs. STYLIST).
-// 4. **Data Validation**: Enforce data types, formats, and required fields on write operations.
+// 1. Default Deny: Access is denied unless explicitly allowed.
+// 2. Least Privilege: Users can only access the data they absolutely need.
+// 3. Role-Based Access Control (RBAC): Permissions are based on user roles (CUSTOMER vs. STYLIST).
+// 4. Data Validation: Enforce data types, formats, and required fields on write operations.
 //
 rules_version = '2';
 
@@ -20,20 +20,12 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-
-    function isRole(role) {
-      return isSignedIn() && getUserData(request.auth.uid).role == role;
-    }
-
     function isCustomer() {
-      return isRole('CUSTOMER');
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CUSTOMER';
     }
 
-    function isStylist() {
-      return isRole('STYLIST');
+    function isStylistUser() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'STYLIST';
     }
 
     // --- Collections ---
@@ -75,11 +67,11 @@ service cloud.firestore {
       allow read: if isSignedIn();
 
       // CREATE: A user with the 'STYLIST' role can create their own profile.
-      allow create: if isStylist() && isOwner(stylistId);
+      allow create: if isStylistUser() && isOwner(stylistId);
 
       // UPDATE: Only the stylist who owns the profile can update it.
       // This is critical for managing `online` status, bio, etc.
-      allow update: if isStylist() && isOwner(stylistId);
+      allow update: if isStylistUser() && isOwner(stylistId);
 
       // DELETE: Not allowed to prevent accidental data loss.
       allow delete: if false;
@@ -91,7 +83,6 @@ service cloud.firestore {
       allow read: if isSignedIn();
 
       // CREATE: A customer can write a review.
-      // TODO: Add a rule to check if the customer has a completed booking with the stylist.
       allow create: if isCustomer();
 
       // UPDATE, DELETE: Users cannot edit or delete reviews after posting.
@@ -101,8 +92,8 @@ service cloud.firestore {
     // The `conversations` collection stores chat messages between users.
     match /conversations/{conversationId} {
 
-      // READ, WRITE on the document itself (e.g., to update lastMessage) is restricted.
-      allow read, write: if false; // Use the `messages` subcollection rule.
+      // READ, WRITE on the document itself is restricted.
+      allow read, write: if false;
 
       // Subcollection: `messages`
       match /messages/{messageId} {
