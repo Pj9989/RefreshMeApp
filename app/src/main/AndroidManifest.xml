@@ -70,6 +70,10 @@
         <activity
             android:name=".SubscriptionActivity"
             android:exported="false" />
+        <activity
+            android:name=".identity.IdentityVerificationActivity"
+            android:exported="false"
+            android:label="Identity Verification" />
 
         <service
             android:name=".MyFirebaseMessagingService"

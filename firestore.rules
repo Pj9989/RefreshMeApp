@@ -4,7 +4,9 @@
 // 1. Default Deny: Access is denied unless explicitly allowed.
 // 2. Least Privilege: Users can only access the data they absolutely need.
 // 3. Role-Based Access Control (RBAC): Permissions are based on user roles (CUSTOMER vs. STYLIST).
-// 4. Data Validation: Enforce data types, formats, and required fields on write operations.
+// 4. Identity Verification Gate: Going online and at-home services require `verified == true`,
+//    which is set exclusively by the Stripe Identity webhook via Firebase Functions.
+// 5. Data Validation: Enforce data types, formats, and required fields on write operations.
 //
 rules_version = '2';
 
@@ -28,6 +30,22 @@ service cloud.firestore {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'STYLIST';
     }
 
+    // Returns true only if the current user has been identity-verified by Stripe.
+    // The `verified` flag is written exclusively by the Firebase Function webhook
+    // (identity.verification_session.verified event) and cannot be set by the client.
+    function isVerified() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.verified == true;
+    }
+
+    // Prevents a non-verified stylist from going online even if they bypass the app-level gate.
+    function onlineUpdateIsAllowed() {
+      let incoming = request.resource.data;
+      let goingOnline = incoming.get('online', false) == true ||
+                        incoming.get('availableNow', false) == true;
+      return !goingOnline || isVerified();
+    }
+
     // --- Collections ---
 
     // The `users` collection stores private user data, including their role.
@@ -37,13 +55,19 @@ service cloud.firestore {
 
       // CREATE: A new user can create their own document upon sign-up.
       // The `role` must be either 'CUSTOMER' or 'STYLIST'.
+      // Clients must NOT set `verified` or `verificationStatus` on create.
       allow create: if isOwner(userId)
-                    && request.resource.data.role in ['CUSTOMER', 'STYLIST'];
+                    && request.resource.data.role in ['CUSTOMER', 'STYLIST']
+                    && !('verified' in request.resource.data)
+                    && !('verificationStatus' in request.resource.data);
 
       // UPDATE: A user can only update their own document.
       // The `role` cannot be changed after it has been set.
+      // `verified` and `verificationStatus` are server-only fields; clients cannot modify them.
       allow update: if isOwner(userId)
-                    && request.resource.data.role == resource.data.role;
+                    && request.resource.data.role == resource.data.role
+                    && request.resource.data.get('verified', false) == resource.data.get('verified', false)
+                    && request.resource.data.get('verificationStatus', '') == resource.data.get('verificationStatus', '');
 
       // DELETE: Not allowed for data integrity.
       allow delete: if false;
@@ -67,11 +91,18 @@ service cloud.firestore {
       allow read: if isSignedIn();
 
       // CREATE: A user with the 'STYLIST' role can create their own profile.
-      allow create: if isStylistUser() && isOwner(stylistId);
+      // A new stylist cannot create their profile as already online.
+      allow create: if isStylistUser() && isOwner(stylistId)
+                    && request.resource.data.get('online', false) == false
+                    && request.resource.data.get('availableNow', false) == false;
 
       // UPDATE: Only the stylist who owns the profile can update it.
-      // This is critical for managing `online` status, bio, etc.
-      allow update: if isStylistUser() && isOwner(stylistId);
+      // Going online (`online: true`) requires identity verification.
+      // `verified` and `verificationStatus` are server-only fields.
+      allow update: if isStylistUser() && isOwner(stylistId)
+                    && onlineUpdateIsAllowed()
+                    && request.resource.data.get('verified', false) == resource.data.get('verified', false)
+                    && request.resource.data.get('verificationStatus', '') == resource.data.get('verificationStatus', '');
 
       // DELETE: Not allowed to prevent accidental data loss.
       allow delete: if false;
