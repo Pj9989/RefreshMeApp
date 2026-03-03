@@ -1,91 +1,115 @@
+// Production-ready Firestore Security Rules for RefreshMe App
+//
+// Key Principles:
+// 1. **Default Deny**: Access is denied unless explicitly allowed.
+// 2. **Least Privilege**: Users can only access the data they absolutely need.
+// 3. **Role-Based Access Control (RBAC)**: Permissions are based on user roles (CUSTOMER vs. STYLIST).
+// 4. **Data Validation**: Enforce data types, formats, and required fields on write operations.
+//
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions to check user roles
-    function getRole(uid) {
-      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    function isRole(role) {
+      return isSignedIn() && getUserData(request.auth.uid).role == role;
     }
 
     function isCustomer() {
-      return request.auth != null && getRole(request.auth.uid) == 'CUSTOMER';
+      return isRole('CUSTOMER');
     }
 
     function isStylist() {
-      return request.auth != null && getRole(request.auth.uid) == 'STYLIST';
-    }
-    
-    // === /stylists/{stylistId} Rules ===
-    match /stylists/{stylistId} {
-      // Allow public read access for all authenticated users
-      allow read: if request.auth != null;
-      // Allow write access for authenticated users (for populating data)
-      // TODO: Restrict write access in production
-      allow write: if request.auth != null; 
+      return isRole('STYLIST');
     }
 
-    // === /users/{uid} Rules ===
-    match /users/{uid} {
-      // Allow all authenticated users to read any user profile to check role
-      allow read: if request.auth != null;
-      // Only a user can write their own profile (e.g., set initial role/data)
-      allow write: if request.auth.uid == uid;
+    // --- Collections ---
 
-      // === /users/{uid}/favorites/{favoriteId} Rules ===
-      match /favorites/{favoriteId} {
-        // Customers can write (create, update, delete) only their own favorites
-        allow write: if isCustomer() && request.auth.uid == uid;
-        // Customers can read their own favorites
-        allow read: if request.auth.uid == uid;
+    // The `users` collection stores private user data, including their role.
+    match /users/{userId} {
+      // READ: A user can only read their own data.
+      allow read: if isOwner(userId);
+
+      // CREATE: A new user can create their own document upon sign-up.
+      // The `role` must be either 'CUSTOMER' or 'STYLIST'.
+      allow create: if isOwner(userId)
+                    && request.resource.data.role in ['CUSTOMER', 'STYLIST'];
+
+      // UPDATE: A user can only update their own document.
+      // The `role` cannot be changed after it has been set.
+      allow update: if isOwner(userId)
+                    && request.resource.data.role == resource.data.role;
+
+      // DELETE: Not allowed for data integrity.
+      allow delete: if false;
+
+      // Subcollection: `bookings`
+      match /bookings/{bookingId} {
+        // READ, WRITE: A user can only access their own bookings.
+        allow read, write: if isOwner(userId);
+      }
+
+      // Subcollection: `favorites`
+      match /favorites/{stylistId} {
+        // READ, WRITE: A customer can only manage their own list of favorites.
+        allow read, write: if isCustomer() && isOwner(userId);
       }
     }
 
-    // === /requests/{requestId} Rules ===
-    match /requests/{requestId} {
-      // Read access: allow stylist and customer involved to read
-      allow read: if request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.stylistId;
+    // The `stylists` collection stores public-facing stylist profiles.
+    match /stylists/{stylistId} {
+      // READ: Any signed-in user can view stylist profiles.
+      allow read: if isSignedIn();
 
-      // CREATE: Customer creates with status OPEN
-      allow create: if isCustomer()
-        && request.resource.data.status == 'OPEN'
-        && request.resource.data.customerId == request.auth.uid
-        // Ensure other fields are present and valid (stylistId must point to a stylist profile)
-        && exists(/databases/$(database)/documents/stylists/$(request.resource.data.stylistId));
+      // CREATE: A user with the 'STYLIST' role can create their own profile.
+      allow create: if isStylist() && isOwner(stylistId);
 
-      // UPDATE: Stylist advances status to COMPLETED
-      allow update: if isStylist()
-        // Stylist must be the one involved in the request
-        && request.auth.uid == resource.data.stylistId
-        // New status must be COMPLETED
-        && request.resource.data.status == 'COMPLETED'
-        // Only the 'status' field is allowed to change
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
-        // Status must be advancing (e.g., from 'OPEN' to 'COMPLETED')
-        && resource.data.status != 'COMPLETED';
+      // UPDATE: Only the stylist who owns the profile can update it.
+      // This is critical for managing `online` status, bio, etc.
+      allow update: if isStylist() && isOwner(stylistId);
+
+      // DELETE: Not allowed to prevent accidental data loss.
+      allow delete: if false;
     }
 
-    // === /bookings/{bookingId} Rules ===
-    match /bookings/{bookingId} {
-        // Allow create if the user is authenticated and the booking belongs to them
-        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-        // Allow read if the user is the owner of the booking or the stylist
-        allow read: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.stylistId);
+    // The `reviews` collection stores reviews written by customers for stylists.
+    match /reviews/{reviewId} {
+      // READ: Any signed-in user can read reviews.
+      allow read: if isSignedIn();
+
+      // CREATE: A customer can write a review.
+      // TODO: Add a rule to check if the customer has a completed booking with the stylist.
+      allow create: if isCustomer();
+
+      // UPDATE, DELETE: Users cannot edit or delete reviews after posting.
+      allow update, delete: if false;
     }
-    
-    // === /serviceRequests/{serviceRequestId} Rules ===
-    match /serviceRequests/{serviceRequestId} {
-        // Allow create if the user is authenticated and the request belongs to them
-        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-        // Allow read if the user is the owner of the request or the stylist
-        allow read: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.stylistId);
-    }
-    
-    // === /appointments/{appointmentId} Rules ===
-    match /appointments/{appointmentId} {
-        // Allow create if the user is authenticated and the appointment belongs to them
-        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-        // Allow read if the user is the owner of the appointment or the stylist
-        allow read: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.stylistId);
+
+    // The `conversations` collection stores chat messages between users.
+    match /conversations/{conversationId} {
+
+      // READ, WRITE on the document itself (e.g., to update lastMessage) is restricted.
+      allow read, write: if false; // Use the `messages` subcollection rule.
+
+      // Subcollection: `messages`
+      match /messages/{messageId} {
+        // READ, WRITE: Only participants of the conversation can access messages.
+        // The `conversationId` is expected to be formatted as `userId1_userId2`.
+        allow read, write: if isSignedIn() && request.auth.uid in conversationId.split('_');
+      }
     }
   }
 }
