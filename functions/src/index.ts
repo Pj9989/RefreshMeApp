@@ -15,7 +15,7 @@ const stripeWebhookSecret = defineString("STRIPE_WEBHOOK_SECRET");
 // ---------------------------------------------------------------------------
 function getStripe(): Stripe {
   return new Stripe(stripeSecretKey.value(), {
-    apiVersion: "2025-12-15.clover",
+    apiVersion: "2026-02-25.clover",
   });
 }
 
@@ -262,10 +262,17 @@ export const createIdentityVerificationSession = onCall(async (request) => {
     );
     await batch.commit();
 
-    // Return the ephemeral key client secret to the Android SDK
+    // Create an ephemeral key for the VerificationSession so the Android SDK
+    // can securely present the verification sheet to the user.
+    const ephemeralKey = await stripe.ephemeralKeys.create(
+      { verification_session: session.id },
+      { apiVersion: "2025-10-29.clover" }
+    );
+
+    // Return the session ID and ephemeral key secret to the Android SDK
     return {
       verificationSessionId: session.id,
-      ephemeralKeySecret: session.client_secret,
+      ephemeralKeySecret: ephemeralKey.secret,
     };
   } catch (error: any) {
     console.error("Error creating identity verification session:", error);
