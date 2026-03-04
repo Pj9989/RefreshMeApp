@@ -34,7 +34,9 @@ import com.refreshme.ui.theme.RefreshMeTheme
 class MainActivityCompose : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        DatabaseSeeder.seedData()
+        if (BuildConfig.DEBUG) {
+            DatabaseSeeder.seedData()
+        }
         setContent {
             RefreshMeTheme {
                 MainScreen()
