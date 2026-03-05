@@ -368,3 +368,57 @@ export const createSubscription = onCall(async (request) => {
     );
   }
 });
+
+
+import { onDocumentDeleted } from "firebase-functions/v2/firestore";
+
+// --------------------------------------------------------------------------
+// onAppointmentCancelled - triggers when a booking is deleted, then notifies
+// users on the waitlist for that stylist and date.
+// --------------------------------------------------------------------------
+export const onAppointmentCancelled = onDocumentDeleted("users/{userId}/bookings/{bookingId}", async (event) => {
+  const eventData = event.data;
+  if (!eventData) {
+    console.error("No data associated with the event");
+    return;
+  }
+  const deletedBooking = eventData.data();
+  const stylistId = deletedBooking.stylistId;
+  const bookingDate = deletedBooking.dateTime.toDate(); // Convert Firestore Timestamp to JS Date
+
+  // Normalize the date to the start of the day to match how it's stored in the waitlist
+  const targetDate = new Date(bookingDate.getFullYear(), bookingDate.getMonth(), bookingDate.getDate());
+
+  const waitlistQuery = admin.firestore().collection("waitlists")
+    .where("stylistId", "==", stylistId)
+    .where("targetDate", "==", admin.firestore.Timestamp.fromDate(targetDate));
+
+  const waitlistSnapshot = await waitlistQuery.get();
+
+  if (waitlistSnapshot.empty) {
+    console.log(`No waitlist entries found for stylist ${stylistId} on ${targetDate.toDateString()}`);
+    return;
+  }
+
+  const notificationPromises: Promise<any>[] = [];
+
+  for (const doc of waitlistSnapshot.docs) {
+    const waitlistedUserId = doc.data().userId;
+    const userDoc = await admin.firestore().collection("users").doc(waitlistedUserId).get();
+    const fcmToken = userDoc.data()?.fcmToken;
+
+    if (fcmToken) {
+      const message = {
+        notification: {
+          title: "A spot just opened up!",
+          body: `An appointment with ${deletedBooking.stylistName} on ${targetDate.toLocaleDateString()} is now available. First come, first served!`,
+        },
+        token: fcmToken,
+      };
+
+      notificationPromises.push(admin.messaging().send(message));
+    }
+  }
+
+  await Promise.all(notificationPromises);
+});
