@@ -120,6 +120,25 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // The `waitlists` collection stores users waiting for a cancellation slot.
+    match /waitlists/{waitlistId} {
+      // READ: Only the user who created the entry can read it.
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      // CREATE: Any signed-in customer can join a waitlist.
+      // They must set their own userId and cannot forge another user's entry.
+      allow create: if isCustomer()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.stylistId is string
+                    && request.resource.data.targetDate is timestamp;
+
+      // UPDATE: Not allowed — join or leave only.
+      allow update: if false;
+
+      // DELETE: A user can remove themselves from the waitlist.
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
     // The `conversations` collection stores chat messages between users.
     match /conversations/{conversationId} {
 
