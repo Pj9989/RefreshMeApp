@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Help Center - RefreshMe</title>
+    <style>
+        :root {
+            --gold: #C9A84C;
+            --gold-light: #E8C96A;
+            --bg: #0D0D0D;
+            --surface: #1A1A1A;
+            --surface2: #242424;
+            --text: #F0F0F0;
+            --text-muted: #9A9A9A;
+            --border: #2E2E2E;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-logo {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--gold);
+            letter-spacing: -0.5px;
+        }
+        .header-logo span { color: var(--text); }
+        .header-badge {
+            margin-left: auto;
+            background: var(--gold);
+            color: #000;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .hero {
+            background: linear-gradient(160deg, #1A1A1A 0%, #0D0D0D 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 48px 24px 40px;
+            text-align: center;
+        }
+        .hero-icon {
+            width: 72px;
+            height: 72px;
+            background: rgba(201, 168, 76, 0.12);
+            border: 2px solid var(--gold);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 32px;
+        }
+        .hero h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 10px;
+        }
+        .hero p {
+            font-size: 15px;
+            color: var(--text-muted);
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .container {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 32px 20px 60px;
+        }
+
+        .section-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 14px;
+            margin-top: 32px;
+        }
+
+        /* Accordion FAQ */
+        .faq-item {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .faq-question {
+            padding: 18px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+        .faq-question::after {
+            content: "+";
+            font-size: 22px;
+            color: var(--gold);
+            font-weight: 300;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+            margin-left: 12px;
+        }
+        .faq-item.open .faq-question::after {
+            transform: rotate(45deg);
+        }
+        .faq-answer {
+            display: none;
+            padding: 0 20px 18px;
+            font-size: 14px;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+            padding-top: 14px;
+        }
+        .faq-item.open .faq-answer {
+            display: block;
+        }
+
+        /* Contact box */
+        .contact-box {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px 20px;
+            text-align: center;
+            margin-top: 32px;
+        }
+        .contact-box h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+        .contact-box p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        .contact-box .email-link {
+            display: inline-block;
+            margin-top: 14px;
+            padding: 13px 28px;
+            background: var(--gold);
+            color: #000;
+            font-weight: 700;
+            font-size: 15px;
+            border-radius: 12px;
+            text-decoration: none;
+        }
+        .contact-box .email-link:hover { opacity: 0.85; }
+
+        .footer {
+            text-align: center;
+            padding: 24px 20px;
+            font-size: 12px;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+        .footer a { color: var(--gold); text-decoration: none; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="header-logo">Refresh<span>Me</span></div>
+        <div class="header-badge">Help Center</div>
+    </div>
+
+    <div class="hero">
+        <div class="hero-icon">❓</div>
+        <h1>How Can We Help?</h1>
+        <p>Find answers to common questions about booking, payments, and your RefreshMe account.</p>
+    </div>
+
+    <div class="container">
+
+        <div class="section-title">Bookings & Appointments</div>
+
+        <div class="faq-item open">
+            <div class="faq-question" onclick="toggle(this)">How do I book an appointment?</div>
+            <div class="faq-answer">Browse stylists in your area from the Home screen, tap a stylist to view their profile, select an available time slot, and confirm your booking. You'll receive a push notification confirming the appointment.</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggle(this)">How do I cancel or reschedule?</div>
+            <div class="faq-answer">Go to My Bookings from your Profile, tap the appointment you want to change, and select "Cancel" or "Reschedule". Please note that cancellation policies may vary by stylist, and late cancellations may incur a fee.</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggle(this)">What is the Cancellation Waitlist?</div>
+            <div class="faq-answer">If no available time works for you, you can join the Cancellation Waitlist for a specific date. If an appointment is cancelled for that date, you'll receive an instant push notification so you can book the newly opened slot — first come, first served!</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggle(this)">Can I book a mobile/at-home appointment?</div>
+            <div class="faq-answer">Yes! Some stylists offer mobile services and will come to your location. Look for the "Mobile" badge on a stylist's profile. You'll be asked to provide your address when booking.</div>
+        </div>
+
+        <div class="section-title">Payments & Subscriptions</div>
+
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggle(this)">How does payment work?</div>
+            <div class="faq-answer">Payments are processed securely through Stripe. You can add a payment method in your profile settings. Some stylists may also accept cash payments — check their profile for details.</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggle(this)">How does the stylist subscription work?</div>
+            <div class="faq-answer">Stylists pay a $10/month subscription to be listed on RefreshMe. The first month is free. Subscriptions are managed through the Stylist Dashboard and billed automatically via Stripe.</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggle(this)">I was charged incorrectly. What do I do?</div>
+            <div class="faq-answer">Contact our support team at admin@refreshmeapp.com with your booking details and a description of the issue. We'll investigate and resolve it within 2 business days.</div>
+        </div>
+
+        <div class="section-title">Account & Profile</div>
+
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggle(this)">How do I update my profile?</div>
+            <div class="faq-answer">Tap the Profile icon at the bottom of the screen, then tap "Edit Profile" to update your name, photo, and contact information.</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggle(this)">How do I become a stylist on RefreshMe?</div>
+            <div class="faq-answer">Select "I'm a Stylist" during registration. You'll complete an onboarding flow that includes identity verification and setting up your services and availability. Once approved, your profile goes live.</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggle(this)">Is my personal information secure?</div>
+            <div class="faq-answer">Yes. All data is encrypted and stored securely using Firebase. Payment information is handled exclusively by Stripe and never stored on our servers. See our Privacy Policy for full details.</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggle(this)">How do I delete my account?</div>
+            <div class="faq-answer">To request account deletion, email admin@refreshmeapp.com from your registered email address with the subject "Account Deletion Request". We'll process your request within 7 business days.</div>
+        </div>
+
+        <div class="contact-box">
+            <h2>Still Need Help?</h2>
+            <p>Our support team is here for you.</p>
+            <p><strong style="color: var(--text);">Response time:</strong> typically within 24 hours</p>
+            <a href="mailto:admin@refreshmeapp.com?subject=Help%20Request" class="email-link">Contact Support</a>
+        </div>
+
+    </div>
+
+    <div class="footer">
+        <p>© 2026 RefreshMe · <a href="/privacy.html">Privacy Policy</a> · <a href="/safety-center.html">Safety Center</a> · <a href="mailto:admin@refreshmeapp.com">admin@refreshmeapp.com</a></p>
+    </div>
+
+    <script>
+        function toggle(el) {
+            el.parentElement.classList.toggle('open');
+        }
+    </script>
+
+</body>
+</html>
