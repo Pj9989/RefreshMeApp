@@ -41,7 +41,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.refreshme.app"
+        applicationId = "com.refreshmeapp.stylist"
         minSdk = 24
         targetSdk = 36
         versionCode = 24
