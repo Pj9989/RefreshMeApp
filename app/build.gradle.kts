@@ -59,12 +59,27 @@ android {
                 "proguard-rules.pro"
             )
             signingConfig = signingConfigs.getByName("release")
+            buildConfigField("Boolean", "IS_INTERNAL_TESTING", "false")
+            buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
+            buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"${project.findProperty("STRIPE_PUBLISHABLE_KEY")}\"")
+            buildConfigField("String", "STRIPE_PRICE_ID", "\"${project.findProperty("STRIPE_PRICE_ID")}\"")
+        }
+        create("internalTesting") {
+            initWith(buildTypes.getByName("release"))
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            signingConfig = signingConfigs.getByName("release")
+            buildConfigField("Boolean", "IS_INTERNAL_TESTING", "true")
             buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
             buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"${project.findProperty("STRIPE_PUBLISHABLE_KEY")}\"")
             buildConfigField("String", "STRIPE_PRICE_ID", "\"${project.findProperty("STRIPE_PRICE_ID")}\"")
         }
         debug {
             isMinifyEnabled = false
+            buildConfigField("Boolean", "IS_INTERNAL_TESTING", "false")
             buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
             buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"${project.findProperty("STRIPE_PUBLISHABLE_KEY")}\"")
             buildConfigField("String", "STRIPE_PRICE_ID", "\"${project.findProperty("STRIPE_PRICE_ID")}\"")

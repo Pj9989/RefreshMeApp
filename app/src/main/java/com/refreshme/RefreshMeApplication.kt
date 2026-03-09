@@ -17,8 +17,10 @@ class RefreshMeApplication : Application() {
         // Initialize Firebase App Check after Firebase initialization
         val firebaseAppCheck = FirebaseAppCheck.getInstance()
         
-        // Use debug provider for debug builds, Play Integrity for release
-        if (BuildConfig.DEBUG) {
+        // Use debug provider for debug builds AND internal testing builds.
+        // Play Integrity requires the app to be fully reviewed on Google Play,
+        // so we use the debug provider until production release is approved.
+        if (BuildConfig.DEBUG || BuildConfig.IS_INTERNAL_TESTING) {
             firebaseAppCheck.installAppCheckProviderFactory(
                 DebugAppCheckProviderFactory.getInstance()
             )
