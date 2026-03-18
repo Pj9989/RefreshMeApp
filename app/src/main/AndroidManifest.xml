@@ -34,7 +34,27 @@
 
         <activity
             android:name=".MainActivity"
-            android:exported="true" />
+            android:exported="true">
+            <!-- App Link intent filter for verified web URL deep linking -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="refreshme-74f79.web.app"
+                    android:pathPrefix="/stylist/" />
+            </intent-filter>
+            <!-- Custom scheme deep link -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="refreshme"
+                    android:host="stylist" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".auth.SignInActivity"
             android:exported="false" />
