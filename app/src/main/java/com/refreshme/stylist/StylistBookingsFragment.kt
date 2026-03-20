@@ -15,6 +15,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import androidx.navigation.fragment.findNavController
 import com.refreshme.R
 
 class StylistBookingsFragment : Fragment() {
@@ -192,8 +193,20 @@ class StylistBookingsFragment : Fragment() {
     }
 
     private fun handleMessageCustomer(booking: StylistBooking) {
-        // TODO: Navigate to chat screen with customer
-        Toast.makeText(context, "Opening chat with ${booking.customerName}", Toast.LENGTH_SHORT).show()
+        // Build a deterministic conversationId from the two participant UIDs (sorted so both sides agree).
+        // This matches the Firestore security rule: conversationId.split('_') must contain the user's UID.
+        val stylistId = auth.currentUser?.uid ?: return
+        val customerId = booking.customerId
+        if (customerId.isBlank()) {
+            Toast.makeText(context, "Cannot open chat: customer ID missing", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val conversationId = if (stylistId < customerId) "${stylistId}_${customerId}"
+                             else "${customerId}_${stylistId}"
+        val bundle = android.os.Bundle().apply {
+            putString("conversationId", conversationId)
+        }
+        findNavController().navigate(com.refreshme.R.id.chatFragment, bundle)
     }
 
     private enum class BookingFilter {

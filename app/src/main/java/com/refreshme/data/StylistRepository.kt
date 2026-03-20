@@ -20,9 +20,21 @@ class StylistRepository {
         }
     }
 
+    /**
+     * Returns only stylists who are BOTH currently online AND identity-verified.
+     * This is the core query powering "Find a Stylist" — the whole point of RefreshMe
+     * is showing who is available *right now*.
+     *
+     * Firestore requires a composite index on (online ASC, verified ASC).
+     * Run: firebase deploy --only firestore:indexes  (index defined in firestore.indexes.json)
+     */
     suspend fun getStylists(): List<Stylist> {
         return try {
-            val documents = firestore.collection("stylists").whereEqualTo("isVerified", true).get().await()
+            val documents = firestore.collection("stylists")
+                .whereEqualTo("online", true)
+                .whereEqualTo("verified", true)
+                .get()
+                .await()
             if (documents.isEmpty) {
                 emptyList()
             } else {

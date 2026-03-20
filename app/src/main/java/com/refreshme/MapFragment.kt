@@ -125,7 +125,11 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     }
 
     private fun fetchStylists() {
-        firestore.collection("stylists").whereEqualTo("isVerified", true).get()
+        // Only show stylists who are currently online AND verified — the core promise of RefreshMe.
+        firestore.collection("stylists")
+            .whereEqualTo("online", true)
+            .whereEqualTo("verified", true)
+            .get()
             .addOnSuccessListener { documents ->
                 if (documents.isEmpty) {
                     return@addOnSuccessListener

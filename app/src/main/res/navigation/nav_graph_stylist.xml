@@ -10,14 +10,30 @@
         android:name="com.refreshme.stylist.StylistHomeFragment"
         android:label="Stylist Home"
         tools:layout="@layout/fragment_stylist_home" />
+
     <fragment
         android:id="@+id/stylistBookings"
         android:name="com.refreshme.stylist.StylistBookingsFragment"
         android:label="Stylist Bookings"
-        tools:layout="@layout/fragment_stylist_bookings" />
+        tools:layout="@layout/fragment_stylist_bookings">
+        <action
+            android:id="@+id/action_stylistBookings_to_chatFragment"
+            app:destination="@id/chatFragment" />
+    </fragment>
+
     <fragment
         android:id="@+id/stylistEarnings"
         android:name="com.refreshme.stylist.StylistEarningsFragment"
         android:label="Stylist Earnings"
         tools:layout="@layout/fragment_stylist_earnings" />
+
+    <fragment
+        android:id="@+id/chatFragment"
+        android:name="com.refreshme.chat.ChatFragment"
+        android:label="Chat">
+        <argument
+            android:name="conversationId"
+            app:argType="string" />
+    </fragment>
+
 </navigation>
