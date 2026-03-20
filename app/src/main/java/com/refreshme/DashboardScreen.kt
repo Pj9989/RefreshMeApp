@@ -19,12 +19,13 @@ import com.refreshme.data.Stylist
 fun DashboardScreen(
     onFindStylist: () -> Unit,
     onMyBookings: () -> Unit,
-    onStylistClick: (Stylist) -> Unit
+    onStylistClick: (Stylist) -> Unit,
+    onVirtualTryOn: () -> Unit = {}
 ) {
-    // Using a softer background color as per the UI style guide
     val backgroundColor = Color(0xFF1C1B1F)
     val primaryButtonColor = Color(0xFFD0BCFF)
     val secondaryButtonColor = Color(0xFF4A4458)
+    val accentButtonColor = Color(0xFF6650A4)
     val textColor = Color.White
 
     Surface(
@@ -87,6 +88,24 @@ fun DashboardScreen(
             ) {
                 Text(
                     text = "My Bookings",
+                    fontSize = 16.sp,
+                    color = textColor
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Tertiary CTA: "Virtual Hair Try-On" — AI-powered feature
+            Button(
+                onClick = onVirtualTryOn,
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = accentButtonColor),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text(
+                    text = "\u2728  Virtual Hair Try-On",
                     fontSize = 16.sp,
                     color = textColor
                 )

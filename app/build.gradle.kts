@@ -63,6 +63,7 @@ android {
             buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
             buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"${project.findProperty("STRIPE_PUBLISHABLE_KEY")}\"")
             buildConfigField("String", "STRIPE_PRICE_ID", "\"${project.findProperty("STRIPE_PRICE_ID")}\"")
+            buildConfigField("String", "REPLICATE_API_KEY", "\"${project.findProperty("REPLICATE_API_KEY") ?: ""}\"")
         }
         create("internalTesting") {
             initWith(buildTypes.getByName("release"))
@@ -76,6 +77,7 @@ android {
             buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
             buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"${project.findProperty("STRIPE_PUBLISHABLE_KEY")}\"")
             buildConfigField("String", "STRIPE_PRICE_ID", "\"${project.findProperty("STRIPE_PRICE_ID")}\"")
+            buildConfigField("String", "REPLICATE_API_KEY", "\"${project.findProperty("REPLICATE_API_KEY") ?: ""}\"")
         }
         debug {
             isMinifyEnabled = false
@@ -83,6 +85,7 @@ android {
             buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
             buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"${project.findProperty("STRIPE_PUBLISHABLE_KEY")}\"")
             buildConfigField("String", "STRIPE_PRICE_ID", "\"${project.findProperty("STRIPE_PRICE_ID")}\"")
+            buildConfigField("String", "REPLICATE_API_KEY", "\"${project.findProperty("REPLICATE_API_KEY") ?: ""}\"")
         }
     }
     compileOptions {
@@ -105,6 +108,10 @@ kapt {
 }
 
 dependencies {
+    // OkHttp for Replicate API calls in Virtual Try-On feature
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
     // Stripe Android SDK
     implementation("com.stripe:stripe-android:22.8.1")
     // Stripe Identity SDK (correct artifact ID - NOT com.stripe:stripe-identity)

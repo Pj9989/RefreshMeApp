@@ -26,7 +26,18 @@
         <action
             android:id="@+id/action_dashboardFragment_to_stylistProfileFragment"
             app:destination="@id/stylistProfileFragment" />
+        <!-- Navigation to Virtual Try-On feature -->
+        <action
+            android:id="@+id/action_dashboardFragment_to_virtualTryOnFragment"
+            app:destination="@id/virtualTryOnFragment" />
     </fragment>
+
+    <!-- Virtual Try-On: AI-powered hairstyle preview feature -->
+    <fragment
+        android:id="@+id/virtualTryOnFragment"
+        android:name="com.refreshme.virtualtry.VirtualTryOnFragment"
+        android:label="Virtual Try-On"
+        tools:layout="@layout/fragment_virtual_try_on" />
 
     <fragment
         android:id="@+id/stylistsFragment"
