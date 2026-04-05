@@ -27,3 +27,6 @@ local.properties
 # Keystore files
 keystore.properties
 *.pem
+
+# Secrets — never commit API keys
+gradle.properties

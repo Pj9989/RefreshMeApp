@@ -25,6 +25,10 @@ class SignInActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySignInBinding
     private lateinit var firebaseAuth: FirebaseAuth
 
+    // Demo account credentials for Google Play reviewers
+    private val DEMO_EMAIL = "tester@refreshme.com"
+    private val DEMO_PASSWORD = "testpassword123"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -64,6 +68,35 @@ class SignInActivity : AppCompatActivity() {
         binding.forgotPasswordTextView.setOnClickListener {
             showForgotPasswordDialog()
         }
+
+        // Demo Login button: automatically fills and signs in with the reviewer test account
+        binding.demoLoginButton.setOnClickListener {
+            signInWithDemoAccount()
+        }
+    }
+
+    private fun signInWithDemoAccount() {
+        binding.progressBar.visibility = View.VISIBLE
+        binding.demoLoginButton.isEnabled = false
+        binding.signInButton.isEnabled = false
+
+        firebaseAuth.signInWithEmailAndPassword(DEMO_EMAIL, DEMO_PASSWORD)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    startActivity(MainActivity.newIntent(this))
+                    finish()
+                } else {
+                    binding.progressBar.visibility = View.GONE
+                    binding.demoLoginButton.isEnabled = true
+                    binding.signInButton.isEnabled = true
+                    Log.e("SignInActivity", "Demo login failed", task.exception)
+                    Toast.makeText(
+                        this,
+                        "Demo login failed. Please ensure the test account is set up in Firebase.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
     }
 
     private fun updateFcmToken() {

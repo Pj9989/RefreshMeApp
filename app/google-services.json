@@ -149,6 +149,35 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:12424011789:android:1cb039bdefbeaf6abef544",
+        "android_client_info": {
+          "package_name": "com.refreshmeapp.stylist"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"

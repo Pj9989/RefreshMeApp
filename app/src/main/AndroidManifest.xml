@@ -9,6 +9,13 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="com.android.vending.BILLING" />
+    <!-- Camera and photo picker permissions for Virtual Try-On feature -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- For Android 12 and below -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
 
     <!-- Required for WorkManager foreground services on Android 14+ -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -103,6 +110,18 @@
             android:name=".identity.IdentityVerificationActivity"
             android:exported="false"
             android:label="Identity Verification" />
+
+        <!-- FileProvider for sharing camera-captured image URIs with the camera app.
+             Required by VirtualTryOnFragment to create a content:// URI for TakePicture. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <service
             android:name=".MyFirebaseMessagingService"

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FileProvider paths configuration.
+    Required for sharing camera-captured image URIs with the camera app
+    via FileProvider.getUriForFile() in VirtualTryOnFragment.
+
+    cache-path: maps to getCacheDir() — used for temporary camera photos
+-->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path
+        name="camera_photos"
+        path="." />
+</paths>

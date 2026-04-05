@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1C1B1F"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- ── Header ──────────────────────────────────────────────────────── -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Virtual Hair Try-On"
+            android:textColor="#FFFFFF"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:paddingBottom="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="See yourself in a new style — powered by AI"
+            android:textColor="#B0B0B0"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:paddingBottom="24dp" />
+
+        <!-- ── Selfie Preview ──────────────────────────────────────────────── -->
+        <ImageView
+            android:id="@+id/ivSelfiePreview"
+            android:layout_width="180dp"
+            android:layout_height="180dp"
+            android:layout_gravity="center_horizontal"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_person_placeholder"
+            android:background="#2D2B30"
+            android:padding="4dp"
+            tools:ignore="ContentDescription" />
+
+        <Space android:layout_height="20dp" android:layout_width="match_parent" />
+
+        <!-- ── Photo Action Buttons ────────────────────────────────────────── -->
+        <LinearLayout
+            android:id="@+id/groupPhotoActions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btnTakePhoto"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="Take Photo"
+                android:textColor="#000000"
+                android:backgroundTint="#D0BCFF"
+                style="@style/Widget.Material3.Button" />
+
+            <Button
+                android:id="@+id/btnChooseGallery"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Choose Photo"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#4A4458"
+                style="@style/Widget.Material3.Button" />
+
+        </LinearLayout>
+
+        <Space android:layout_height="24dp" android:layout_width="match_parent" />
+
+        <!-- ── Style Selections ────────────────────────────────────────────── -->
+        <LinearLayout
+            android:id="@+id/groupSelections"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Choose a Hairstyle"
+                android:textColor="#D0BCFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:paddingBottom="6dp" />
+
+            <Spinner
+                android:id="@+id/spinnerHairstyle"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:background="#2D2B30"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:popupBackground="#2D2B30" />
+
+            <Space android:layout_height="16dp" android:layout_width="match_parent" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Ethnicity (optional — improves accuracy)"
+                android:textColor="#D0BCFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:paddingBottom="6dp" />
+
+            <Spinner
+                android:id="@+id/spinnerEthnicity"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:background="#2D2B30"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:popupBackground="#2D2B30" />
+
+            <Space android:layout_height="16dp" android:layout_width="match_parent" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Gender (optional — improves accuracy)"
+                android:textColor="#D0BCFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:paddingBottom="6dp" />
+
+            <Spinner
+                android:id="@+id/spinnerGender"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:background="#2D2B30"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:popupBackground="#2D2B30" />
+
+        </LinearLayout>
+
+        <Space android:layout_height="24dp" android:layout_width="match_parent" />
+
+        <!-- ── Generate Button ─────────────────────────────────────────────── -->
+        <Button
+            android:id="@+id/btnGenerate"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="✨  Generate My Look"
+            android:textColor="#000000"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:backgroundTint="#D0BCFF"
+            android:visibility="gone"
+            style="@style/Widget.Material3.Button" />
+
+        <!-- ── Loading State ───────────────────────────────────────────────── -->
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:visibility="gone"
+            android:indeterminateTint="#D0BCFF" />
+
+        <!-- ── Status / Error Message ──────────────────────────────────────── -->
+        <TextView
+            android:id="@+id/tvStatusMessage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#B0B0B0"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:paddingTop="12dp"
+            android:visibility="gone"
+            tools:text="Generating your look… this takes about 30–60 seconds." />
+
+        <!-- ── Result: Before / After ──────────────────────────────────────── -->
+        <LinearLayout
+            android:id="@+id/groupResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Your New Look"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingBottom="16dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <!-- Before -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:layout_marginEnd="8dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Before"
+                        android:textColor="#B0B0B0"
+                        android:textSize="12sp"
+                        android:gravity="center"
+                        android:paddingBottom="6dp" />
+
+                    <ImageView
+                        android:id="@+id/ivResultBefore"
+                        android:layout_width="match_parent"
+                        android:layout_height="200dp"
+                        android:scaleType="centerCrop"
+                        android:background="#2D2B30"
+                        tools:ignore="ContentDescription" />
+                </LinearLayout>
+
+                <!-- After -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:layout_marginStart="8dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="AI Result"
+                        android:textColor="#D0BCFF"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:paddingBottom="6dp" />
+
+                    <ImageView
+                        android:id="@+id/ivResultAfter"
+                        android:layout_width="match_parent"
+                        android:layout_height="200dp"
+                        android:scaleType="centerCrop"
+                        android:background="#2D2B30"
+                        tools:ignore="ContentDescription" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- ── Try Again Button ────────────────────────────────────────────── -->
+        <Button
+            android:id="@+id/btnTryAgain"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="20dp"
+            android:text="Try a Different Style"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#4A4458"
+            android:visibility="gone"
+            style="@style/Widget.Material3.Button" />
+
+        <Space android:layout_height="32dp" android:layout_width="match_parent" />
+
+    </LinearLayout>
+
+</ScrollView>

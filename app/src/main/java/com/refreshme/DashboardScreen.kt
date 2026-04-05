@@ -19,7 +19,8 @@ import com.refreshme.data.Stylist
 fun DashboardScreen(
     onFindStylist: () -> Unit,
     onMyBookings: () -> Unit,
-    onStylistClick: (Stylist) -> Unit
+    onStylistClick: (Stylist) -> Unit,
+    onVirtualTryOn: () -> Unit = {}
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -83,6 +84,24 @@ fun DashboardScreen(
                     text = "My Bookings",
                     fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.onSecondary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Tertiary CTA: "Virtual Hair Try-On" — AI-powered feature
+            Button(
+                onClick = onVirtualTryOn,
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = accentButtonColor),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text(
+                    text = "\u2728  Virtual Hair Try-On",
+                    fontSize = 16.sp,
+                    color = textColor
                 )
             }
         }
