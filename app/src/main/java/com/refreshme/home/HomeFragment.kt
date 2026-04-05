@@ -8,6 +8,7 @@ import android.graphics.Canvas
 import android.location.Geocoder
 import android.location.Location
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -18,7 +19,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.Observer
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.FragmentNavigatorExtras
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -32,11 +35,14 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.refreshme.R
 import com.refreshme.data.Stylist
 import com.refreshme.databinding.FragmentHomeBinding
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import java.io.IOException
 import java.util.*
 
@@ -49,6 +55,9 @@ class HomeFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnMarkerClickList
 
     private var googleMap: GoogleMap? = null
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+
+    private lateinit var liveAdapter: StylistPreviewAdapter
+    private lateinit var recommendedAdapter: StylistPreviewAdapter
 
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
@@ -69,67 +78,89 @@ class HomeFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnMarkerClickList
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        setupObservers()
         setupRecyclerViews()
+        setupObservers()
         setupListeners()
         
         binding.mapView.onCreate(savedInstanceState)
         binding.mapView.getMapAsync(this)
         
         checkLocationPermission()
+
+        // Push map elements (like the Google logo) above our bottom floating UI
+        binding.bottomContainer.addOnLayoutChangeListener { v, _, _, _, bottom, _, _, _, oldBottom ->
+            if (bottom != oldBottom) {
+                googleMap?.setPadding(0, 0, 0, v.height)
+            }
+        }
     }
 
     private fun setupObservers() {
-        homeViewModel.userName.observe(viewLifecycleOwner, Observer { name ->
-            binding.greetingText.text = name
-        })
-
-        homeViewModel.isLoading.observe(viewLifecycleOwner, Observer { isLoading ->
-            if (isLoading) {
-                binding.shimmerLayout.startShimmer()
-                binding.shimmerLayout.visibility = View.VISIBLE
-                binding.liveTitle.visibility = View.GONE
-                binding.liveStylistsRecyclerView.visibility = View.GONE
-            } else {
-                binding.shimmerLayout.stopShimmer()
-                binding.shimmerLayout.visibility = View.GONE
-                binding.liveTitle.visibility = View.VISIBLE
-                binding.liveStylistsRecyclerView.visibility = View.VISIBLE
-            }
-        })
-
-        homeViewModel.styleVibe.observe(viewLifecycleOwner, Observer { vibe ->
-            if (vibe != null) {
-                binding.styleFinderSubtitle.text = "Keep it $vibe? View your recommendations or try something new."
-                binding.recommendedTitle.text = "Top Picks for your $vibe Vibe"
-            }
-        })
-
-        homeViewModel.stylists.observe(viewLifecycleOwner, Observer { stylists ->
-            binding.liveStylistsRecyclerView.adapter = StylistPreviewAdapter(stylists) { stylist, imageView ->
-                navigateToStylistProfile(stylist.id, imageView)
-            }
-            updateMapMarkers(stylists)
-        })
-
-        homeViewModel.recommendedStylists.observe(viewLifecycleOwner, Observer { stylists ->
-            if (stylists.isNotEmpty()) {
-                binding.recommendedTitle.visibility = View.VISIBLE
-                binding.recommendedRecyclerView.visibility = View.VISIBLE
-                binding.recommendedRecyclerView.adapter = StylistPreviewAdapter(stylists) { stylist, imageView ->
-                    navigateToStylistProfile(stylist.id, imageView)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    homeViewModel.userName.collectLatest { name ->
+                        binding.greetingText.text = name
+                    }
                 }
-            } else {
-                binding.recommendedTitle.visibility = View.GONE
-                binding.recommendedRecyclerView.visibility = View.GONE
+
+                launch {
+                    homeViewModel.isLoading.collectLatest { isLoading ->
+                        if (isLoading) {
+                            binding.shimmerLayout.startShimmer()
+                            binding.shimmerLayout.visibility = View.VISIBLE
+                            binding.liveTitle.visibility = View.GONE
+                            binding.liveStylistsRecyclerView.visibility = View.GONE
+                        } else {
+                            binding.shimmerLayout.stopShimmer()
+                            binding.shimmerLayout.visibility = View.GONE
+                            binding.liveTitle.visibility = View.VISIBLE
+                            binding.liveStylistsRecyclerView.visibility = View.VISIBLE
+                        }
+                    }
+                }
+
+                launch {
+                    homeViewModel.styleVibe.collectLatest { vibe ->
+                        if (vibe != null) {
+                            binding.styleFinderSubtitle.text = "Keep it $vibe? View your recommendations or try something new."
+                            binding.recommendedTitle.text = "Top Picks for your $vibe Vibe"
+                        }
+                    }
+                }
+
+                launch {
+                    homeViewModel.stylists.collectLatest { stylists ->
+                        liveAdapter.submitList(stylists)
+                        updateMapMarkers(stylists)
+                    }
+                }
+
+                launch {
+                    homeViewModel.recommendedStylists.collectLatest { stylists ->
+                        if (stylists.isNotEmpty()) {
+                            binding.recommendedTitle.visibility = View.VISIBLE
+                            binding.recommendedRecyclerView.visibility = View.VISIBLE
+                            recommendedAdapter.submitList(stylists)
+                        } else {
+                            binding.recommendedTitle.visibility = View.GONE
+                            binding.recommendedRecyclerView.visibility = View.GONE
+                            recommendedAdapter.submitList(emptyList())
+                        }
+                    }
+                }
             }
-        })
+        }
     }
 
     private fun setupRecyclerViews() {
         // Live Stylists
+        liveAdapter = StylistPreviewAdapter { stylist, imageView ->
+            navigateToStylistProfile(stylist.id, imageView)
+        }
         val layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         binding.liveStylistsRecyclerView.layoutManager = layoutManager
+        binding.liveStylistsRecyclerView.adapter = liveAdapter
         
         val snapHelper = PagerSnapHelper()
         snapHelper.attachToRecyclerView(binding.liveStylistsRecyclerView)
@@ -141,7 +172,7 @@ class HomeFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnMarkerClickList
                     val centerView = snapHelper.findSnapView(layoutManager)
                     val pos = centerView?.let { layoutManager.getPosition(it) } ?: -1
                     if (pos != -1) {
-                        homeViewModel.stylists.value?.getOrNull(pos)?.let { stylist ->
+                        homeViewModel.stylists.value.getOrNull(pos)?.let { stylist ->
                             stylist.location?.let { geoPoint ->
                                 googleMap?.animateCamera(CameraUpdateFactory.newLatLng(LatLng(geoPoint.latitude, geoPoint.longitude)))
                             }
@@ -152,7 +183,11 @@ class HomeFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnMarkerClickList
         })
 
         // Recommended Stylists
+        recommendedAdapter = StylistPreviewAdapter { stylist, imageView ->
+            navigateToStylistProfile(stylist.id, imageView)
+        }
         binding.recommendedRecyclerView.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+        binding.recommendedRecyclerView.adapter = recommendedAdapter
     }
 
     private fun setupListeners() {
@@ -205,7 +240,26 @@ class HomeFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnMarkerClickList
     override fun onMapReady(map: GoogleMap) {
         googleMap = map
         googleMap?.setOnMarkerClickListener(this)
-        homeViewModel.stylists.value?.let { updateMapMarkers(it) }
+        
+        try {
+            val success = googleMap?.setMapStyle(
+                MapStyleOptions.loadRawResourceStyle(requireContext(), R.raw.map_style_gold)
+            )
+            if (success == false) {
+                Log.e("HomeFragment", "Style parsing failed.")
+            }
+        } catch (e: Exception) {
+            Log.e("HomeFragment", "Can't find style. Error: ", e)
+        }
+
+        // Push map elements (like the Google logo) above our bottom floating UI
+        binding.bottomContainer.height.let { height ->
+            if (height > 0) {
+                googleMap?.setPadding(0, 0, 0, height)
+            }
+        }
+
+        updateMapMarkers(homeViewModel.stylists.value)
     }
 
     override fun onMarkerClick(marker: Marker): Boolean {

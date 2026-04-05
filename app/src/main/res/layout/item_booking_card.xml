@@ -15,14 +15,59 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- Customer Name -->
-        <TextView
-            android:id="@+id/clientName"
-            style="?attr/textAppearanceTitleMedium"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textStyle="bold"
-            tools:text="Jessica Parker" />
+            android:orientation="horizontal">
+
+            <!-- Customer Name -->
+            <TextView
+                android:id="@+id/clientName"
+                style="?attr/textAppearanceTitleMedium"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textStyle="bold"
+                tools:text="Jessica Parker" />
+
+            <!-- Tags Container -->
+            <LinearLayout
+                android:id="@+id/tagsContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tagSilent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_tag_silent"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="2dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="Silent"
+                    android:textColor="#FFFFFF"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    tools:visibility="visible" />
+
+                <TextView
+                    android:id="@+id/tagSensory"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_tag_sensory"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="2dp"
+                    android:text="Sensory"
+                    android:textColor="#FFFFFF"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    tools:visibility="visible" />
+
+            </LinearLayout>
+        </LinearLayout>
 
         <!-- Booking Time -->
         <TextView
@@ -30,7 +75,6 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:drawablePadding="8dp"
             android:textColor="?android:attr/textColorSecondary"
             tools:text="Tomorrow, 4:00 PM" />
 

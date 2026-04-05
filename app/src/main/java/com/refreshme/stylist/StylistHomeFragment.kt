@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -131,9 +133,12 @@ fun StylistHomeScreen(
                 )
             }
             
+            val fallbackPainter = rememberVectorPainter(Icons.Default.Person)
             AsyncImage(
-                model = profileUrl ?: "https://via.placeholder.com/150",
+                model = profileUrl,
                 contentDescription = "Profile",
+                placeholder = fallbackPainter,
+                error = fallbackPainter,
                 modifier = Modifier
                     .size(60.dp)
                     .clip(CircleShape)

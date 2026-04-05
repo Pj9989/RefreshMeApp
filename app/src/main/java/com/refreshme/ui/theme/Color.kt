@@ -2,15 +2,15 @@ package com.refreshme.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Brand Luxury Palette (Sync with colors.xml)
-val Gold = Color(0xFFD4AF37)
-val GoldGradientEnd = Color(0xFFC9A961)
-val Black = Color(0xFF000000)
-val StylistCardBackground = Color(0xFF3A322A) // Dark Walnut
-val LightGray = Color(0xFFE0D8C0)
+// Inclusive Luxury Palette (Appealing to both stylists and barbers)
+val Gold = Color(0xFFC5A880) // Champagne Gold
+val GoldGradientEnd = Color(0xFFB6966C) // Warm Champagne
+val Black = Color(0xFF121212) // Soft black
+val StylistCardBackground = Color(0xFF1A1A1D) // Sleek Dark Gray (was Dark Walnut)
+val LightGray = Color(0xFFE5E5E5)
 val Gray = Color(0xFFA39E93)
 val UnselectedIconGray = Color(0xFF8A857A)
-val SurfaceDark = Color(0xFF1C1B1B)
+val SurfaceDark = Color(0xFF1A1A1D)
 val GreenAccent = Color(0xFF4CAF50)
 val RedAccent = Color(0xFFF44336)
 val White = Color(0xFFFFFFFF)

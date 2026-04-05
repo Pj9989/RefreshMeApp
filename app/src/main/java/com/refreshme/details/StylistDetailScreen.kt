@@ -3,9 +3,8 @@ package com.refreshme.details
 import android.content.Intent
 import android.net.Uri
 import android.text.format.DateUtils
+import android.widget.Toast
 import androidx.compose.animation.*
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -23,20 +22,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -70,12 +64,27 @@ fun StylistDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     val photosState by viewModel.photos.collectAsState()
     val reviews by viewModel.reviews.collectAsState()
+    val aiSummary by viewModel.aiSummary.collectAsState()
     val isFavorite by viewModel.isFavorite.collectAsState()
     val eligibleBooking by viewModel.eligibleBooking.collectAsState()
     val nextSlot by viewModel.nextAvailableSlot.collectAsState()
+    val reportSuccess by viewModel.reportSuccess.collectAsState()
     val context = LocalContext.current
     
     var showRatingDialog by remember { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
+    var showAllReviews by remember { mutableStateOf(false) }
+
+    LaunchedEffect(reportSuccess) {
+        if (reportSuccess == true) {
+            Toast.makeText(context, "Report submitted successfully. We will review it shortly.", Toast.LENGTH_LONG).show()
+            viewModel.resetReportStatus()
+            showReportDialog = false
+        } else if (reportSuccess == false) {
+            Toast.makeText(context, "Failed to submit report. Please try again.", Toast.LENGTH_LONG).show()
+            viewModel.resetReportStatus()
+        }
+    }
 
     if (showRatingDialog) {
         val bookingForDialog = eligibleBooking ?: Booking(stylistId = stylistId, stylistName = (uiState as? StylistUiState.Success)?.stylist?.name ?: "Stylist")
@@ -86,6 +95,15 @@ fun StylistDetailScreen(
             onSubmit = { rating, comment ->
                 viewModel.submitReview(stylistId, rating, comment)
                 showRatingDialog = false
+            }
+        )
+    }
+
+    if (showReportDialog) {
+        ReportDialog(
+            onDismiss = { showReportDialog = false },
+            onSubmit = { reason, details ->
+                viewModel.reportStylist(stylistId, reason, details)
             }
         )
     }
@@ -315,6 +333,87 @@ fun StylistDetailScreen(
                         }
                     }
 
+                    // AI Vibe Check Section
+                    if (aiSummary != null) {
+                        item {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().padding(top = 16.dp, start = 16.dp, end = 16.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("AI Vibe Check", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        aiSummary!!,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        lineHeight = 20.sp
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        "Summarized from ${reviews.size} reviews",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Security & Trust Banner
+                    item {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Shield, contentDescription = "Safety", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(24.dp))
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text("Trust & Safety Guarantee", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onTertiaryContainer, fontWeight = FontWeight.Bold)
+                                    Text("Secure payments. ID Verified. 24/7 Support.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f))
+                                }
+                            }
+                        }
+                    }
+
+                    // Portfolio Reels (Videos)
+                    if (s.portfolioVideos?.isNotEmpty() == true) {
+                        item {
+                            Column(modifier = Modifier.padding(vertical = 12.dp)) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.PlayCircle, contentDescription = null, tint = Color.Red)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "Portfolio Reels", 
+                                        style = MaterialTheme.typography.titleLarge, 
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+                                Spacer(Modifier.height(12.dp))
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = 20.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    items(s.portfolioVideos!!) { videoUrl ->
+                                        VideoReelCard(videoUrl)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Social Proof & Highlights
                     item {
                         Column(modifier = Modifier.padding(top = 20.dp, start = 20.dp, end = 20.dp)) {
@@ -397,7 +496,21 @@ fun StylistDetailScreen(
                             
                             if (offersMobile) {
                                 Spacer(Modifier.height(12.dp))
-                                MobileServiceStatus(fee = s.atHomeServiceFee ?: 0.0)
+                                MobileServiceStatus(fee = s.atHomeServiceFee ?: 0.0, range = s.maxTravelRangeKm ?: 15)
+                            }
+                            
+                            if (s.offersEventBooking == true) {
+                                Spacer(Modifier.height(12.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Groups, contentDescription = null, tint = Color(0xFF9575CD), modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "Available for Groups & Events",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color(0xFF9575CD),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
@@ -455,6 +568,57 @@ fun StylistDetailScreen(
                         }
                     }
 
+                    // Social Media Links Section
+                    if (s.socialLinks != null && (!s.socialLinks.instagram.isNullOrBlank() || !s.socialLinks.tiktok.isNullOrBlank() || !s.socialLinks.website.isNullOrBlank())) {
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                if (!s.socialLinks.instagram.isNullOrBlank()) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            val url = s.socialLinks.instagram.let { if (it.startsWith("http")) it else "https://instagram.com/${it.removePrefix("@")}" }
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+                                    ) {
+                                        Text("Instagram", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                if (!s.socialLinks.tiktok.isNullOrBlank()) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            val url = s.socialLinks.tiktok.let { if (it.startsWith("http")) it else "https://tiktok.com/${it.takeIf { t -> t.startsWith("@") } ?: "@$it"}" }
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+                                    ) {
+                                        Text("TikTok", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                if (!s.socialLinks.website.isNullOrBlank()) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            val url = s.socialLinks.website.let { if (!it.startsWith("http")) "https://$it" else it }
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+                                    ) {
+                                        Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Website", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // About
                     item {
                         Column(modifier = Modifier.padding(20.dp)) {
@@ -490,14 +654,30 @@ fun StylistDetailScreen(
                     }
 
                     // Services Section
-                    item {
-                        Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)) {
-                            Text("Services", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                    val allServices = s.services.orEmpty()
+                    val bundles = allServices.filter { it.isBundle }
+                    val singleServices = allServices.filter { !it.isBundle }
+
+                    if (bundles.isNotEmpty()) {
+                        item {
+                            Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)) {
+                                Text("Packages & Bundles", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.tertiary)
+                            }
+                        }
+                        items(bundles) { bundle ->
+                            ServiceItem(service = bundle, onClick = { onServiceClick(bundle) })
                         }
                     }
 
-                    items(s.services.orEmpty()) { service ->
-                        ServiceItem(service = service, onClick = { onServiceClick(service) })
+                    if (singleServices.isNotEmpty()) {
+                        item {
+                            Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)) {
+                                Text("A La Carte Services", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                            }
+                        }
+                        items(singleServices) { service ->
+                            ServiceItem(service = service, onClick = { onServiceClick(service) })
+                        }
                     }
 
                     // Reviews Section
@@ -508,16 +688,20 @@ fun StylistDetailScreen(
                                 Spacer(Modifier.height(12.dp))
                             }
                         }
-                        items(reviews.take(3)) { review ->
+                        
+                        val displayedReviews = if (showAllReviews) reviews else reviews.take(3)
+                        
+                        items(displayedReviews) { review ->
                             ReviewItem(review)
                         }
+                        
                         if (reviews.size > 3) {
                             item {
                                 TextButton(
-                                    onClick = { /* TODO: Open all reviews */ },
+                                    onClick = { showAllReviews = !showAllReviews },
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
                                 ) {
-                                    Text("See All ${reviews.size} Reviews")
+                                    Text(if (showAllReviews) "Show Less" else "See All ${reviews.size} Reviews")
                                 }
                             }
                         }
@@ -545,12 +729,65 @@ fun StylistDetailScreen(
                                     GoogleMap(
                                         modifier = Modifier.fillMaxSize(),
                                         cameraPositionState = cameraPositionState,
-                                        uiSettings = MapUiSettings(zoomControlsEnabled = false, scrollGesturesEnabled = false)
+                                        uiSettings = MapUiSettings(zoomControlsEnabled = false, scrollGesturesEnabled = false, mapToolbarEnabled = false),
+                                        onMapClick = {
+                                            val gmmIntentUri = Uri.parse("google.navigation:q=${s.location.latitude},${s.location.longitude}")
+                                            val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                                            mapIntent.setPackage("com.google.android.apps.maps")
+                                            if (mapIntent.resolveActivity(context.packageManager) != null) {
+                                                context.startActivity(mapIntent)
+                                            } else {
+                                                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${s.location.latitude},${s.location.longitude}"))
+                                                context.startActivity(browserIntent)
+                                            }
+                                        }
                                     ) {
                                         Marker(state = MarkerState(position = latLng), title = s.name)
                                     }
+                                    
+                                    // Get Directions Overlay
+                                    Surface(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .padding(12.dp),
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        shadowElevation = 4.dp,
+                                        onClick = {
+                                            val gmmIntentUri = Uri.parse("google.navigation:q=${s.location.latitude},${s.location.longitude}")
+                                            val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                                            mapIntent.setPackage("com.google.android.apps.maps")
+                                            if (mapIntent.resolveActivity(context.packageManager) != null) {
+                                                context.startActivity(mapIntent)
+                                            } else {
+                                                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${s.location.latitude},${s.location.longitude}"))
+                                                context.startActivity(browserIntent)
+                                            }
+                                        }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.Directions, contentDescription = "Get Directions", tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text("Get Directions", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                        }
+                                    }
                                 }
                             }
+                        }
+                    }
+
+                    item {
+                        // Trust and Safety Footer Actions
+                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            TextButton(onClick = { showReportDialog = true }) {
+                                Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Report this Stylist", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                            }
+                            Text("RefreshMe reviews reports to ensure community safety.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     
@@ -559,6 +796,106 @@ fun StylistDetailScreen(
             }
         }
     }
+}
+
+@Composable
+fun VideoReelCard(url: String) {
+    val context = LocalContext.current
+    Card(
+        modifier = Modifier
+            .size(160.dp, 280.dp)
+            .clickable {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                context.startActivity(intent)
+            },
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+            // Placeholder/Thumbnail logic
+            Icon(
+                Icons.Default.PlayCircle, 
+                contentDescription = null, 
+                tint = Color.White.copy(alpha = 0.5f),
+                modifier = Modifier.size(48.dp).align(Alignment.Center)
+            )
+            Surface(
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
+                color = Color.Black.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    "REEL", 
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ReportDialog(
+    onDismiss: () -> Unit,
+    onSubmit: (String, String) -> Unit
+) {
+    var selectedReason by remember { mutableStateOf("") }
+    var details by remember { mutableStateOf("") }
+    
+    val reasons = listOf(
+        "Inappropriate Behavior",
+        "Fake Profile / Scammer",
+        "Did not show up to appointment",
+        "Unsafe Environment",
+        "Payment Issue outside of app"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Report Stylist", color = MaterialTheme.colorScheme.error) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Your safety is our top priority. Please let us know why you are reporting this stylist. This report will be kept confidential.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                
+                reasons.forEach { reason ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { selectedReason = reason },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = selectedReason == reason,
+                            onClick = { selectedReason = reason }
+                        )
+                        Text(reason, fontSize = 14.sp)
+                    }
+                }
+                
+                OutlinedTextField(
+                    value = details,
+                    onValueChange = { details = it },
+                    label = { Text("Additional Details (Optional)") },
+                    modifier = Modifier.fillMaxWidth().height(100.dp),
+                    maxLines = 3
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSubmit(selectedReason, details) },
+                enabled = selectedReason.isNotEmpty(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("Submit Report")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
@@ -615,21 +952,26 @@ fun OnlineOfflineStatus(isOnline: Boolean) {
 }
 
 @Composable
-fun MobileServiceStatus(fee: Double) {
+fun MobileServiceStatus(fee: Double, range: Int) {
     Row(
         modifier = Modifier.padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(Icons.Default.DirectionsCar, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
-        Text(
-            "Offers House Calls",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold
-        )
-        if (fee > 0) {
-            Text(" (+$${String.format(Locale.US, "%.0f", fee)} travel fee)", style = MaterialTheme.typography.bodySmall)
+        Column {
+            Text(
+                "Offers House Calls",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+            val rangeMiles = range.toDouble() * 0.621371
+            Text(
+                "Travels up to ${String.format(Locale.US, "%.0f", rangeMiles)} mi ($${String.format(Locale.US, "%.0f", fee)} fee)",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -660,7 +1002,7 @@ fun AnimatedVerifiedBadge() {
         ) {
             Icon(Icons.Default.Verified, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
             Spacer(Modifier.width(4.dp))
-            Text("PRO STYLIST", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("ID VERIFIED", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -749,14 +1091,17 @@ fun TransformationCard(imageUrl: String) {
 
 @Composable
 fun ServiceItem(service: Service, onClick: () -> Unit) {
+    val containerColor = if (service.isBundle) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surface
+    val borderColor = if (service.isBundle) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 6.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        color = containerColor,
+        border = BorderStroke(1.dp, borderColor),
         tonalElevation = 2.dp
     ) {
         Row(
@@ -767,8 +1112,20 @@ fun ServiceItem(service: Service, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(service.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (service.isBundle) {
+                        Icon(Icons.Default.CardGiftcard, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(service.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+                
+                if (service.description.isNotBlank() && service.isBundle) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(service.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(4.dp))

@@ -89,13 +89,44 @@ fun ActiveMobileBookingScreen(
         }
     }
 
-    // Stylist Location Updates
-    LaunchedEffect(booking?.status, locationPermissionState.status.isGranted) {
-        if (!isStylist) return@LaunchedEffect
+    // Stylist Location Updates Lifecycle Management
+    DisposableEffect(booking?.status, locationPermissionState.status.isGranted) {
+        var locationCallback: LocationCallback? = null
         
-        // If we're on the way, start pushing location
-        if (booking?.status == BookingStatus.ON_THE_WAY.name && locationPermissionState.status.isGranted) {
-            startLocationUpdates(context, fusedLocationClient, bookingId)
+        if (isStylist && booking?.status == BookingStatus.ON_THE_WAY.name && locationPermissionState.status.isGranted) {
+            val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000L)
+                .setMinUpdateIntervalMillis(2000L)
+                .build()
+                
+            locationCallback = object : LocationCallback() {
+                override fun onLocationResult(locationResult: LocationResult) {
+                    for (location in locationResult.locations) {
+                        db.collection("bookings").document(bookingId)
+                            .update(
+                                mapOf(
+                                    "stylistLat" to location.latitude,
+                                    "stylistLng" to location.longitude
+                                )
+                            )
+                    }
+                }
+            }
+
+            try {
+                fusedLocationClient.requestLocationUpdates(
+                    locationRequest,
+                    locationCallback,
+                    Looper.getMainLooper()
+                )
+            } catch (e: SecurityException) {
+                android.util.Log.e("ActiveMobileBooking", "Location permission missing", e)
+            }
+        }
+
+        onDispose {
+            locationCallback?.let {
+                fusedLocationClient.removeLocationUpdates(it)
+            }
         }
     }
     
@@ -292,38 +323,4 @@ private fun updateBookingStatus(db: FirebaseFirestore, bookingId: String, status
         .addOnFailureListener { e ->
             android.util.Log.e("TrackingScreen", "Failed to update status", e)
         }
-}
-
-@SuppressLint("MissingPermission")
-private fun startLocationUpdates(
-    context: Context,
-    fusedLocationClient: FusedLocationProviderClient,
-    bookingId: String
-) {
-    val db = FirebaseFirestore.getInstance()
-    
-    val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000L)
-        .setMinUpdateIntervalMillis(2000L)
-        .build()
-        
-    val locationCallback = object : LocationCallback() {
-        override fun onLocationResult(locationResult: LocationResult) {
-            for (location in locationResult.locations) {
-                // Push location up to Firestore so client sees it move
-                db.collection("bookings").document(bookingId)
-                    .update(
-                        mapOf(
-                            "stylistLat" to location.latitude,
-                            "stylistLng" to location.longitude
-                        )
-                    )
-            }
-        }
-    }
-
-    fusedLocationClient.requestLocationUpdates(
-        locationRequest,
-        locationCallback,
-        Looper.getMainLooper()
-    )
 }

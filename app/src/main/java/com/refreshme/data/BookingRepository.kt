@@ -128,7 +128,14 @@ class BookingRepository @Inject constructor(
                 requestedAt = bookingDate,
                 priceCents = priceCents,
                 isRated = doc.getBoolean("isRated") ?: false,
-                scheduledStart = doc.getTimestamp("startTime") ?: bookingDate
+                isCustomerRated = doc.getBoolean("isCustomerRated") ?: false,
+                scheduledStart = doc.getTimestamp("startTime") ?: bookingDate,
+                isMobile = doc.getBoolean("isMobile") ?: false,
+                customerAddress = doc.getString("customerAddress"),
+                customerLat = doc.getDouble("customerLat"),
+                customerLng = doc.getDouble("customerLng"),
+                stylistLat = doc.getDouble("stylistLat"),
+                stylistLng = doc.getDouble("stylistLng")
             )
         } catch (e: Exception) {
             Log.e("BookingRepo", "Error parsing booking ${doc.id}", e)
@@ -172,6 +179,21 @@ class BookingRepository @Inject constructor(
             Result.failure(e)
         }
     }
+    
+    suspend fun rescheduleBooking(bookingId: String, newStartTime: Timestamp): Result<Unit> {
+        return try {
+            val updates = mapOf(
+                "status" to BookingStatus.REQUESTED.name, // Reset to requested so stylist confirms
+                "startTime" to newStartTime,
+                "date" to newStartTime,
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            firestore.collection("bookings").document(bookingId).update(updates).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     suspend fun submitReview(booking: Booking, rating: Double, comment: String): Result<Unit> {
         return try {
@@ -204,6 +226,45 @@ class BookingRepository @Inject constructor(
                 
                 val bookingRef = firestore.collection("bookings").document(booking.id)
                 transaction.update(bookingRef, "isRated", true)
+            }.await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun submitCustomerReview(booking: Booking, rating: Double, comment: String): Result<Unit> {
+        return try {
+            val user = auth.currentUser ?: throw IllegalStateException("User not logged in")
+
+            val review = Review(
+                userId = user.uid,
+                userName = user.displayName ?: "Verified Stylist",
+                stylistId = booking.customerId, // Using stylistId to store customerId in the Review model to reuse it
+                rating = rating,
+                comment = comment,
+                timestampMillis = System.currentTimeMillis()
+            )
+
+            firestore.runTransaction { transaction ->
+                val customerRef = firestore.collection("users").document(booking.customerId)
+                val customerDoc = transaction.get(customerRef)
+
+                val currentRating = customerDoc.getDouble("rating") ?: 0.0
+                val currentReviewCount = customerDoc.getLong("reviewCount") ?: 0L
+
+                val newReviewCount = currentReviewCount + 1
+                val newRating = ((currentRating * currentReviewCount) + rating) / newReviewCount
+
+                transaction.update(customerRef, mapOf(
+                    "rating" to newRating,
+                    "reviewCount" to newReviewCount,
+                    "reviews" to FieldValue.arrayUnion(review)
+                ))
+
+                val bookingRef = firestore.collection("bookings").document(booking.id)
+                transaction.update(bookingRef, "isCustomerRated", true)
             }.await()
 
             Result.success(Unit)

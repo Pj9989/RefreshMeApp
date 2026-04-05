@@ -134,7 +134,7 @@ class FilterBottomSheetFragment : BottomSheetDialogFragment() {
         }
 
         // Flash Deals
-         viewLifecycleOwner.lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             viewModel.hasFlashDealFilter.collect { isChecked ->
                 if (binding.chipFlashDeals.isChecked != isChecked) {
                     binding.chipFlashDeals.isChecked = isChecked
@@ -143,6 +143,18 @@ class FilterBottomSheetFragment : BottomSheetDialogFragment() {
         }
         binding.chipFlashDeals.setOnCheckedChangeListener { _, isChecked ->
             viewModel.setFlashDealFilter(isChecked)
+        }
+
+        // Late Night / 24/7
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.lateNightService.collect { isChecked ->
+                if (binding.chipLateNight.isChecked != isChecked) {
+                    binding.chipLateNight.isChecked = isChecked
+                }
+            }
+        }
+        binding.chipLateNight.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.setLateNightService(isChecked)
         }
     }
 

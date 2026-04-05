@@ -1,10 +1,13 @@
 package com.refreshme
 
+import android.location.Location
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.auth.FirebaseAuth
 import com.refreshme.data.Stylist
 import com.refreshme.data.StylistRepository
+import com.refreshme.data.ServiceType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +34,9 @@ class StylistListViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
     
+    private val _userLocation = MutableStateFlow<LatLng?>(null)
+    val userLocation = _userLocation.asStateFlow()
+
     private val _specialties = MutableStateFlow<List<String>>(emptyList())
     val specialties = _specialties.asStateFlow()
 
@@ -54,6 +60,9 @@ class StylistListViewModel @Inject constructor(
 
     private val _atHomeService = MutableStateFlow(false)
     val atHomeService = _atHomeService.asStateFlow()
+
+    private val _lateNightService = MutableStateFlow(false)
+    val lateNightService = _lateNightService.asStateFlow()
 
     init {
         loadAllStylists()
@@ -79,6 +88,11 @@ class StylistListViewModel @Inject constructor(
 
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
+        applyFilters()
+    }
+    
+    fun setUserLocation(latLng: LatLng) {
+        _userLocation.value = latLng
         applyFilters()
     }
 
@@ -117,8 +131,14 @@ class StylistListViewModel @Inject constructor(
         applyFilters()
     }
 
+    fun setLateNightService(enabled: Boolean) {
+        _lateNightService.value = enabled
+        applyFilters()
+    }
+
     private fun applyFilters() {
         var filtered = _allStylists.value
+        val userLoc = _userLocation.value
 
         // Apply Search
         val query = _searchQuery.value.lowercase()
@@ -193,22 +213,57 @@ class StylistListViewModel @Inject constructor(
             }
         }
 
-        // Apply At-Home Service Filter
+        // Apply At-Home Service Filter & Travel Radius Check
         if (_atHomeService.value) {
-            filtered = filtered.filter { it.offersAtHomeService == true }
+            filtered = filtered.filter { stylist ->
+                if (stylist.offersAtHomeService != true) return@filter false
+                
+                // If we have user location, only show if within travel range
+                if (userLoc != null && stylist.location != null) {
+                    val distanceKm = calculateDistanceKm(userLoc, LatLng(stylist.location.latitude, stylist.location.longitude))
+                    distanceKm <= (stylist.maxTravelRangeKm ?: 15)
+                } else {
+                    true // Show anyway if location unknown
+                }
+            }
         }
 
-        // Sort Logic:
-        // 1. Recommended for Face Shape (matchScore)
-        // 2. Active Flash Deals
-        // 3. Online stylists
-        // 4. Rating
-        _filteredStylists.value = filtered.sortedWith(
-            compareByDescending<Stylist> { it.matchScore }
-                .thenByDescending { it.hasActiveFlashDeal }
-                .thenByDescending { it.isOnline }
-                .thenByDescending { it.rating }
-        )
+        // Apply 24/7 / Late Night Filter
+        if (_lateNightService.value) {
+            filtered = filtered.filter { stylist ->
+                stylist.serviceType == ServiceType.ALL_HOURS || stylist.serviceType == ServiceType.AFTER_HOURS
+            }
+        }
+
+        // Sort Logic
+        _filteredStylists.value = filtered.sortedWith { s1, s2 ->
+            // 1. Match Score
+            if (s1.matchScore != s2.matchScore) return@sortedWith s2.matchScore.compareTo(s1.matchScore)
+            
+            // 2. Proximity
+            if (userLoc != null) {
+                val d1 = s1.location?.let { calculateDistanceKm(userLoc, LatLng(it.latitude, it.longitude)) } ?: Double.MAX_VALUE
+                val d2 = s2.location?.let { calculateDistanceKm(userLoc, LatLng(it.latitude, it.longitude)) } ?: Double.MAX_VALUE
+                if (Math.abs(d1 - d2) > 0.8) return@sortedWith d1.compareTo(d2) // Increased threshold to approx 0.5 miles
+            }
+            
+            // 3. Flash Deal
+            if (s1.hasActiveFlashDeal != s2.hasActiveFlashDeal) return@sortedWith s2.hasActiveFlashDeal.compareTo(s1.hasActiveFlashDeal)
+            
+            // 4. Online Status
+            val online1 = s1.isOnline == true
+            val online2 = s2.isOnline == true
+            if (online1 != online2) return@sortedWith online2.compareTo(online1)
+            
+            // 5. Rating
+            s2.rating.compareTo(s1.rating)
+        }
+    }
+    
+    private fun calculateDistanceKm(loc1: LatLng, loc2: LatLng): Double {
+        val results = FloatArray(1)
+        Location.distanceBetween(loc1.latitude, loc1.longitude, loc2.latitude, loc2.longitude, results)
+        return results[0].toDouble() / 1000.0 // Keep in KM for internal range checks
     }
     
     private fun getKeywordsForTag(tag: String): List<String> {
@@ -220,6 +275,14 @@ class StylistListViewModel @Inject constructor(
             "long_hair" -> listOf("long", "layer", "bob", "style", "scissor")
             "buzz_cuts" -> listOf("buzz", "clipper", "military")
             "texture_work" -> listOf("texture", "perm", "wave", "curl")
+            
+            // Diverse new keywords
+            "silk_press" -> listOf("silk", "press", "blowout", "straight", "natural")
+            "wig_installs" -> listOf("wig", "install", "lace", "frontal", "closure")
+            "balayage" -> listOf("balayage", "color", "blonde", "highlight")
+            "bridal" -> listOf("bridal", "wedding", "updo", "event")
+            "extensions" -> listOf("extension", "sew-in", "tape-in", "micro", "links")
+            "lash_tech" -> listOf("lash", "extension", "volume", "classic")
             else -> listOf(tag.replace("_", " ").lowercase())
         }
     }
@@ -233,6 +296,7 @@ class StylistListViewModel @Inject constructor(
         _ratingFilter.value = 0f
         _priceFilter.value = 1000f
         _atHomeService.value = false
+        _lateNightService.value = false
         applyFilters()
     }
 }

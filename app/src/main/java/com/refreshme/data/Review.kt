@@ -1,18 +1,22 @@
 package com.refreshme.data
 
 import android.os.Parcelable
+import androidx.annotation.Keep
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.Exclude
+import com.google.firebase.firestore.IgnoreExtraProperties
 import com.google.firebase.firestore.PropertyName
 import kotlinx.parcelize.Parcelize
 import kotlinx.parcelize.RawValue
 import java.util.Date
 
+@IgnoreExtraProperties
+@Keep
 @Parcelize
 data class Review(
     val userId: String = "",
-    val userName: String = "Verified Client",
-    val stylistId: String = "",
+    val userName: String = "Verified User",
+    val stylistId: String = "", // Used for both stylist being rated or customer being rated
     val rating: Double = 0.0,
     val comment: String = "",
     // Exclude from direct Firestore mapping to use the robust setter below

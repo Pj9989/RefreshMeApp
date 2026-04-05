@@ -1,5 +1,7 @@
 package com.refreshme
 
+import android.content.Intent
+import android.provider.CalendarContract
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -8,8 +10,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,13 +21,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.rememberAsyncImagePainter
 import com.refreshme.data.Booking
 import com.refreshme.data.BookingStatus
 import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,25 +41,49 @@ import java.util.Locale
 fun BookingsScreen(
     viewModel: BookingsViewModel,
     onBack: () -> Unit,
-    onChatStylist: (String) -> Unit,
-    onTrackStylist: (String) -> Unit,
-    onCancelBooking: (String) -> Unit,
-    onBookAgain: (String) -> Unit
+    onChatStylist: (String) -> Unit = {},
+    onTrackStylist: (String) -> Unit = {},
+    onCancelBooking: (String) -> Unit = {},
+    onBookAgain: (String) -> Unit = {},
+    onViewReceipt: (Booking) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var selectedTab by remember { mutableStateOf(0) }
+    val showRatingDialogFor by viewModel.showRatingDialog.collectAsState()
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var bookingToReschedule by remember { mutableStateOf<Booking?>(null) }
+    val context = LocalContext.current
 
     val tabs = listOf("Upcoming", "Past")
+
+    if (bookingToReschedule != null) {
+        RescheduleDialog(
+            booking = bookingToReschedule!!,
+            onDismiss = { bookingToReschedule = null },
+            onConfirm = { newDate ->
+                viewModel.rescheduleBooking(bookingToReschedule!!.id, newDate)
+                bookingToReschedule = null
+            }
+        )
+    }
+
+    if (showRatingDialogFor != null) {
+        RatingDialog(
+            booking = showRatingDialogFor!!,
+            onDismiss = { viewModel.closeRatingDialog() },
+            onSubmit = { rating, comment ->
+                viewModel.submitReview(showRatingDialogFor!!, rating, comment)
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("My Bookings", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                )
             )
         }
     ) { paddingValues ->
@@ -92,7 +126,7 @@ fun BookingsScreen(
                     }
 
                     if (filteredBookings.isEmpty()) {
-                        EmptyBookingsView()
+                        EmptyBookingsView(selectedTab == 0)
                     } else {
                         LazyColumn(
                             contentPadding = PaddingValues(16.dp),
@@ -104,7 +138,11 @@ fun BookingsScreen(
                                     onChatClick = { onChatStylist(booking.stylistId) },
                                     onTrackClick = { onTrackStylist(booking.id) },
                                     onCancelClick = { onCancelBooking(booking.id) },
-                                    onBookAgainClick = { onBookAgain(booking.stylistId) }
+                                    onRescheduleClick = { bookingToReschedule = booking },
+                                    onBookAgainClick = { onBookAgain(booking.stylistId) },
+                                    onRateClick = { viewModel.openRatingDialog(booking) },
+                                    onAddToCalendar = { addToCalendar(context, booking) },
+                                    onViewReceipt = { onViewReceipt(booking) }
                                 )
                             }
                         }
@@ -115,8 +153,23 @@ fun BookingsScreen(
     }
 }
 
+private fun addToCalendar(context: android.content.Context, booking: Booking) {
+    val startTime = booking.scheduledStart?.toDate()?.time ?: return
+    val endTime = startTime + (60 * 60 * 1000)
+    
+    val intent = Intent(Intent.ACTION_INSERT).apply {
+        data = CalendarContract.Events.CONTENT_URI
+        putExtra(CalendarContract.Events.TITLE, "Appointment with ${booking.stylistName} (RefreshMe)")
+        putExtra(CalendarContract.Events.DESCRIPTION, "Service: ${booking.serviceName}\nNotes: ${booking.notes}")
+        putExtra(CalendarContract.Events.EVENT_LOCATION, booking.customerAddress ?: "In-Salon")
+        putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startTime)
+        putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endTime)
+    }
+    context.startActivity(intent)
+}
+
 @Composable
-fun EmptyBookingsView() {
+fun EmptyBookingsView(isUpcoming: Boolean) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
@@ -130,7 +183,7 @@ fun EmptyBookingsView() {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "No bookings found",
+            text = if (isUpcoming) "No upcoming bookings" else "No past bookings found",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -143,7 +196,11 @@ fun BookingItem(
     onChatClick: () -> Unit,
     onTrackClick: () -> Unit,
     onCancelClick: () -> Unit,
-    onBookAgainClick: () -> Unit
+    onRescheduleClick: () -> Unit,
+    onBookAgainClick: () -> Unit,
+    onRateClick: () -> Unit,
+    onAddToCalendar: () -> Unit,
+    onViewReceipt: () -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -184,6 +241,28 @@ fun BookingItem(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
+            }
+
+            if (booking.isEvent) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Groups, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "${booking.eventType ?: "Group Event"} • Size: ${booking.groupSize}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -238,86 +317,182 @@ fun BookingItem(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Actions based on status
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            // Unified Actions based on status
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (booking.bookingStatus) {
-                    BookingStatus.REQUESTED, BookingStatus.PENDING -> {
-                        OutlinedButton(
-                            onClick = onCancelClick,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Cancel Request", color = MaterialTheme.colorScheme.error)
+                    BookingStatus.REQUESTED, BookingStatus.PENDING, BookingStatus.ACCEPTED, BookingStatus.DEPOSIT_PAID -> {
+                        val isConfirmed = booking.bookingStatus == BookingStatus.ACCEPTED || booking.bookingStatus == BookingStatus.DEPOSIT_PAID
+                        
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (isConfirmed) {
+                                if (booking.isMobile) {
+                                    Button(onClick = onTrackClick, modifier = Modifier.weight(1f)) {
+                                        Text("Track", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                                OutlinedButton(onClick = onAddToCalendar, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                    Icon(Icons.Default.Event, null, Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Calendar", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp)
+                                }
+                            } else {
+                                OutlinedButton(onClick = onRescheduleClick, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                    Text("Reschedule", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp)
+                                }
+                                Button(onClick = onChatClick, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                    Text("Message", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp)
+                                }
+                            }
                         }
-                        Button(
-                            onClick = onChatClick,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Message")
+                        
+                        if (isConfirmed) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = onRescheduleClick, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                    Text("Reschedule", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp)
+                                }
+                                Button(onClick = onChatClick, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                    Text("Message", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp)
+                                }
+                            }
+                        }
+                        
+                        OutlinedButton(onClick = onCancelClick, modifier = Modifier.fillMaxWidth()) {
+                            Text("Cancel Booking", color = MaterialTheme.colorScheme.error)
                         }
                     }
-                    BookingStatus.ACCEPTED, BookingStatus.DEPOSIT_PAID -> {
-                        if (booking.isMobile) {
-                            Button(
-                                onClick = onTrackClick,
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary
-                                )
-                            ) {
-                                Text("Track Stylist")
+                    BookingStatus.ON_THE_WAY, BookingStatus.IN_PROGRESS -> {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = onTrackClick, modifier = Modifier.weight(1f)) {
+                                Text(if (booking.bookingStatus == BookingStatus.ON_THE_WAY) "Live Tracking" else "View Booking")
                             }
-                        } else {
-                            OutlinedButton(
-                                onClick = onCancelClick,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Cancel", color = MaterialTheme.colorScheme.error)
-                            }
-                            Button(
-                                onClick = onChatClick,
-                                modifier = Modifier.weight(1f)
-                            ) {
+                            Button(onClick = onChatClick, modifier = Modifier.weight(1f)) {
                                 Text("Message")
                             }
                         }
                     }
-                    BookingStatus.ON_THE_WAY, BookingStatus.IN_PROGRESS -> {
-                        Button(
-                            onClick = onTrackClick,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-                            Text(if (booking.bookingStatus == BookingStatus.ON_THE_WAY) "Live Tracking" else "View Booking")
-                        }
-                    }
                     BookingStatus.COMPLETED -> {
-                        OutlinedButton(
-                            onClick = onBookAgainClick,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Book Again")
-                        }
-                        if (!booking.isRated) {
-                            Button(
-                                onClick = { /* TODO: Implement Rating */ },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Rate Stylist")
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = onViewReceipt, modifier = Modifier.weight(1f)) {
+                                Icon(Icons.Default.Receipt, null, Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Receipt")
+                            }
+                            if (!booking.isRated) {
+                                Button(onClick = onRateClick, modifier = Modifier.weight(1f)) {
+                                    Text("Rate")
+                                }
+                            } else {
+                                OutlinedButton(onClick = onBookAgainClick, modifier = Modifier.weight(1f)) {
+                                    Text("Book Again")
+                                }
                             }
                         }
                     }
                     BookingStatus.CANCELLED, BookingStatus.DECLINED, BookingStatus.REFUND_PROCESSING -> {
-                        OutlinedButton(
-                            onClick = onBookAgainClick,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                        Button(onClick = onBookAgainClick, modifier = Modifier.fillMaxWidth()) {
                             Text("Book Again")
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun RescheduleDialog(
+    booking: Booking,
+    onDismiss: () -> Unit,
+    onConfirm: (Date) -> Unit
+) {
+    var selectedDate by remember { mutableStateOf<Date?>(null) }
+    var selectedTimeStr by remember { mutableStateOf("") }
+    var finalDate by remember { mutableStateOf<Date?>(null) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp)
+            ) {
+                Text(
+                    text = "Reschedule Appointment",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = "Select a new date and time for your appointment with ${booking.stylistName}.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                WeeklyCalendarView(
+                    selectedDate = selectedDate,
+                    onDateSelected = { 
+                        selectedTimeStr = ""
+                        finalDate = null
+                        selectedDate = it 
+                    }
+                )
+
+                if (selectedDate != null) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    val times = listOf("9:00 AM", "10:30 AM", "1:00 PM", "2:30 PM", "4:00 PM")
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        times.forEach { time ->
+                            FilterChip(
+                                selected = selectedTimeStr == time,
+                                onClick = { 
+                                    selectedTimeStr = time
+                                    val calendar = Calendar.getInstance()
+                                    calendar.time = selectedDate!!
+                                    val isPm = time.contains("PM", ignoreCase = true)
+                                    val timeParts = time.replace(" AM", "", true).replace(" PM", "", true).split(":")
+                                    var hour = timeParts[0].toInt()
+                                    if (isPm && hour < 12) hour += 12
+                                    if (!isPm && hour == 12) hour = 0
+                                    calendar.set(Calendar.HOUR_OF_DAY, hour)
+                                    calendar.set(Calendar.MINUTE, timeParts[1].toInt())
+                                    calendar.set(Calendar.SECOND, 0)
+                                    finalDate = calendar.time
+                                },
+                                label = { Text(time) }
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    Button(
+                        onClick = { finalDate?.let { onConfirm(it) } },
+                        enabled = finalDate != null
+                    ) {
+                        Text("Confirm")
                     }
                 }
             }

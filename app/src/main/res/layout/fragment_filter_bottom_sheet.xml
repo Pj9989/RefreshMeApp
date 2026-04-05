@@ -94,7 +94,14 @@
             style="@style/Widget.MaterialComponents.Chip.Filter"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Mobile Service" />
+            android:text="Mobile (House Calls)" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_late_night"
+            style="@style/Widget.MaterialComponents.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="24/7 &amp; Late Night" />
 
     </com.google.android.material.chip.ChipGroup>
 

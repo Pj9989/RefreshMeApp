@@ -56,7 +56,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Tell Your Barber:"
+            android:text="@string/barber_script_title"
             android:textStyle="bold"
             android:textAppearance="?attr/textAppearanceSubtitle2"
             app:layout_constraintStart_toStartOf="parent"
@@ -79,7 +79,7 @@
             android:layout_height="wrap_content"
             android:src="@drawable/ic_content_copy"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Copy barber script"
+            android:contentDescription="@string/copy_notes"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="@id/barber_script"
             app:layout_constraintBottom_toBottomOf="@id/barber_script"
@@ -91,7 +91,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Save Style"
+            android:text="@string/action_save"
             app:icon="@drawable/ic_favorite_border"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/barber_script" />
@@ -101,7 +101,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Book Now"
+            android:text="@string/book_now"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@id/barber_script" />
 

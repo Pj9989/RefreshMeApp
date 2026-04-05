@@ -57,6 +57,12 @@ class AiStyleQuizFragment : Fragment() {
                                     navController.navigate(R.id.faceScanFragment)
                                 }
                             },
+                            onVirtualTryOn = {
+                                val navController = findNavController()
+                                if (navController.currentDestination?.id == R.id.aiStyleQuizFragment) {
+                                    navController.navigate(R.id.action_quiz_to_virtualTryOn)
+                                }
+                            },
                             onSubmit = {
                                 val navController = findNavController()
                                 // Safety check to prevent double-navigation crashes

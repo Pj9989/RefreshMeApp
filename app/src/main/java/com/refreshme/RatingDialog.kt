@@ -16,17 +16,20 @@ import com.refreshme.data.Booking
 fun RatingDialog(
     booking: Booking,
     onDismiss: () -> Unit,
-    onSubmit: (Double, String) -> Unit
+    onSubmit: (Double, String) -> Unit,
+    isStylistRatingCustomer: Boolean = false
 ) {
     var rating by remember { mutableStateOf(5.0) }
     var comment by remember { mutableStateOf("") }
+    
+    val nameToRate = if (isStylistRatingCustomer) booking.customerName else booking.stylistName
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
         titleContentColor = MaterialTheme.colorScheme.onSurface,
         textContentColor = MaterialTheme.colorScheme.onSurface,
-        title = { Text("Rate your experience with ${booking.stylistName}") },
+        title = { Text("Rate your experience with $nameToRate") },
         text = {
             Column {
                 Row(

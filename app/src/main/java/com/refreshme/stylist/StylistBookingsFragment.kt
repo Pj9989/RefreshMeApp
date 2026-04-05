@@ -33,6 +33,7 @@ import androidx.navigation.fragment.findNavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.refreshme.R
+import com.refreshme.RatingDialog
 import com.refreshme.data.Booking
 import com.refreshme.data.BookingRepository
 import com.refreshme.data.BookingStatus
@@ -74,11 +75,12 @@ class StylistBookingsFragment : Fragment() {
     @Composable
     fun StylistBookingsScreen() {
         var selectedTab by remember { mutableIntStateOf(0) }
-        val tabs = listOf("Requests", "Upcoming", "Completed", "Cancelled")
+        val tabs = listOf("Requests", "Upcoming", "Done", "Cancelled")
         
         var allBookings by remember { mutableStateOf<List<Booking>>(emptyList()) }
         var isLoading by remember { mutableStateOf(true) }
         var isRefreshing by remember { mutableStateOf(false) }
+        var showRatingDialogFor by remember { mutableStateOf<Booking?>(null) }
 
         val stylistId = auth.currentUser?.uid ?: ""
 
@@ -107,6 +109,21 @@ class StylistBookingsFragment : Fragment() {
             
             allBookings.filter { it.bookingStatus in statusFilter }
                 .sortedByDescending { it.requestedAt?.seconds ?: 0 }
+        }
+
+        if (showRatingDialogFor != null) {
+            RatingDialog(
+                booking = showRatingDialogFor!!,
+                onDismiss = { showRatingDialogFor = null },
+                onSubmit = { rating, comment ->
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        bookingRepository.submitCustomerReview(showRatingDialogFor!!, rating, comment)
+                        showRatingDialogFor = null
+                        Toast.makeText(context, "Rating submitted!", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                isStylistRatingCustomer = true
+            )
         }
 
         Scaffold(
@@ -192,7 +209,8 @@ class StylistBookingsFragment : Fragment() {
                                 onStart = { handleStartBooking(booking) },
                                 onTrack = { handleTrackBooking(booking) },
                                 onCancel = { handleCancelBooking(booking) },
-                                onMessage = { handleMessageCustomer(booking) }
+                                onMessage = { handleMessageCustomer(booking) },
+                                onRate = { showRatingDialogFor = booking }
                             )
                         }
                     }
@@ -209,7 +227,8 @@ class StylistBookingsFragment : Fragment() {
         onStart: () -> Unit,
         onTrack: () -> Unit,
         onCancel: () -> Unit,
-        onMessage: () -> Unit
+        onMessage: () -> Unit,
+        onRate: () -> Unit
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant,
@@ -235,7 +254,67 @@ class StylistBookingsFragment : Fragment() {
                     val priceDisplay = (booking.priceCents.toDouble() / 100.0)
                     Text("$${String.format(Locale.US, "%.0f", priceDisplay)}", fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp)
                 }
+
+                // Tags for Modern Salon Toggles
+                if (booking.isSilentAppointment || booking.isSensoryFriendly) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (booking.isSilentAppointment) {
+                            Surface(
+                                color = Color(0xFF7E57C2), // Deep Purple
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "Silent",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        if (booking.isSensoryFriendly) {
+                            Surface(
+                                color = Color(0xFF26A69A), // Teal
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "Sensory Friendly",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
                 
+                if (booking.isEvent) {
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Groups, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "${booking.eventType ?: "Group Event"} • Size: ${booking.groupSize}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+
                 if (booking.isMobile) {
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -305,6 +384,19 @@ class StylistBookingsFragment : Fragment() {
                             }
                             IconButton(onClick = onCancel, modifier = Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), CircleShape)) {
                                 Icon(Icons.Default.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                        BookingStatus.COMPLETED -> {
+                            if (!booking.isCustomerRated) {
+                                Button(onClick = onRate, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                                    Text("Rate Client")
+                                }
+                            } else {
+                                OutlinedButton(onClick = onMessage, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                                    Icon(Icons.Default.MailOutline, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Message Client")
+                                }
                             }
                         }
                         else -> {

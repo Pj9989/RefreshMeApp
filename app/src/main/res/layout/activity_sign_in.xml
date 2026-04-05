@@ -106,38 +106,6 @@
                     android:layout_gravity="end"
                     android:padding="8dp" />
 
-                <TextView
-                    android:id="@+id/roleLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/login_as"
-                    android:textSize="14sp"
-                    android:layout_marginTop="16dp"
-                    android:layout_marginBottom="8dp"
-                    android:textColor="?android:attr/textColorSecondary"/>
-
-                <RadioGroup
-                    android:id="@+id/roleRadioGroup"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_horizontal">
-
-                    <com.google.android.material.radiobutton.MaterialRadioButton
-                        android:id="@+id/customerRadioButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/customer"
-                        android:checked="true"
-                        android:layout_marginEnd="24dp"/>
-
-                    <com.google.android.material.radiobutton.MaterialRadioButton
-                        android:id="@+id/stylistRadioButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/stylist"/>
-                </RadioGroup>
-
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -150,6 +118,16 @@
             app:cornerRadius="12dp"
             app:layout_constraintTop_toBottomOf="@id/formCard" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/demoLoginButton"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Demo Login (For Reviewers)"
+            android:layout_marginTop="12dp"
+            app:cornerRadius="12dp"
+            app:layout_constraintTop_toBottomOf="@id/signInButton" />
+
         <TextView
             android:id="@+id/signUpTextView"
             android:layout_width="wrap_content"
@@ -158,7 +136,7 @@
             android:textColor="?attr/colorPrimary"
             android:padding="16dp"
             android:layout_marginTop="16dp"
-            app:layout_constraintTop_toBottomOf="@id/signInButton"
+            app:layout_constraintTop_toBottomOf="@id/demoLoginButton"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintBottom_toBottomOf="parent" />

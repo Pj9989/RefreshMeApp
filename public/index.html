@@ -14,7 +14,13 @@
             --text-muted: #9A9A9A;
             --border: #2E2E2E;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: var(--bg);
@@ -27,9 +33,26 @@
             padding: 40px 20px;
             text-align: center;
         }
-        .logo { font-size: 36px; font-weight: 900; color: var(--gold); margin-bottom: 12px; }
-        .logo span { color: var(--text); }
-        .tagline { font-size: 16px; color: var(--text-muted); max-width: 380px; margin: 0 auto 36px; line-height: 1.6; }
+
+        .logo {
+            font-size: 36px;
+            font-weight: 900;
+            color: var(--gold);
+            margin-bottom: 12px;
+        }
+
+        .logo span {
+            color: var(--text);
+        }
+
+        .tagline {
+            font-size: 16px;
+            color: var(--text-muted);
+            max-width: 380px;
+            margin: 0 auto 36px;
+            line-height: 1.6;
+        }
+
         .links {
             display: flex;
             flex-wrap: wrap;
@@ -37,6 +60,7 @@
             justify-content: center;
             margin-bottom: 32px;
         }
+
         .btn {
             padding: 13px 24px;
             border-radius: 12px;
@@ -45,21 +69,45 @@
             text-decoration: none;
             transition: opacity 0.2s;
         }
-        .btn:hover { opacity: 0.85; }
-        .btn-gold { background: var(--gold); color: #000; }
-        .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text-muted); }
-        .contact { font-size: 13px; color: var(--text-muted); }
-        .contact a { color: var(--gold); text-decoration: none; }
+
+        .btn:hover {
+            opacity: 0.85;
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: #000;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid var(--border);
+            color: var(--text-muted);
+        }
+
+        .contact {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .contact a {
+            color: var(--gold);
+            text-decoration: none;
+        }
     </style>
 </head>
 <body>
-    <div class="logo">Refresh<span>Me</span></div>
+    <h1 class="logo">Refresh<span>Me</span></h1>
+
     <p class="tagline">Your premier destination for beauty and style services. Download our app to book top stylists near you.</p>
+
     <div class="links">
-        <a href="/safety-center.html" class="btn btn-gold">Safety Center</a>
+        <a href="/safety-center.html" class="btn btn-outline">Safety Center</a>
         <a href="/help.html" class="btn btn-outline">Help Center</a>
         <a href="/privacy.html" class="btn btn-outline">Privacy Policy</a>
+        <a href="/terms.html" class="btn btn-outline">Terms of Service</a>
     </div>
+
     <p class="contact">Support: <a href="mailto:admin@refreshmeapp.com">admin@refreshmeapp.com</a></p>
 </body>
 </html>

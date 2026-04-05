@@ -15,19 +15,24 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Top Scrim for readability -->
+    <View
+        android:id="@+id/top_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="160dp"
+        android:background="@drawable/gradient_top_down"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <TextView
         android:id="@+id/greeting_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="24dp"
         android:text="What's good 👋"
-        android:textAppearance="@style/TextAppearance.AppCompat.Large"
+        android:textAppearance="?attr/textAppearanceHeadlineSmall"
         android:textColor="@color/white"
-        android:shadowColor="@color/black"
-        android:shadowDx="2"
-        android:shadowDy="2"
-        android:shadowRadius="4"
+        android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
@@ -35,14 +40,12 @@
         android:id="@+id/location_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="4dp"
         android:text="Location"
         android:textColor="@color/light_gray"
-        android:shadowColor="@color/black"
-        android:shadowDx="1"
-        android:shadowDy="1"
-        android:shadowRadius="2"
+        android:textAppearance="?attr/textAppearanceBodyMedium"
         app:drawableStartCompat="@drawable/ic_location"
+        android:drawablePadding="6dp"
         app:drawableTint="@color/gold"
         app:layout_constraintStart_toStartOf="@+id/greeting_text"
         app:layout_constraintTop_toBottomOf="@+id/greeting_text" />
@@ -53,6 +56,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingBottom="16dp"
+        android:background="@drawable/gradient_bottom_up"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
@@ -79,6 +83,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
             android:layout_marginBottom="8dp"
+            android:layout_marginTop="24dp"
             android:text="AI Recommendations For You"
             android:textAppearance="?attr/textAppearanceSubtitle1"
             android:textColor="@color/white"
@@ -103,6 +108,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
             android:layout_marginBottom="8dp"
+            android:layout_marginTop="24dp"
             android:text="Live Stylists Near You"
             android:textAppearance="?attr/textAppearanceSubtitle1"
             android:textColor="@color/white"
@@ -126,20 +132,20 @@
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp"
             app:cardBackgroundColor="@color/stylist_card_background"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="8dp"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="12dp"
             app:strokeColor="@color/gold"
-            app:strokeWidth="1dp">
+            app:strokeWidth="1.5dp">
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="16dp">
+                android:padding="20dp">
 
                 <ImageView
                     android:id="@+id/style_finder_icon"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:contentDescription="AI Style Finder Icon"
                     android:src="@drawable/ic_style_finder"
                     app:layout_constraintBottom_toBottomOf="parent"
@@ -154,6 +160,7 @@
                     android:layout_marginStart="16dp"
                     android:text="AI Style Finder"
                     android:textColor="@color/white"
+                    android:textStyle="bold"
                     android:textAppearance="?attr/textAppearanceHeadline6"
                     app:layout_constraintBottom_toTopOf="@id/style_finder_subtitle"
                     app:layout_constraintEnd_toEndOf="parent"
@@ -167,7 +174,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
                     android:text="Get personalized recommendations based on your look."
-                    android:textColor="@color/light_gray"
+                    android:textColor="@color/gray"
                     android:textAppearance="?attr/textAppearanceBody2"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"

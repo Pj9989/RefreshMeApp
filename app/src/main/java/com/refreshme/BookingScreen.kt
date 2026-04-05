@@ -49,6 +49,7 @@ fun BookingScreen(
 ) {
     val stylist by viewModel.stylist.collectAsState()
     val selectedService by viewModel.selectedService.collectAsState()
+    val selectedAddOns by viewModel.selectedAddOns.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
     val isMobileBooking by viewModel.isMobileBooking.collectAsState()
     val bookingState by viewModel.bookingState.collectAsState()
@@ -110,10 +111,17 @@ fun BookingScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                         } else {
-                            val text = if (selectedService == null) "Select a Service"
-                                      else if (selectedDate == null) "Select Date & Time"
-                                      else "Confirm Booking"
-                            Text(text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            var buttonText = "Select a Service"
+                            if (selectedService != null && selectedDate != null) {
+                                var total = selectedService!!.price + selectedAddOns.sumOf { it.price }
+                                if (isMobileBooking) total += (stylist?.atHomeServiceFee ?: 0.0)
+                                if (bookingMode == BookingMode.ASAP) total += (stylist?.emergencyFee ?: 0.0)
+                                buttonText = "Confirm Booking ($${total})"
+                            } else if (selectedService != null) {
+                                buttonText = "Select Date & Time"
+                            }
+                            
+                            Text(buttonText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -130,7 +138,8 @@ fun BookingScreen(
             stylist?.let { s ->
                 val offersMobile = s.offersAtHomeService == true || 
                                  s.serviceType == ServiceType.AT_HOME || 
-                                 s.serviceType == ServiceType.ALL_HOURS
+                                 s.serviceType == ServiceType.ALL_HOURS ||
+                                 s.serviceType == ServiceType.AFTER_HOURS
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
@@ -163,6 +172,26 @@ fun BookingScreen(
                         }
                     }
                 }
+                
+                // Add-ons Section
+                if (selectedService != null && services.size > 1) {
+                    val addOnOptions = services.filter { it.name != selectedService?.name }
+                    if (addOnOptions.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text("Enhance Your Service (Add-ons)", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            addOnOptions.forEach { addOn ->
+                                AddOnItem(
+                                    service = addOn,
+                                    isChecked = selectedAddOns.any { it.name == addOn.name },
+                                    onCheckedChange = { viewModel.toggleAddOn(addOn) }
+                                )
+                            }
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
                 
@@ -183,7 +212,7 @@ fun BookingScreen(
                             modifier = Modifier.weight(1f)
                         )
                         LocationOption(
-                            title = "Mobile",
+                            title = "House Call",
                             isSelected = isMobileBooking,
                             icon = Icons.Default.Home,
                             onClick = { viewModel.setMobileBooking(true) },
@@ -195,6 +224,30 @@ fun BookingScreen(
                     AnimatedVisibility(visible = isMobileBooking) {
                         Column {
                             Spacer(modifier = Modifier.height(16.dp))
+
+                            // ID Verification Badge for Safety
+                            if (s.requiresIdVerificationForMobile == true) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                        .padding(12.dp)
+                                ) {
+                                    Icon(Icons.Default.VerifiedUser, contentDescription = "ID Verification Required", tint = MaterialTheme.colorScheme.tertiary)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Identity Verification is required for house calls for the safety of this professional.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+
                             OutlinedTextField(
                                 value = address,
                                 onValueChange = { address = it },
@@ -231,7 +284,7 @@ fun BookingScreen(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp),
+                            .height(64.dp), // slightly taller to fit subtitle
                         shape = RoundedCornerShape(24.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isAsapSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
@@ -239,7 +292,12 @@ fun BookingScreen(
                         ),
                         border = if (!isAsapSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null
                     ) {
-                        Text("ASAP (Now)", fontWeight = FontWeight.Bold)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Squeeze-In (ASAP)", fontWeight = FontWeight.Bold)
+                            if ((s.emergencyFee ?: 0.0) > 0) {
+                                Text("+$${s.emergencyFee} Fee", fontSize = 10.sp)
+                            }
+                        }
                     }
 
                     val isScheduleSelected = bookingMode == BookingMode.SCHEDULE
@@ -249,7 +307,7 @@ fun BookingScreen(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp),
+                            .height(64.dp),
                         shape = RoundedCornerShape(24.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isScheduleSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
@@ -280,7 +338,7 @@ fun BookingScreen(
                         Text("Available Times", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(12.dp))
                         
-                        val times = listOf("9:00 AM", "10:30 AM", "1:00 PM", "2:30 PM", "4:00 PM")
+                        val times = listOf("9:00 AM", "10:30 AM", "1:00 PM", "2:30 PM", "4:00 PM", "8:00 PM", "11:00 PM")
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -552,6 +610,39 @@ fun ServiceItem(
             Column(modifier = Modifier.padding(start = 8.dp)) {
                 Text(service.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                 Text("$${service.price} (${service.durationMinutes ?: 0} mins)", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+fun AddOnItem(
+    service: Service,
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!isChecked) },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isChecked) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f) else Color.Transparent
+        ),
+        border = if (isChecked) BorderStroke(2.dp, MaterialTheme.colorScheme.tertiary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = isChecked,
+                onCheckedChange = { onCheckedChange(it) },
+                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.tertiary)
+            )
+            Column(modifier = Modifier.padding(start = 8.dp)) {
+                Text(service.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                Text("+$${service.price} (+${service.durationMinutes ?: 0} mins)", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

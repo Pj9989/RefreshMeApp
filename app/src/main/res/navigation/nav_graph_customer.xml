@@ -25,6 +25,9 @@
         <action
             android:id="@+id/action_home_to_quiz"
             app:destination="@id/aiStyleQuizFragment" />
+        <action
+            android:id="@+id/action_home_to_virtualTryOn"
+            app:destination="@id/virtualTryOnFragment" />
     </fragment>
 
     <fragment
@@ -151,6 +154,9 @@
         <action
             android:id="@+id/action_quiz_to_scan"
             app:destination="@id/faceScanFragment" />
+        <action
+            android:id="@+id/action_quiz_to_virtualTryOn"
+            app:destination="@id/virtualTryOnFragment" />
     </fragment>
 
     <fragment
@@ -184,5 +190,15 @@
         android:name="com.refreshme.aistylefinder.FaceScanFragment"
         android:label="Face Scan"
         tools:layout="@layout/fragment_face_scan" />
+
+    <fragment
+        android:id="@+id/favoritesFragment"
+        android:name="com.refreshme.FavoritesFragment"
+        android:label="Saved Stylists" />
+
+    <fragment
+        android:id="@+id/virtualTryOnFragment"
+        android:name="com.refreshme.tryon.VirtualTryOnFragment"
+        android:label="Virtual Try-On" />
 
 </navigation>

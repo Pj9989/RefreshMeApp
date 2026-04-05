@@ -9,6 +9,9 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
@@ -19,11 +22,15 @@ import com.refreshme.databinding.ActivitySignInBinding
 import com.refreshme.databinding.DialogForgotPasswordBinding
 import com.refreshme.util.RoleBasedNavigationManager
 import com.refreshme.util.RoleBasedNavigationManager.UserRole
+import java.util.concurrent.Executor
 
 class SignInActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySignInBinding
     private lateinit var firebaseAuth: FirebaseAuth
+    private lateinit var executor: Executor
+    private lateinit var biometricPrompt: BiometricPrompt
+    private lateinit var promptInfo: BiometricPrompt.PromptInfo
 
     // Demo account credentials for Google Play reviewers
     private val DEMO_EMAIL = "tester@refreshme.com"
@@ -33,6 +40,7 @@ class SignInActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         
         firebaseAuth = FirebaseAuth.getInstance()
+        executor = ContextCompat.getMainExecutor(this)
 
         if (firebaseAuth.currentUser != null) {
             binding = ActivitySignInBinding.inflate(layoutInflater)
@@ -41,24 +49,33 @@ class SignInActivity : AppCompatActivity() {
             binding.emailLayout.visibility = View.GONE
             binding.passwordLayout.visibility = View.GONE
             binding.signInButton.visibility = View.GONE
-            binding.roleRadioGroup.visibility = View.GONE
+            binding.demoLoginButton.visibility = View.GONE
             binding.signUpTextView.visibility = View.GONE
             binding.forgotPasswordTextView.visibility = View.GONE
             binding.progressBar.visibility = View.VISIBLE
             
             updateFcmToken()
-            checkUserRoleAndNavigate()
+            
+            // Check if Biometrics are available
+            val biometricManager = BiometricManager.from(this)
+            if (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL) == BiometricManager.BIOMETRIC_SUCCESS) {
+                setupBiometricPrompt()
+                biometricPrompt.authenticate(promptInfo)
+            } else {
+                checkUserRoleAndNavigate()
+            }
             return
         }
 
         binding = ActivitySignInBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.customerRadioButton.setText(R.string.customer)
-        binding.stylistRadioButton.setText(R.string.stylist)
-
         binding.signInButton.setOnClickListener {
             signInUser()
+        }
+
+        binding.demoLoginButton.setOnClickListener {
+            signInAsDemo()
         }
 
         binding.signUpTextView.setOnClickListener {
@@ -97,6 +114,40 @@ class SignInActivity : AppCompatActivity() {
                     ).show()
                 }
             }
+    }
+
+    private fun setupBiometricPrompt() {
+        biometricPrompt = BiometricPrompt(this, executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    super.onAuthenticationError(errorCode, errString)
+                    Toast.makeText(applicationContext, "Authentication error: $errString", Toast.LENGTH_SHORT).show()
+                    // If they cancel, they can't get in unless they sign out, or we can just let them in fallback.
+                    // For security, if it fails, maybe log them out or just finish the app.
+                    if (errorCode == BiometricPrompt.ERROR_USER_CANCELED || errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                        finish()
+                    } else {
+                        checkUserRoleAndNavigate()
+                    }
+                }
+
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    Toast.makeText(applicationContext, "Authentication succeeded!", Toast.LENGTH_SHORT).show()
+                    checkUserRoleAndNavigate()
+                }
+
+                override fun onAuthenticationFailed() {
+                    super.onAuthenticationFailed()
+                    Toast.makeText(applicationContext, "Authentication failed", Toast.LENGTH_SHORT).show()
+                }
+            })
+
+        promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Biometric login for RefreshMe")
+            .setSubtitle("Log in using your biometric credential")
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+            .build()
     }
 
     private fun updateFcmToken() {
@@ -142,14 +193,17 @@ class SignInActivity : AppCompatActivity() {
 
         binding.progressBar.visibility = View.VISIBLE
         binding.signInButton.isEnabled = false
+        binding.demoLoginButton.isEnabled = false
 
         firebaseAuth.signInWithEmailAndPassword(email, password).addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 updateFcmToken()
+                // After manual sign in, we just navigate.
                 checkUserRoleAndNavigate()
             } else {
                 binding.progressBar.visibility = View.GONE
                 binding.signInButton.isEnabled = true
+                binding.demoLoginButton.isEnabled = true
                 val exception = task.exception
                 val errorMessage = when (exception) {
                     is FirebaseAuthInvalidUserException -> getString(R.string.error_no_account_found)
@@ -157,6 +211,28 @@ class SignInActivity : AppCompatActivity() {
                     else -> getString(R.string.error_auth_failed)
                 }
                 Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun signInAsDemo() {
+        // NOTE: Create this user in your Firebase Console first
+        val demoEmail = "tester@refreshme.com"
+        val demoPassword = "testpassword123"
+
+        binding.progressBar.visibility = View.VISIBLE
+        binding.signInButton.isEnabled = false
+        binding.demoLoginButton.isEnabled = false
+
+        firebaseAuth.signInWithEmailAndPassword(demoEmail, demoPassword).addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                updateFcmToken()
+                checkUserRoleAndNavigate()
+            } else {
+                binding.progressBar.visibility = View.GONE
+                binding.signInButton.isEnabled = true
+                binding.demoLoginButton.isEnabled = true
+                Toast.makeText(this, "Demo Login Failed. Ensure tester account exists in Firebase.", Toast.LENGTH_LONG).show()
             }
         }
     }

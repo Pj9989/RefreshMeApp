@@ -13,8 +13,11 @@ fun loadImage(view: ImageView, path: String?) {
         val storageReference = Firebase.storage.reference.child(path)
         Glide.with(view.context)
             .load(storageReference)
-            .placeholder(R.drawable.ic_launcher_background) // Placeholder image
+            .placeholder(R.drawable.ic_profile) // Fallback avatar
+            .error(R.drawable.ic_profile)
             .into(view)
+    } else {
+        view.setImageResource(R.drawable.ic_profile)
     }
 }
 
@@ -23,7 +26,10 @@ fun loadImageFromUrl(view: ImageView, url: String?) {
     if (!url.isNullOrEmpty()) {
         Glide.with(view.context)
             .load(url)
-            .placeholder(R.drawable.ic_launcher_background) // Placeholder image
+            .placeholder(R.drawable.ic_profile) // Fallback avatar
+            .error(R.drawable.ic_profile)
             .into(view)
+    } else {
+        view.setImageResource(R.drawable.ic_profile)
     }
 }

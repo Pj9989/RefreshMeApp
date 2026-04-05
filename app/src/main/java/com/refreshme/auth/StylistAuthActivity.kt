@@ -13,6 +13,6 @@ class StylistAuthActivity : AppCompatActivity() {
         binding = ActivityStylistAuthBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // TODO: Implement login and registration logic for stylists.
+        // Deprecated. Stylists now use StylistOnboardingActivity or general SignUpActivity.
     }
 }

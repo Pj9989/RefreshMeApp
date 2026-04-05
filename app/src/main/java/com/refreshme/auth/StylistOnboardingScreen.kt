@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun StylistOnboardingScreen(
+    isLoading: Boolean = false,
     onContinue: (fullName: String, businessName: String) -> Unit
 ) {
     var fullName by remember { mutableStateOf("") }
@@ -42,9 +43,14 @@ fun StylistOnboardingScreen(
 
         Button(
             onClick = { onContinue(fullName, businessName) },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
         ) {
-            Text("Continue")
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+            } else {
+                Text("Continue")
+            }
         }
     }
 }

@@ -44,9 +44,10 @@ class BookingFragment : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Initialize Stripe using the configuration from build.gradle
         PaymentConfiguration.init(
             requireContext(),
-            "pk_test_51SPX9XHjA06voCTJjL1Pm8yDegMEKUPiTBtnm1ikjbV4C3ZvwkQNcxmCaSDZz1YggZ85NxXI40Jcsa52CGHhKu5800TIUmyRND"
+            BuildConfig.STRIPE_PUBLISHABLE_KEY
         )
         paymentSheet = PaymentSheet(this, ::onPaymentSheetResult)
     }

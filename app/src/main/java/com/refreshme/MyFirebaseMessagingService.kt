@@ -1,6 +1,5 @@
 package com.refreshme
 
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -8,7 +7,6 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.edit
@@ -85,7 +83,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         }
         
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info) 
+            .setSmallIcon(R.mipmap.ic_launcher_round) 
             .setContentTitle(title ?: "RefreshMe")
             .setContentText(messageBody ?: "New update available")
             .setAutoCancel(true)
@@ -105,16 +103,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         }
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channels = listOf(
-                NotificationChannel(CHANNEL_URGENT, "Urgent Appointments", NotificationManager.IMPORTANCE_HIGH),
-                NotificationChannel(CHANNEL_CHAT, "Messages", NotificationManager.IMPORTANCE_DEFAULT),
-                NotificationChannel(CHANNEL_DEFAULT, "General Updates", NotificationManager.IMPORTANCE_LOW)
-            )
-            notificationManager.createNotificationChannels(channels)
-        }
-
         notificationManager.notify(System.currentTimeMillis().toInt(), notificationBuilder.build())
     }
 

@@ -12,8 +12,6 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
-import com.google.firebase.auth.FirebaseAuth
-import com.refreshme.auth.SignInActivity
 import com.refreshme.ui.theme.RefreshMeTheme
 
 class DashboardFragment : Fragment() {
@@ -32,20 +30,19 @@ class DashboardFragment : Fragment() {
                     ) {
                         DashboardScreen(
                             onFindStylist = {
-                                // Per the design, this is the primary action. It can lead to a map or a list.
-                                // The map seems like a good "browse" experience.
                                 findNavController().navigate(R.id.action_dashboardFragment_to_mapFragment)
                             },
                             onMyBookings = {
-                                // This is the secondary action, leading to the user's appointments.
                                 findNavController().navigate(R.id.bookingsFragment)
                             },
                             onStylistClick = { stylist ->
-                                // Standardized action call
                                 findNavController().navigate(
                                     R.id.action_dashboard_to_details,
                                     bundleOf("stylistId" to stylist.id)
                                 )
+                            },
+                            onVirtualTryOn = {
+                                findNavController().navigate(R.id.action_dashboardFragment_to_virtualTryOnFragment)
                             }
                         )
                     }

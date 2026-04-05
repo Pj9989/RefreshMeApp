@@ -1,15 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="gold">#D4AF37</color>
-    <color name="gold_gradient_end">#C9A961</color>
-    <color name="black">#000000</color>
-    <color name="stylist_card_background">#3A322A</color>
-    <color name="light_gray">#E0D8C0</color>
+    <!-- Inclusive, Elegant Palette -->
+    <color name="gold">#C5A880</color> <!-- Champagne Gold, less harsh yellow -->
+    <color name="gold_gradient_end">#B6966C</color> <!-- Warm Champagne -->
+    <color name="black">#121212</color> <!-- Softer black -->
+    <color name="stylist_card_background">#1A1A1D</color> <!-- Sleek dark gray -->
+    <color name="light_gray">#E5E5E5</color>
     <color name="gray">#A39E93</color>
     <color name="unselected_icon_gray">#8A857A</color>
     <color name="white">#FFFFFF</color>
     <color name="transparent">#00000000</color>
     <color name="green">#4CAF50</color>
-    <color name="darker_gray">#424242</color> <!-- ADDED: Missing darker_gray color -->
-    <color name="red">#F44336</color> <!-- ADDED: Red color for errors/warnings -->
+    <color name="darker_gray">#424242</color>
+    <color name="red">#F44336</color>
+
+    <color name="onboarding_bg">#FFFFFF</color>
+    <color name="onboarding_text">#121212</color>
+    <color name="onboarding_gray">#888888</color>
 </resources>

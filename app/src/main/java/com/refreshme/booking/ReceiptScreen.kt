@@ -1,6 +1,8 @@
 package com.refreshme.booking
 
 import android.content.Intent
+import android.provider.CalendarContract
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -8,7 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -17,10 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -38,6 +37,10 @@ fun ReceiptScreen(
     val context = LocalContext.current
     val sdf = SimpleDateFormat("MMM dd, yyyy 'at' h:mm a", Locale.getDefault())
     val formattedDate = booking.scheduledStart?.toDate()?.let { sdf.format(it) } ?: "Pending"
+    
+    val basePrice = booking.priceCents.toDouble() / 100.0
+    val travelFee = if (booking.isMobile) 15.0 else 0.0
+    val total = basePrice + travelFee
 
     Scaffold(
         topBar = {
@@ -104,18 +107,16 @@ fun ReceiptScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    val basePrice = booking.priceCents.toDouble() / 100.0
                     ReceiptItemRow(booking.serviceName, basePrice)
                     
                     if (booking.isMobile) {
-                        ReceiptItemRow("Mobile Travel Fee", 15.0) // Mock travel fee
+                        ReceiptItemRow("Mobile Travel Fee", travelFee)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
                     DashedDivider()
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    val total = basePrice + if (booking.isMobile) 15.0 else 0.0
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -167,11 +168,7 @@ fun ReceiptScreen(
 
                 Button(
                     onClick = {
-                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, "Booking ID: ${booking.id}")
-                        }
-                        context.startActivity(Intent.createChooser(sendIntent, "Download Receipt"))
+                        Toast.makeText(context, "Saving PDF...", Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp)

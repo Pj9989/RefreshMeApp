@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -42,6 +43,7 @@ import java.util.Locale
 @Composable
 fun StylistListItem(
     stylist: Stylist,
+    userLocation: com.google.android.gms.maps.model.LatLng? = null,
     onClick: () -> Unit
 ) {
     Card(
@@ -97,7 +99,29 @@ fun StylistListItem(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         
-                        if (stylist.offersAtHomeService == true) {
+                        val stylistLoc = stylist.location
+                        if (userLocation != null && stylistLoc != null) {
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = "Distance",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            val results = FloatArray(1)
+                            android.location.Location.distanceBetween(
+                                userLocation.latitude, userLocation.longitude,
+                                stylistLoc.latitude, stylistLoc.longitude,
+                                results
+                            )
+                            val distanceMiles = (results[0] / 1609.34f).toDouble()
+                            Text(
+                                text = String.format(Locale.US, "%.1f mi", distanceMiles),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp
+                            )
+                        } else if (stylist.offersAtHomeService == true) {
                             Spacer(modifier = Modifier.width(12.dp))
                             Icon(
                                 imageVector = Icons.Default.Home,
@@ -148,6 +172,7 @@ fun StylistListItem(
                 ServiceType.AT_HOME -> R.drawable.ic_house
                 ServiceType.IN_SALON -> R.drawable.ic_store
                 ServiceType.ALL_HOURS -> R.drawable.ic_24_7
+                ServiceType.AFTER_HOURS -> R.drawable.ic_24_7
             }
 
             Icon(

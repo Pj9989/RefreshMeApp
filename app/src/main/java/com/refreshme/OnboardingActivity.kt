@@ -23,15 +23,22 @@ class OnboardingActivity : AppIntro() {
             return
         }
 
+        // Fix for Android 15+ edge-to-edge covering the "Next" and "Skip" buttons
+        setImmersiveMode()
+
+        // Use adaptive colors for light/dark mode support
+        val textColor = ContextCompat.getColor(this, R.color.onboarding_text)
+        val grayColor = ContextCompat.getColor(this, R.color.onboarding_gray)
+
         setIndicatorColor(
-            selectedIndicatorColor = ContextCompat.getColor(this, R.color.black),
-            unselectedIndicatorColor = ContextCompat.getColor(this, R.color.gray)
+            selectedIndicatorColor = textColor,
+            unselectedIndicatorColor = grayColor
         )
         
-        setColorDoneText(ContextCompat.getColor(this, R.color.black))
-        setColorSkipButton(ContextCompat.getColor(this, R.color.black))
-        setNextArrowColor(ContextCompat.getColor(this, R.color.black))
-        setBackArrowColor(ContextCompat.getColor(this, R.color.black))
+        setColorDoneText(textColor)
+        setColorSkipButton(textColor)
+        setNextArrowColor(textColor)
+        setBackArrowColor(textColor)
 
         addSlide(
             AppIntroFragment.createInstance(
@@ -39,8 +46,9 @@ class OnboardingActivity : AppIntro() {
                     title = getString(R.string.onboarding_title_1),
                     description = getString(R.string.onboarding_desc_1),
                     imageDrawable = R.mipmap.ic_launcher_foreground,
-                    titleColorRes = R.color.black,
-                    descriptionColorRes = R.color.black
+                    backgroundColorRes = R.color.onboarding_bg,
+                    titleColorRes = R.color.onboarding_text,
+                    descriptionColorRes = R.color.onboarding_text
                 )
             )
         )
@@ -50,8 +58,9 @@ class OnboardingActivity : AppIntro() {
                     title = getString(R.string.onboarding_title_2),
                     description = getString(R.string.onboarding_desc_2),
                     imageDrawable = R.mipmap.ic_launcher_foreground,
-                    titleColorRes = R.color.black,
-                    descriptionColorRes = R.color.black
+                    backgroundColorRes = R.color.onboarding_bg,
+                    titleColorRes = R.color.onboarding_text,
+                    descriptionColorRes = R.color.onboarding_text
                 )
             )
         )
@@ -61,8 +70,9 @@ class OnboardingActivity : AppIntro() {
                     title = getString(R.string.onboarding_title_3),
                     description = getString(R.string.onboarding_desc_3),
                     imageDrawable = R.mipmap.ic_launcher_foreground,
-                    titleColorRes = R.color.black,
-                    descriptionColorRes = R.color.black
+                    backgroundColorRes = R.color.onboarding_bg,
+                    titleColorRes = R.color.onboarding_text,
+                    descriptionColorRes = R.color.onboarding_text
                 )
             )
         )

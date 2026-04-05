@@ -2,6 +2,7 @@ package com.refreshme.identity
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -54,8 +55,12 @@ class IdentityVerificationActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.verificationProgressBar)
 
         // Register the Stripe Identity result callback
+        val logoUri = Uri.parse("android.resource://$packageName/${R.drawable.ic_launcher_foreground}")
         identityVerificationSheet = IdentityVerificationSheet.create(
             this,
+            IdentityVerificationSheet.Configuration(
+                brandLogo = logoUri
+            ),
             ::onVerificationSheetResult
         )
 
@@ -109,8 +114,8 @@ class IdentityVerificationActivity : AppCompatActivity() {
                     .await()
 
                 val data = result.data as? Map<*, *>
-                val ephemeralKeySecret = data?.get("ephemeralKeySecret") as? String
-                val verificationSessionId = data?.get("verificationSessionId") as? String
+                val ephemeralKeySecret = data?.get("client_secret") as? String
+                val verificationSessionId = data?.get("id") as? String
 
                 if (ephemeralKeySecret != null && verificationSessionId != null) {
                     showLoading(false)
@@ -166,7 +171,7 @@ class IdentityVerificationActivity : AppCompatActivity() {
                 updateUiForStatus(VerificationStatus.FAILED)
                 Toast.makeText(
                     this,
-                    "Verification failed: ${result.cause.message}",
+                    "Verification failed: ${result.throwable.message}",
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -177,6 +182,7 @@ class IdentityVerificationActivity : AppCompatActivity() {
     // UI helpers
     // -------------------------------------------------------------------------
 
+    
     private fun updateUiForStatus(status: VerificationStatus) {
         when (status) {
             VerificationStatus.NOT_STARTED -> {
@@ -225,6 +231,7 @@ class IdentityVerificationActivity : AppCompatActivity() {
             }
         }
     }
+    
 
     private fun showLoading(loading: Boolean) {
         progressBar.visibility = if (loading) View.VISIBLE else View.GONE

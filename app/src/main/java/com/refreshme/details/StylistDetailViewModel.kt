@@ -10,6 +10,7 @@ import com.refreshme.data.Booking
 import com.refreshme.data.BookingRepository
 import com.refreshme.data.Review
 import com.refreshme.data.Stylist
+import com.refreshme.data.Service
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,6 +49,9 @@ class StylistDetailViewModel @Inject constructor(
     private val _reviews = MutableStateFlow<List<Review>>(emptyList())
     val reviews: StateFlow<List<Review>> = _reviews.asStateFlow()
 
+    private val _aiSummary = MutableStateFlow<String?>(null)
+    val aiSummary: StateFlow<String?> = _aiSummary.asStateFlow()
+
     private val _isFavorite = MutableStateFlow(false)
     val isFavorite: StateFlow<Boolean> = _isFavorite.asStateFlow()
 
@@ -57,14 +61,39 @@ class StylistDetailViewModel @Inject constructor(
     private val _nextAvailableSlot = MutableStateFlow<String?>(null)
     val nextAvailableSlot: StateFlow<String?> = _nextAvailableSlot.asStateFlow()
 
+    private val _reportSuccess = MutableStateFlow<Boolean?>(null)
+    val reportSuccess: StateFlow<Boolean?> = _reportSuccess.asStateFlow()
+
     fun getStylist(id: String) {
         if (id.isBlank()) return
         
         viewModelScope.launch {
             _uiState.value = StylistUiState.Loading
             try {
+                // 1. Fetch main profile
                 val document = firestore.collection("stylists").document(id).get().await()
-                val stylist = document.toObject(Stylist::class.java)?.copy(id = document.id)
+                
+                // 2. Fetch services from sub-collection (where bundles are saved)
+                val servicesSnapshot = firestore.collection("stylists").document(id)
+                    .collection("services").get().await()
+                
+                val fetchedServices = servicesSnapshot.documents.mapNotNull { doc ->
+                    doc.toObject(Service::class.java)?.apply { this.id = doc.id }
+                }
+
+                val baseStylist = document.toObject(Stylist::class.java)
+                
+                // Merge services from both sources (sub-collection takes priority)
+                val allServices = if (fetchedServices.isNotEmpty()) {
+                    fetchedServices
+                } else {
+                    baseStylist?.services ?: emptyList()
+                }
+
+                val stylist = baseStylist?.copy(
+                    id = document.id,
+                    services = allServices
+                )
                 
                 if (stylist != null) {
                     _uiState.value = StylistUiState.Success(stylist)
@@ -73,19 +102,46 @@ class StylistDetailViewModel @Inject constructor(
                     
                     val currentUserId = auth.currentUser?.uid
                     if (currentUserId != null) {
-                        // Check if favorite
                         val favDoc = firestore.collection("users").document(currentUserId)
                             .collection("favorites").document(id).get().await()
                         _isFavorite.value = favDoc.exists()
-                        
-                        // Try to find a booking to mark as rated, but we'll allow reviewing anyway
                         checkRatingEligibility(id, currentUserId)
+                    }
+
+                    // Fetch AI Summary if there are reviews
+                    if (_reviews.value.isNotEmpty()) {
+                        fetchAiSummary(id)
                     }
                 } else {
                     _uiState.value = StylistUiState.Error("Stylist not found")
                 }
             } catch (e: Exception) {
                 _uiState.value = StylistUiState.Error(e.localizedMessage ?: "Unknown error")
+            }
+        }
+    }
+
+    private fun fetchAiSummary(stylistId: String) {
+        viewModelScope.launch {
+            try {
+                // First check if we already have a recent summary in Firestore to save tokens/cost
+                val existingSummary = firestore.collection("stylists").document(stylistId)
+                    .collection("aiSummary").document("current").get().await()
+                
+                if (existingSummary.exists()) {
+                    _aiSummary.value = existingSummary.getString("summary")
+                } else {
+                    // Call cloud function to generate new summary
+                    val data = hashMapOf("stylistId" to stylistId)
+                    val result = functions.getHttpsCallable("summarizeStylistReviews")
+                        .call(data)
+                        .await()
+                    
+                    val response = result.data as? Map<*, *>
+                    _aiSummary.value = response?.get("summary") as? String
+                }
+            } catch (e: Exception) {
+                // Silently fail for AI summary
             }
         }
     }
@@ -118,13 +174,11 @@ class StylistDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val booking = _eligibleBooking.value
             if (booking != null && booking.stylistId == stylistId) {
-                // Submit review tied to a specific booking
                 bookingRepository.submitReview(booking, rating, comment).onSuccess {
                     _eligibleBooking.value = null
                     getStylist(stylistId)
                 }
             } else {
-                // Submit review directly to stylist profile (Fallback for testing/direct reviews)
                 bookingRepository.submitDirectReview(stylistId, rating, comment).onSuccess {
                     getStylist(stylistId)
                 }
@@ -148,8 +202,34 @@ class StylistDetailViewModel @Inject constructor(
                 }
                 _isFavorite.value = !isCurrentlyFavorite
             } catch (e: Exception) {
-                // Handle error
             }
         }
+    }
+
+    fun reportStylist(stylistId: String, reason: String, details: String) {
+        val reporterId = auth.currentUser?.uid ?: return
+        
+        viewModelScope.launch {
+            try {
+                val reportData = mapOf(
+                    "reportedUserId" to stylistId,
+                    "reporterId" to reporterId,
+                    "roleReported" to "STYLIST",
+                    "reason" to reason,
+                    "details" to details,
+                    "timestamp" to com.google.firebase.Timestamp.now(),
+                    "status" to "PENDING_REVIEW"
+                )
+                
+                firestore.collection("safety_reports").add(reportData).await()
+                _reportSuccess.value = true
+            } catch (e: Exception) {
+                _reportSuccess.value = false
+            }
+        }
+    }
+    
+    fun resetReportStatus() {
+        _reportSuccess.value = null
     }
 }

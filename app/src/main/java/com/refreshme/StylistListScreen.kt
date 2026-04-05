@@ -1,27 +1,36 @@
 package com.refreshme
 
+import android.Manifest
+import android.annotation.SuppressLint
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import com.refreshme.data.Stylist
 import com.refreshme.ui.components.StylistShimmerItem
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun StylistListRoute(
     styleIds: Array<String>? = null,
@@ -35,6 +44,28 @@ fun StylistListRoute(
     val currentRating by viewModel.ratingFilter.collectAsState()
     val currentPrice by viewModel.priceFilter.collectAsState()
     val isMobileOnly by viewModel.atHomeService.collectAsState()
+    val userLocation by viewModel.userLocation.collectAsState()
+
+    val context = LocalContext.current
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    
+    val locationPermissionsState = rememberMultiplePermissionsState(
+        listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+    )
+
+    LaunchedEffect(locationPermissionsState.allPermissionsGranted) {
+        if (locationPermissionsState.allPermissionsGranted) {
+            try {
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    location?.let {
+                        viewModel.setUserLocation(LatLng(it.latitude, it.longitude))
+                    }
+                }
+            } catch (e: SecurityException) {
+                // Ignore
+            }
+        }
+    }
 
     LaunchedEffect(styleIds) {
         if (!styleIds.isNullOrEmpty()) {
@@ -50,9 +81,11 @@ fun StylistListRoute(
         currentRating = currentRating,
         currentPrice = currentPrice,
         isMobileOnly = isMobileOnly,
+        userLocation = userLocation,
         onSearchQueryChange = viewModel::onSearchQueryChange,
         onStylistClick = onStylistClick,
         onRefresh = { viewModel.loadAllStylists() },
+        onRequestLocation = { locationPermissionsState.launchMultiplePermissionRequest() },
         onApplyFilters = { rating, price, isMobile ->
             viewModel.setRatingFilter(rating)
             viewModel.setPriceFilter(price)
@@ -71,9 +104,11 @@ fun StylistListScreen(
     currentRating: Float,
     currentPrice: Float,
     isMobileOnly: Boolean,
+    userLocation: LatLng?,
     onSearchQueryChange: (String) -> Unit,
     onStylistClick: (Stylist) -> Unit,
     onRefresh: () -> Unit,
+    onRequestLocation: () -> Unit,
     onApplyFilters: (Float, Float, Boolean) -> Unit
 ) {
     var showFilterBottomSheet by remember { mutableStateOf(false) }
@@ -82,8 +117,13 @@ fun StylistListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Find a Stylist") },
+                title = { Text("Find a Professional") },
                 actions = {
+                    if (userLocation == null) {
+                        IconButton(onClick = onRequestLocation) {
+                            Icon(Icons.Default.MyLocation, contentDescription = "Get Location")
+                        }
+                    }
                     IconButton(onClick = { isMapView = !isMapView }) {
                         Icon(
                             imageVector = if (isMapView) Icons.AutoMirrored.Filled.List else Icons.Default.Map,
@@ -112,7 +152,8 @@ fun StylistListScreen(
                     onValueChange = onSearchQueryChange,
                     label = { Text("Search by name or specialty") },
                     modifier = Modifier.weight(1f),
-                    singleLine = true
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
                 )
                 IconButton(onClick = { showFilterBottomSheet = true }) {
                     Icon(
@@ -127,6 +168,7 @@ fun StylistListScreen(
                 if (isMap) {
                     StylistMapView(
                         stylists = stylists,
+                        userLocation = userLocation,
                         onStylistClick = onStylistClick
                     )
                 } else {
@@ -138,6 +180,7 @@ fun StylistListScreen(
                             stylists = stylists,
                             isLoading = isLoading,
                             error = error,
+                            userLocation = userLocation,
                             onRetry = onRefresh,
                             onStylistClick = onStylistClick
                         )
@@ -166,6 +209,7 @@ fun StylistListView(
     stylists: List<Stylist>,
     isLoading: Boolean,
     error: String?,
+    userLocation: LatLng?,
     onRetry: () -> Unit,
     onStylistClick: (Stylist) -> Unit
 ) {
@@ -194,8 +238,9 @@ fun StylistListView(
         if (stylists.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    text = "No stylists found matching your criteria.",
-                    style = MaterialTheme.typography.bodyLarge
+                    text = "No professionals found matching your criteria.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         } else {
@@ -206,29 +251,40 @@ fun StylistListView(
                 items(stylists) { stylist ->
                     StylistListItem(
                         stylist = stylist,
+                        userLocation = userLocation,
                         onClick = { onStylistClick(stylist) }
                     )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
                 }
             }
         }
     }
 }
 
+@SuppressLint("MissingPermission")
 @Composable
 fun StylistMapView(
     stylists: List<Stylist>,
+    userLocation: LatLng?,
     onStylistClick: (Stylist) -> Unit
 ) {
-    val defaultLocation = LatLng(34.0522, -118.2437) // LA
+    val defaultLocation = LatLng(35.2271, -80.8431) // Charlotte, NC as default
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(defaultLocation, 10f)
+        position = CameraPosition.fromLatLngZoom(userLocation ?: defaultLocation, 12f)
+    }
+    
+    // Auto-center map when user location is received
+    LaunchedEffect(userLocation) {
+        userLocation?.let {
+            cameraPositionState.position = CameraPosition.fromLatLngZoom(it, 12f)
+        }
     }
 
     GoogleMap(
         modifier = Modifier.fillMaxSize(),
         cameraPositionState = cameraPositionState,
-        uiSettings = MapUiSettings(zoomControlsEnabled = false)
+        uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = true),
+        properties = MapProperties(isMyLocationEnabled = userLocation != null)
     ) {
         stylists.forEach { stylist ->
             stylist.location?.let { loc ->

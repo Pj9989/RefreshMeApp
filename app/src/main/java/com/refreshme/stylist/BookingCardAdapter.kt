@@ -38,6 +38,10 @@ class BookingCardAdapter(
         private val bookingLocation: TextView = itemView.findViewById(R.id.bookingLocation)
         private val serviceDetails: TextView = itemView.findViewById(R.id.serviceDetails)
         private val priceText: TextView = itemView.findViewById(R.id.priceText)
+        
+        // Tags
+        private val tagSilent: TextView = itemView.findViewById(R.id.tagSilent)
+        private val tagSensory: TextView = itemView.findViewById(R.id.tagSensory)
 
         // Existing buttons
         private val btnStart: Button = itemView.findViewById(R.id.btnStart)
@@ -68,6 +72,10 @@ class BookingCardAdapter(
             }
 
             serviceDetails.text = booking.serviceName
+            
+            // Show or hide modern salon tags
+            tagSilent.visibility = if (booking.isSilentAppointment) View.VISIBLE else View.GONE
+            tagSensory.visibility = if (booking.isSensoryFriendly) View.VISIBLE else View.GONE
 
             // --- Configure buttons based on booking status ---
             

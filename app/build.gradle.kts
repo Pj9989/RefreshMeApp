@@ -27,9 +27,9 @@ if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
 
-// Provided Sandbox/Test Credentials
-val DEFAULT_STRIPE_PUB_KEY = "pk_test_51SPX9XHjA06voCTJjL1Pm8yDegMEKUPiTBtnm1ikjbV4C3ZvwkQNcxmCaSDZz1YggZ85NxXI40Jcsa52CGHhKu5800TIUmyRND"
-val DEFAULT_STRIPE_PRICE_ID = "price_1T70UWHjA06voCTJuBX9ZMvw"
+// Provided Sandbox/Test Credentials - Ensure these are correct for your Stripe account
+val DEFAULT_STRIPE_PUB_KEY = "pk_live_51SPX9JQgZH4F30tQK5oSYs2lkbu5JnPQjGGZJwVYyFash0HKLGCmgzPoJ1HMnhofVIL7vFqr658VjKIp2uQe9YxF007oV37c7C"
+val DEFAULT_STRIPE_PRICE_ID = "price_1TIUxyQgZH4F30tQGebx5z7J"
 
 android {
     namespace = "com.refreshme"
@@ -50,15 +50,16 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.refreshme.barber"
+        applicationId = "com.refreshmeapp.stylist"
         minSdk = 24
         targetSdk = 35
-        versionCode = 47
-        versionName = "2.9.6"
+        versionCode = 51
+        versionName = "3.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
+        buildConfigField("boolean", "IS_INTERNAL_TESTING", "false")
     }
 
     buildTypes {
@@ -77,9 +78,24 @@ android {
             buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
             buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"$stripeKey\"")
             buildConfigField("String", "STRIPE_PRICE_ID", "\"$priceId\"")
+            buildConfigField("String", "REPLICATE_API_KEY", "\"${localProperties.getProperty("REPLICATE_API_KEY", "")}\"")
             ndk {
                 debugSymbolLevel = "FULL"
             }
+        }
+        create("internalTesting") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            buildConfigField("boolean", "IS_INTERNAL_TESTING", "true")
+            signingConfig = signingConfigs.getByName("release")
+            
+            val stripeKey = localProperties.getProperty("STRIPE_PUBLISHABLE_KEY") ?: DEFAULT_STRIPE_PUB_KEY
+            val priceId = localProperties.getProperty("STRIPE_PRICE_ID") ?: DEFAULT_STRIPE_PRICE_ID
+            
+            buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
+            buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"$stripeKey\"")
+            buildConfigField("String", "STRIPE_PRICE_ID", "\"$priceId\"")
+            buildConfigField("String", "REPLICATE_API_KEY", "\"${localProperties.getProperty("REPLICATE_API_KEY", "")}\"")
         }
         debug {
             isMinifyEnabled = false
@@ -91,6 +107,7 @@ android {
             buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
             buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"$stripeKey\"")
             buildConfigField("String", "STRIPE_PRICE_ID", "\"$priceId\"")
+            buildConfigField("String", "REPLICATE_API_KEY", "\"${localProperties.getProperty("REPLICATE_API_KEY", "")}\"")
         }
     }
     compileOptions {
@@ -127,7 +144,7 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.2.1")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
-    implementation(platform("com.google.firebase:firebase-bom:34.10.0"))
+    implementation(platform("com.google.firebase:firebase-bom:34.11.0"))
     implementation("com.google.firebase:firebase-common")
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-auth")
@@ -145,6 +162,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-base:18.10.0")
     implementation("com.google.android.gms:play-services-auth:21.5.1")
     implementation("com.google.mlkit:face-detection:16.1.7")
+    implementation("androidx.biometric:biometric:1.1.0")
     
     val cameraxVersion = "1.4.1"
     implementation("androidx.camera:camera-core:$cameraxVersion")

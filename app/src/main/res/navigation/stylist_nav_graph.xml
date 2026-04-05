@@ -25,6 +25,9 @@
         <action
             android:id="@+id/action_stylistDashboardFragment_to_stylistProfileFragment"
             app:destination="@id/stylistProfileFragment" />
+        <action
+            android:id="@+id/action_stylistDashboardFragment_to_stylistWaitlistFragment"
+            app:destination="@id/stylistWaitlistFragment" />
     </fragment>
 
     <fragment
@@ -93,5 +96,10 @@
             app:argType="boolean"
             android:defaultValue="false" />
     </fragment>
+
+    <fragment
+        android:id="@+id/stylistWaitlistFragment"
+        android:name="com.refreshme.stylist.StylistWaitlistFragment"
+        android:label="Waitlist" />
 
 </navigation>

@@ -25,6 +25,9 @@
         <action
             android:id="@+id/action_stylistDashboardFragment_to_setAvailabilityFragment"
             app:destination="@id/setAvailabilityFragment" />
+        <action
+            android:id="@+id/action_stylistDashboardFragment_to_stylistWaitlistFragment"
+            app:destination="@id/stylistWaitlistFragment" />
     </fragment>
     
     <fragment
@@ -95,4 +98,9 @@
             app:argType="string"
             android:defaultValue="" />
     </fragment>
+
+    <fragment
+        android:id="@+id/stylistWaitlistFragment"
+        android:name="com.refreshme.stylist.StylistWaitlistFragment"
+        android:label="Stylist Waitlist" />
 </navigation>

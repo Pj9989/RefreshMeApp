@@ -4,12 +4,12 @@ import android.content.Context
 import android.content.Intent
 import android.view.Menu
 import android.view.View
-import androidx.appcompat.app.AppCompatActivity // ADDED: Required for getDashboardActivity return type
+import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.refreshme.CustomerDashboardActivity
+import com.refreshme.MainActivity
+import com.refreshme.salon.SalonOwnerDashboardActivity
 import com.refreshme.stylist.StylistDashboardActivity
-import kotlin.reflect.KClass
 
 /**
  * Manages role-based navigation and feature visibility
@@ -26,6 +26,7 @@ object RoleBasedNavigationManager {
     enum class UserRole {
         CUSTOMER,
         STYLIST,
+        SALON_OWNER,
         UNKNOWN
     }
     
@@ -35,8 +36,9 @@ object RoleBasedNavigationManager {
     fun getDashboardActivity(role: UserRole): Class<out AppCompatActivity> {
         return when (role) {
             UserRole.STYLIST -> StylistDashboardActivity::class.java
-            UserRole.CUSTOMER -> CustomerDashboardActivity::class.java
-            UserRole.UNKNOWN -> CustomerDashboardActivity::class.java // Fallback to customer dashboard
+            UserRole.SALON_OWNER -> SalonOwnerDashboardActivity::class.java 
+            UserRole.CUSTOMER -> MainActivity::class.java
+            UserRole.UNKNOWN -> MainActivity::class.java // Fallback to customer dashboard
         }
     }
 
@@ -58,6 +60,7 @@ object RoleBasedNavigationManager {
                 callback(
                     when (role) {
                         "STYLIST" -> UserRole.STYLIST
+                        "SALON_OWNER" -> UserRole.SALON_OWNER
                         "CUSTOMER" -> UserRole.CUSTOMER
                         else -> UserRole.UNKNOWN
                     }
@@ -74,7 +77,8 @@ object RoleBasedNavigationManager {
     fun navigateToDashboard(context: Context, role: UserRole) {
         val intent = when (role) {
             UserRole.STYLIST -> Intent(context, StylistDashboardActivity::class.java)
-            UserRole.CUSTOMER -> Intent(context, CustomerDashboardActivity::class.java)
+            UserRole.SALON_OWNER -> Intent(context, SalonOwnerDashboardActivity::class.java)
+            UserRole.CUSTOMER -> Intent(context, MainActivity::class.java)
             UserRole.UNKNOWN -> return
         }
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -82,19 +86,18 @@ object RoleBasedNavigationManager {
     }
 
     /**
-     * Hide customer-only menu items for stylists
+     * Hide customer-only menu items for stylists and owners
      */
     fun filterMenuForRole(menu: Menu, role: UserRole) {
         when (role) {
             UserRole.STYLIST -> {
                 // Hide customer-only menu items
-                // Example: menu.findItem(R.id.menu_find_stylist)?.isVisible = false
-                // Example: menu.findItem(R.id.menu_browse_stylists)?.isVisible = false
+            }
+            UserRole.SALON_OWNER -> {
+                // Hide customer and stylist-only menu items
             }
             UserRole.CUSTOMER -> {
-                // Hide stylist-only menu items
-                // Example: menu.findItem(R.id.menu_go_online)?.isVisible = false
-                // Example: menu.findItem(R.id.menu_manage_services)?.isVisible = false
+                // Hide stylist and owner-only menu items
             }
             UserRole.UNKNOWN -> {
                 // Hide all role-specific items
@@ -103,14 +106,14 @@ object RoleBasedNavigationManager {
     }
 
     /**
-     * Hide customer-only views for stylists
+     * Hide customer-only views for stylists/owners
      */
     fun hideCustomerOnlyViews(vararg views: View) {
         views.forEach { it.visibility = View.GONE }
     }
 
     /**
-     * Hide stylist-only views for customers
+     * Hide stylist-only views for customers/owners
      */
     fun hideStylistOnlyViews(vararg views: View) {
         views.forEach { it.visibility = View.GONE }
@@ -120,6 +123,7 @@ object RoleBasedNavigationManager {
      * Check if user has permission to access a feature
      */
     fun hasPermission(userRole: UserRole, requiredRole: UserRole): Boolean {
+        // Salon Owner typically has access to Stylist features too, but keeping it strict for now
         return userRole == requiredRole
     }
 
@@ -145,6 +149,15 @@ object RoleBasedNavigationManager {
     }
 
     /**
+     * Features that are salon-owner-only
+     */
+    object SalonOwnerOnlyFeatures {
+        const val MANAGE_STAFF = "manage_staff"
+        const val VIEW_SHOP_ANALYTICS = "view_shop_analytics"
+        const val ROUTE_CLIENTS = "route_clients"
+    }
+
+    /**
      * Check if a feature is available for the user's role
      */
     fun isFeatureAvailable(feature: String, userRole: UserRole): Boolean {
@@ -154,6 +167,17 @@ object RoleBasedNavigationManager {
                     StylistOnlyFeatures.GO_ONLINE,
                     StylistOnlyFeatures.MANAGE_SERVICES,
                     StylistOnlyFeatures.SET_AVAILABILITY,
+                    StylistOnlyFeatures.VIEW_EARNINGS,
+                    StylistOnlyFeatures.MANAGE_BOOKINGS
+                )
+            }
+            UserRole.SALON_OWNER -> {
+                feature in listOf(
+                    SalonOwnerOnlyFeatures.MANAGE_STAFF,
+                    SalonOwnerOnlyFeatures.VIEW_SHOP_ANALYTICS,
+                    SalonOwnerOnlyFeatures.ROUTE_CLIENTS,
+                    // Optionally grant them access to Stylist features too
+                    StylistOnlyFeatures.MANAGE_SERVICES,
                     StylistOnlyFeatures.VIEW_EARNINGS,
                     StylistOnlyFeatures.MANAGE_BOOKINGS
                 )

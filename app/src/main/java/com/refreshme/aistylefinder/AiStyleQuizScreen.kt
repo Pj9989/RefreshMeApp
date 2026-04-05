@@ -9,7 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +26,7 @@ fun AiStyleQuizScreen(
     onBack: () -> Unit,
     onScanFace: () -> Unit,
     onSubmit: () -> Unit,
+    onVirtualTryOn: () -> Unit = {},
     viewModel: AiStyleQuizViewModel = viewModel()
 ) {
     val selectedGender by viewModel.selectedGender.collectAsState()
@@ -54,40 +55,67 @@ fun AiStyleQuizScreen(
             )
         },
         bottomBar = {
-            Button(
-                onClick = { 
-                    if (!isProcessing) {
-                        isProcessing = true
-                        onSubmit()
-                    }
-                },
-                // Disable button immediately when processing
-                enabled = canSubmit && !isProcessing,
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
-                    .height(56.dp),
-                shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
             ) {
-                if (isProcessing) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onPrimary, 
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
+                // New Virtual Try-On Button
+                OutlinedButton(
+                    onClick = { 
+                        if (!isProcessing) {
+                            onVirtualTryOn()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .padding(bottom = 8.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
                     )
-                } else {
-                    Text("Get Recommendations", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                ) {
+                    Icon(Icons.Default.Face, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Try Virtual AI Hairstyles", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+                
+                // Existing Recommendations Button
+                Button(
+                    onClick = { 
+                        if (!isProcessing) {
+                            isProcessing = true
+                            onSubmit()
+                        }
+                    },
+                    enabled = canSubmit && !isProcessing,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    if (isProcessing) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.onPrimary, 
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Get Recommendations", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding),
-            contentPadding = PaddingValues(20.dp),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 80.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             item {

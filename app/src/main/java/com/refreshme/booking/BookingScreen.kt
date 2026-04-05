@@ -45,9 +45,14 @@ fun BookingScreen(
 ) {
     val stylist by viewModel.stylist.collectAsState()
     val selectedService by viewModel.selectedService.collectAsState()
+    val selectedAddOns by viewModel.selectedAddOns.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
     val bookingState by viewModel.bookingState.collectAsState()
     val waitlistState by viewModel.waitlistState.collectAsState()
+    
+    val isEvent by viewModel.isEvent.collectAsState()
+    val groupSize by viewModel.groupSize.collectAsState()
+    val eventType by viewModel.eventType.collectAsState()
     
     val scrollState = rememberScrollState()
 
@@ -63,7 +68,9 @@ fun BookingScreen(
     LaunchedEffect(bookingState) {
         if (bookingState is BookingState.RequiresPayment) {
             val state = bookingState as BookingState.RequiresPayment
-            onPaymentRequired(state.clientSecret, state.depositAmount ?: ((selectedService?.price ?: 0.0) * 0.2))
+            val basePrice = (selectedService?.price ?: 0.0) + selectedAddOns.sumOf { it.price }
+            val totalPrice = basePrice * groupSize
+            onPaymentRequired(state.clientSecret, state.depositAmount ?: (totalPrice * 0.2))
         } else if (bookingState is BookingState.Success) {
             onBookingSuccess()
         }
@@ -72,13 +79,11 @@ fun BookingScreen(
     LaunchedEffect(waitlistState) {
         if (waitlistState is WaitlistState.Success) {
             showWaitlistDialog = false
-            // Show a success message (you could use a Snackbar here)
             viewModel.resetWaitlistState()
         }
     }
 
     if (showWaitlistDialog) {
-        // DatePicker State for the Waitlist
         val datePickerState = rememberDatePickerState()
         
         DatePickerDialog(
@@ -153,7 +158,7 @@ fun BookingScreen(
                 SectionTitle("Service")
                 if (selectedService != null && selectedService?.name?.isNotBlank() == true) {
                     ServiceSummaryCard(selectedService!!) {
-                        viewModel.selectService(Service()) // Trigger reset
+                        viewModel.selectService(Service()) 
                     }
                 } else {
                     val services = stylist?.services ?: emptyList()
@@ -175,11 +180,11 @@ fun BookingScreen(
                             }
                         }
                     } else {
-                        // If truly no services, show the auto-generated one if it exists
                         Surface(
-                            modifier = Modifier.fillMaxWidth().clickable { 
+                            onClick = { 
                                 viewModel.selectService(Service(name = "General Consultation", price = 45.0, durationMinutes = 30))
                             },
+                            modifier = Modifier.fillMaxWidth(),
                             color = MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
@@ -188,6 +193,60 @@ fun BookingScreen(
                                 Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                 Spacer(Modifier.width(12.dp))
                                 Text("Add General Consultation ($45.00)", color = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+
+                // 2.5 Group & Special Event
+                SectionTitle("Booking Type")
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Groups, 
+                                    contentDescription = null, 
+                                    tint = if (isEvent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text("Group or Special Event", fontWeight = FontWeight.Bold)
+                            }
+                            Switch(
+                                checked = isEvent,
+                                onCheckedChange = { viewModel.toggleEventBooking(it) }
+                            )
+                        }
+                        
+                        AnimatedVisibility(visible = isEvent) {
+                            Column {
+                                Spacer(Modifier.height(16.dp))
+                                Text("Group Size: $groupSize", style = MaterialTheme.typography.bodyMedium)
+                                Slider(
+                                    value = groupSize.toFloat(),
+                                    onValueChange = { viewModel.setGroupSize(it.toInt()) },
+                                    valueRange = 1f..10f,
+                                    steps = 8
+                                )
+                                
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedTextField(
+                                    value = eventType,
+                                    onValueChange = { viewModel.setEventType(it) },
+                                    label = { Text("Event Type (e.g., Wedding, Party)") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
                             }
                         }
                     }
@@ -211,9 +270,9 @@ fun BookingScreen(
                 
                 Spacer(Modifier.height(16.dp))
 
-                // Cancellation Roulette / Waitlist Option
                 Surface(
-                    modifier = Modifier.fillMaxWidth().clickable { showWaitlistDialog = true },
+                    onClick = { showWaitlistDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
                     shape = RoundedCornerShape(16.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
@@ -231,9 +290,57 @@ fun BookingScreen(
                 
                 Spacer(Modifier.height(24.dp))
 
+                // 3.5 Modern Salon Experience
+                SectionTitle("Preferences")
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                ) {
+                    val isSilentAppointment by viewModel.isSilentAppointment.collectAsState()
+                    val isSensoryFriendly by viewModel.isSensoryFriendly.collectAsState()
+
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Silent Appointment", fontWeight = FontWeight.Bold)
+                                Text("Skip the small talk and just relax.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(
+                                checked = isSilentAppointment,
+                                onCheckedChange = { viewModel.toggleSilentAppointment(it) }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Sensory Friendly", fontWeight = FontWeight.Bold)
+                                Text("Request lower music/lights if possible.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(
+                                checked = isSensoryFriendly,
+                                onCheckedChange = { viewModel.toggleSensoryFriendly(it) }
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+
                 // 4. Payment Breakdown
                 SectionTitle("Payment Breakdown")
-                PaymentBreakdownCard(price = selectedService?.price ?: 0.0)
+                val basePrice = (selectedService?.price ?: 0.0) + selectedAddOns.sumOf { it.price }
+                PaymentBreakdownCard(price = basePrice * groupSize, isGroup = groupSize > 1)
                 Spacer(Modifier.height(32.dp))
 
                 // 5. Confirm Button
@@ -367,7 +474,8 @@ fun ServiceSummaryCard(service: Service, onClear: () -> Unit) {
 @Composable
 fun DateTimeSelectionCard(selectedDate: Date?, onSelectClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier.clickable { onSelectClick() },
+        onClick = onSelectClick,
+        modifier = modifier,
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(
@@ -405,9 +513,8 @@ fun DateTimeSelectionCard(selectedDate: Date?, onSelectClick: () -> Unit, modifi
 @Composable
 fun AsapButton(onClick: () -> Unit) {
     Surface(
-        modifier = Modifier
-            .height(IntrinsicSize.Min) 
-            .clickable { onClick() },
+        onClick = onClick,
+        modifier = Modifier.height(IntrinsicSize.Min),
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
@@ -429,7 +536,7 @@ fun AsapButton(onClick: () -> Unit) {
 }
 
 @Composable
-fun PaymentBreakdownCard(price: Double) {
+fun PaymentBreakdownCard(price: Double, isGroup: Boolean = false) {
     val deposit = price * 0.20
     val remaining = price - deposit
     
@@ -439,7 +546,7 @@ fun PaymentBreakdownCard(price: Double) {
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            PriceRow("Service Price", price)
+            PriceRow(if (isGroup) "Total Group Price" else "Service Price", price)
             Spacer(Modifier.height(8.dp))
             PriceRow("Deposit (20% paid now)", deposit, color = Color(0xFF4CAF50), isBold = true)
             Spacer(Modifier.height(8.dp))

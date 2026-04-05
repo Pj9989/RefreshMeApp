@@ -7,5 +7,6 @@ import kotlinx.parcelize.Parcelize
 enum class ServiceType : Parcelable {
     AT_HOME,
     IN_SALON,
-    ALL_HOURS
+    ALL_HOURS,
+    AFTER_HOURS // Late night or 24/7 availability
 }

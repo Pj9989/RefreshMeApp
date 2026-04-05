@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -44,7 +45,9 @@ class UserProfileFragment : Fragment() {
                         UserProfileScreen(
                             viewModel = viewModel,
                             onEditProfile = {
-                                startActivity(Intent(activity, EditProfileActivity::class.java))
+                                val intent = Intent(activity, EditProfileActivity::class.java)
+                                intent.putExtra("IS_STYLIST", false)
+                                startActivity(intent)
                             },
                             onSignOut = {
                                 auth.signOut()
@@ -52,8 +55,24 @@ class UserProfileFragment : Fragment() {
                                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                                 startActivity(intent)
                             },
+                            onViewSavedStylists = {
+                                findNavController().navigate(R.id.favoritesFragment)
+                            },
                             onViewBookings = {
                                 findNavController().navigate(R.id.bookingsFragment)
+                            },
+                            onDeleteAccount = {
+                                val user = auth.currentUser
+                                user?.delete()?.addOnCompleteListener { task ->
+                                    if (task.isSuccessful) {
+                                        Toast.makeText(requireContext(), "Account deleted successfully", Toast.LENGTH_SHORT).show()
+                                        val intent = Intent(activity, SignInActivity::class.java)
+                                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                        startActivity(intent)
+                                    } else {
+                                        Toast.makeText(requireContext(), "Failed to delete account. You may need to sign out and sign in again before deleting.", Toast.LENGTH_LONG).show()
+                                    }
+                                }
                             }
                         )
                     }

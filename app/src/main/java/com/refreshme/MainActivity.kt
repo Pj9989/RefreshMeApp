@@ -7,10 +7,13 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
@@ -59,6 +62,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
+        // Edge-to-edge handling: only apply top inset to root, let bottom nav handle its own bottom inset
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(v.paddingLeft, systemBars.top, v.paddingRight, 0)
+            insets
+        }
+        
         // Handle notification if activity was started from one
         handleIntent(intent)
     }
@@ -71,14 +81,21 @@ class MainActivity : AppCompatActivity() {
     private fun handleIntent(intent: Intent?) {
         val type = intent?.getStringExtra("notification_type")
         val targetId = intent?.getStringExtra("target_id") ?: intent?.getStringExtra("chat_id")
+        val stylistId = intent?.getStringExtra("stylistId")
         
-        Log.d("MainActivity", "Handling intent: type=$type, targetId=$targetId")
+        Log.d("MainActivity", "Handling intent: type=$type, targetId=$targetId, stylistId=$stylistId")
         
         if (type == "chat" && targetId != null) {
             // Navigate to chat fragment
             navController.navigate(
                 R.id.chatFragment,
                 bundleOf("otherUserId" to targetId)
+            )
+        } else if (stylistId != null) {
+            // Navigate to stylist details from rebooking reminder
+            navController.navigate(
+                R.id.stylistDetailsFragment,
+                bundleOf("stylistId" to stylistId)
             )
         }
     }

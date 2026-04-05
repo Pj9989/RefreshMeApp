@@ -33,6 +33,7 @@ class StylistRepository @Inject constructor(
     suspend fun getVerifiedStylists(): Result<List<Stylist>> {
         return try {
             val snapshot = firestore.collection("stylists")
+                .whereEqualTo("verified", true)
                 .get()
                 .await()
             

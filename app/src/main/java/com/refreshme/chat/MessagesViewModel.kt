@@ -5,18 +5,23 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.refreshme.data.Conversation
-import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import javax.inject.Inject
+
+private fun String.toTitleCase(): String {
+    return this.trim().split("\\s+".toRegex()).joinToString(" ") { word ->
+        word.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+    }
+}
 
 data class MessagesUiState(
     val conversations: List<Conversation> = emptyList(),
@@ -24,80 +29,61 @@ data class MessagesUiState(
     val isAuthenticated: Boolean = true
 )
 
-@HiltViewModel
-class MessagesViewModel @Inject constructor(
-    private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
-) : ViewModel() {
+class MessagesViewModel : ViewModel() {
+
+    private val auth = FirebaseAuth.getInstance()
+    private val firestore = FirebaseFirestore.getInstance()
 
     private val _uiState = MutableStateFlow(MessagesUiState())
     val uiState: StateFlow<MessagesUiState> = _uiState.asStateFlow()
 
-    private var authStateListener: FirebaseAuth.AuthStateListener? = null
-    val currentUserId: String? get() = auth.currentUser?.uid
+    private var messagesJob: Job? = null
+    val currentUserId: String?
+        get() = auth.currentUser?.uid
 
     init {
-        setupAuthStateListener()
+        startListening()
     }
 
-    private fun setupAuthStateListener() {
-        val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
-            val currentUser = firebaseAuth.currentUser
-            _uiState.value = _uiState.value.copy(isAuthenticated = currentUser != null)
-            
-            if (currentUser != null) {
-                observeConversations(currentUser.uid)
-            } else {
-                _uiState.value = _uiState.value.copy(conversations = emptyList(), isLoading = false)
-            }
+    private fun startListening() {
+        val currentUserId = auth.currentUser?.uid
+        if (currentUserId == null) {
+            _uiState.value = MessagesUiState(isAuthenticated = false, isLoading = false)
+            return
         }
-        auth.addAuthStateListener(listener)
-        authStateListener = listener
-    }
 
-    private fun observeConversations(currentUserId: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            
-            getConversationsFlow(currentUserId)
-                .catch { e ->
-                    Log.e("MessagesViewModel", "Error fetching conversations", e)
-                    _uiState.value = _uiState.value.copy(isLoading = false)
-                }
-                .collect { rawConversations ->
-                    // Sort descending by last message time (newest at top), handling nulls gracefully
-                    val sortedRaw = rawConversations.sortedByDescending { it.lastMessageTime?.time ?: 0L }
-                    
-                    val updatedConversations = sortedRaw.map { conv ->
-                        fetchUserDetails(conv)
-                    }
-                    _uiState.value = _uiState.value.copy(
-                        conversations = updatedConversations,
-                        isLoading = false
-                    )
-                }
+        messagesJob?.cancel()
+        messagesJob = viewModelScope.launch {
+            getConversationsFlow(currentUserId).collect { conversations ->
+                // Fetch other user's name and image for each conversation
+                val detailedConversations = conversations.map { fetchUserDetails(it) }
+                _uiState.value = MessagesUiState(
+                    conversations = detailedConversations.sortedByDescending { it.lastMessageTime },
+                    isLoading = false
+                )
+            }
         }
     }
 
     private fun getConversationsFlow(currentUserId: String): Flow<List<Conversation>> = callbackFlow {
-        val listener = firestore.collection("chats")
-            .whereArrayContains("participants", currentUserId)
-            .addSnapshotListener { snapshots, e ->
-                if (e != null) {
-                    close(e)
-                    return@addSnapshotListener
+        val conversationsRef = firestore.collection("users").document(currentUserId)
+            .collection("conversations")
+            .orderBy("lastMessageTime", Query.Direction.DESCENDING)
+
+        val listener = conversationsRef.addSnapshotListener { snapshot, e ->
+            if (e != null) {
+                Log.w("MessagesViewModel", "Listen failed.", e)
+                trySend(emptyList())
+                return@addSnapshotListener
+            }
+
+            if (snapshot != null) {
+                val conversations = snapshot.documents.mapNotNull { doc ->
+                    doc.toObject(Conversation::class.java)?.copy(id = doc.id)
                 }
-
-                val conversations = snapshots?.mapNotNull { document ->
-                    val conversation = document.toObject(Conversation::class.java).copy(id = document.id)
-                    val otherUserId = conversation.participants.firstOrNull { it != currentUserId }
-                    if (otherUserId != null) {
-                        conversation.copy(otherUserId = otherUserId)
-                    } else null
-                } ?: emptyList()
-
                 trySend(conversations)
             }
+        }
 
         awaitClose { listener.remove() }
     }
@@ -106,14 +92,20 @@ class MessagesViewModel @Inject constructor(
         return try {
             val stylistDoc = firestore.collection("stylists").document(conversation.otherUserId).get().await()
             if (stylistDoc.exists()) {
+                val name = stylistDoc.getString("name")?.takeIf { it.isNotBlank() }
+                val email = stylistDoc.getString("email")
+                val fallback = email?.substringBefore("@") ?: "Stylist"
                 conversation.copy(
-                    otherUserName = stylistDoc.getString("name") ?: "Stylist",
+                    otherUserName = (name ?: fallback).toTitleCase(),
                     otherUserProfileImageUrl = stylistDoc.getString("profileImageUrl") ?: ""
                 )
             } else {
                 val userDoc = firestore.collection("users").document(conversation.otherUserId).get().await()
+                val name = userDoc.getString("name")?.takeIf { it.isNotBlank() }
+                val email = userDoc.getString("email")
+                val fallback = email?.substringBefore("@") ?: "User"
                 conversation.copy(
-                    otherUserName = userDoc.getString("name") ?: "User",
+                    otherUserName = (name ?: fallback).toTitleCase(),
                     otherUserProfileImageUrl = userDoc.getString("profileImageUrl") ?: ""
                 )
             }
@@ -123,8 +115,7 @@ class MessagesViewModel @Inject constructor(
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        authStateListener?.let { auth.removeAuthStateListener(it) }
+    fun stopListening() {
+        messagesJob?.cancel()
     }
 }

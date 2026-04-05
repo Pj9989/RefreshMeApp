@@ -36,9 +36,11 @@ class StylistListScreenTest {
                     currentRating = 0f,
                     currentPrice = 1000f,
                     isMobileOnly = false,
+                    userLocation = null,
                     onSearchQueryChange = {},
                     onStylistClick = {},
                     onRefresh = {},
+                    onRequestLocation = {},
                     onApplyFilters = { _, _, _ -> }
                 )
             }
@@ -68,9 +70,11 @@ class StylistListScreenTest {
                     currentRating = 0f,
                     currentPrice = 1000f,
                     isMobileOnly = false,
+                    userLocation = null,
                     onSearchQueryChange = { searchQuery.value = it },
                     onStylistClick = {},
                     onRefresh = {},
+                    onRequestLocation = {},
                     onApplyFilters = { _, _, _ -> }
                 )
             }

@@ -1,5 +1,6 @@
 package com.refreshme.stylist
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -16,7 +17,25 @@ class StylistMainViewModel : ViewModel() {
     private val _isOnline = MutableStateFlow(false)
     val isOnline: StateFlow<Boolean> = _isOnline
 
-    // TODO: Fetch stylist's initial online status from Firestore.
+    init {
+        fetchInitialOnlineStatus()
+    }
+
+    private fun fetchInitialOnlineStatus() {
+        viewModelScope.launch {
+            val userId = auth.currentUser?.uid ?: return@launch
+            firestore.collection("stylists").document(userId).get()
+                .addOnSuccessListener { document ->
+                    if (document.exists()) {
+                        val isOnlineStatus = document.getBoolean("isOnline") ?: false
+                        _isOnline.value = isOnlineStatus
+                    }
+                }
+                .addOnFailureListener { e ->
+                    Log.e("StylistMainViewModel", "Failed to fetch initial online status", e)
+                }
+        }
+    }
 
     fun setOnlineStatus(isOnline: Boolean) {
         viewModelScope.launch {
@@ -26,8 +45,8 @@ class StylistMainViewModel : ViewModel() {
                 .addOnSuccessListener {
                     _isOnline.value = isOnline
                 }
-                .addOnFailureListener {
-                    // TODO: Handle failure to update status.
+                .addOnFailureListener { e ->
+                    Log.e("StylistMainViewModel", "Failed to update online status", e)
                 }
         }
     }

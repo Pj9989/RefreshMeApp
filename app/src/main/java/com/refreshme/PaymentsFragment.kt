@@ -19,7 +19,7 @@ class PaymentsFragment : Fragment() {
     ): View {
         _binding = FragmentPaymentsBinding.inflate(inflater, container, false)
 
-        // TODO: Payment integration here
+        // Deprecated. Payment integration has migrated to Stripe Connect in ManagePayoutsActivity.
 
         return binding.root
     }

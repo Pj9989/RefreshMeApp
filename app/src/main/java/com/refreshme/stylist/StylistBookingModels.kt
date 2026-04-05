@@ -16,7 +16,9 @@ data class StylistBooking(
     val location: String,
     val status: BookingStatus,
     val notes: String,
-    val createdAt: Timestamp? = null
+    val createdAt: Timestamp? = null,
+    val isSilentAppointment: Boolean = false,
+    val isSensoryFriendly: Boolean = false
 ) {
     /**
      * Format booking time for display

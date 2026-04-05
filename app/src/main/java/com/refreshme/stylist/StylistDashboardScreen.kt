@@ -1,6 +1,7 @@
 package com.refreshme.stylist
 
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +56,7 @@ fun StylistDashboardScreen(
     val stats by viewModel.stats.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
     val isMobile by viewModel.isMobile.collectAsState()
+    val offersEvents by viewModel.offersEvents.collectAsState()
     val currentFlashDeal by viewModel.currentFlashDeal.collectAsState()
     val stylistName by viewModel.stylistName.collectAsState()
     val profileImageUrl by viewModel.profileImageUrl.collectAsState()
@@ -65,9 +68,14 @@ fun StylistDashboardScreen(
 
     var showFlashDealDialog by remember { mutableStateOf(false) }
     var showReviewsDialog by remember { mutableStateOf(false) }
+    var showSafetyBanner by remember { mutableStateOf(true) }
 
     val accentColor = MaterialTheme.colorScheme.primary
     val flashColor = MaterialTheme.colorScheme.error
+
+    val displayName = remember(stylistName) {
+        stylistName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+    }
 
     Box(
         modifier = Modifier
@@ -86,10 +94,13 @@ fun StylistDashboardScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    val fallbackPainter = rememberVectorPainter(Icons.Default.Person)
                     AsyncImage(
-                        model = profileImageUrl ?: "https://via.placeholder.com/150",
+                        model = profileImageUrl,
                         contentDescription = "Profile",
+                        placeholder = fallbackPainter,
+                        error = fallbackPainter,
                         modifier = Modifier
                             .size(50.dp)
                             .clip(CircleShape)
@@ -97,11 +108,13 @@ fun StylistDashboardScreen(
                         contentScale = ContentScale.Crop
                     )
                     Spacer(Modifier.width(16.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Welcome back, $stylistName",
+                            "Hey, $displayName",
                             fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                         Text(
                             "Dashboard",
@@ -111,6 +124,8 @@ fun StylistDashboardScreen(
                         )
                     }
                 }
+                
+                Spacer(Modifier.width(8.dp))
                 
                 Surface(
                     color = if (isOnline) Color(0xFF4CAF50).copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
@@ -132,13 +147,53 @@ fun StylistDashboardScreen(
                             text = if (isOnline) "ONLINE" else "OFFLINE",
                             color = if (isOnline) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
             }
 
             Spacer(Modifier.height(24.dp))
+
+            // Trust & Safety Dashboard Banner (For Stylists)
+            if (showSafetyBanner) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { 
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://refreshme-74f79.web.app/safety-center.html"))
+                                    context.startActivity(intent)
+                                }
+                                .padding(16.dp)
+                                .padding(end = 24.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.VerifiedUser, contentDescription = "Safety Center", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(32.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("Stylist Safety Center", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                Text("Manage blocked clients and review safety guidelines.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f))
+                            }
+                        }
+                        
+                        IconButton(
+                            onClick = { showSafetyBanner = false },
+                            modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Dismiss", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+            }
 
             // Flash Deal Active Card
             AnimatedVisibility(
@@ -188,7 +243,7 @@ fun StylistDashboardScreen(
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
-                                "Monthly",
+                                "Last 7 Days",
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 color = accentColor,
                                 fontSize = 10.sp,
@@ -206,20 +261,21 @@ fun StylistDashboardScreen(
                     Spacer(Modifier.height(20.dp))
                     
                     Row(
-                        modifier = Modifier.fillMaxWidth().height(40.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.fillMaxWidth().height(60.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.Bottom
                     ) {
-                        val heights = listOf(0.4f, 0.7f, 0.5f, 0.9f, 0.6f, 0.8f, 1f)
-                        heights.forEach { h ->
+                        val maxEarning = stats.weeklyEarnings.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
+                        stats.weeklyEarnings.forEach { earning ->
+                            val heightFactor = (earning / maxEarning).toFloat().coerceIn(0.1f, 1f)
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .fillMaxHeight(h)
-                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .fillMaxHeight(heightFactor)
+                                    .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                                     .background(
                                         Brush.verticalGradient(
-                                            listOf(accentColor, accentColor.copy(alpha = 0.3f))
+                                            listOf(accentColor, accentColor.copy(alpha = 0.4f))
                                         )
                                     )
                             )
@@ -237,13 +293,15 @@ fun StylistDashboardScreen(
                     value = String.format(Locale.US, "%.1f", rating),
                     icon = Icons.Default.Star,
                     iconColor = Color(0xFFFFC107),
-                    modifier = Modifier.weight(1f).clickable { showReviewsDialog = true }
+                    modifier = Modifier.weight(1f),
+                    onClick = { showReviewsDialog = true }
                 )
                 StatSmallCard(
                     label = "Reviews",
                     value = reviews.size.toString(),
                     icon = Icons.AutoMirrored.Filled.Comment,
-                    modifier = Modifier.weight(1f).clickable { showReviewsDialog = true }
+                    modifier = Modifier.weight(1f),
+                    onClick = { showReviewsDialog = true }
                 )
             }
 
@@ -297,12 +355,31 @@ fun StylistDashboardScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.DirectionsCar, contentDescription = null, tint = Color(0xFF64B5F6))
                             Spacer(Modifier.width(12.dp))
-                            Text("Mobile Services", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                            Text("House Calls", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                         }
                         Switch(
                             checked = isMobile,
                             onCheckedChange = { viewModel.toggleMobileStatus(it) },
                             colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF64B5F6))
+                        )
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Groups, contentDescription = null, tint = Color(0xFF9575CD))
+                            Spacer(Modifier.width(12.dp))
+                            Text("Group/Event Bookings", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                        }
+                        Switch(
+                            checked = offersEvents,
+                            onCheckedChange = { viewModel.toggleEventStatus(it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF9575CD))
                         )
                     }
                 }
@@ -312,6 +389,12 @@ fun StylistDashboardScreen(
 
             // Navigation Options
             MenuRow("Manage Services", Icons.Default.ContentCut) { onNavigate(StylistDashboardEvent.ManageServices) }
+            MenuRow("Manage Portfolio", Icons.Default.PhotoLibrary) {
+                context.startActivity(Intent(context, ManagePortfolioActivity::class.java))
+            }
+            MenuRow("Manage Before & After Images", Icons.Default.Compare) {
+                context.startActivity(Intent(context, ManageBeforeAfterActivity::class.java))
+            }
             
             MenuRow("Cancellation Waitlist", Icons.Default.HourglassTop) { onNavigate(StylistDashboardEvent.Waitlist) }
             
@@ -464,9 +547,11 @@ fun StatSmallCard(
     value: String, 
     icon: androidx.compose.ui.graphics.vector.ImageVector, 
     modifier: Modifier = Modifier,
-    iconColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
+    iconColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    onClick: (() -> Unit)? = null
 ) {
     Surface(
+        onClick = { onClick?.invoke() },
         modifier = modifier,
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(20.dp),
@@ -484,11 +569,13 @@ fun StatSmallCard(
 @Composable
 fun MenuRow(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onClick() },
-        color = Color.Transparent
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        color = Color.Transparent,
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row(
-            modifier = Modifier.padding(vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(

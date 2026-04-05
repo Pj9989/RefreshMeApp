@@ -1,12 +1,15 @@
 package com.refreshme.salon
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,10 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,7 +29,6 @@ fun SalonOwnerDashboardScreen(
     onLogout: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val scope = rememberCoroutineScope()
     
     Scaffold(
         topBar = {
@@ -39,7 +42,7 @@ fun SalonOwnerDashboardScreen(
                 },
                 actions = {
                     IconButton(onClick = onLogout) {
-                        Icon(Icons.Default.Logout, contentDescription = "Log out")
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Log out")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -119,6 +122,7 @@ fun OverviewTab() {
 
 @Composable
 fun StaffTab() {
+    val context = LocalContext.current
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -131,7 +135,7 @@ fun StaffTab() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Manage Staff", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Button(onClick = { /* TODO: Invite Staff */ }) {
+                Button(onClick = { Toast.makeText(context, "Invite Staff Feature Coming Soon!", Toast.LENGTH_SHORT).show() }) {
                     Icon(Icons.Default.Add, null)
                     Spacer(Modifier.width(8.dp))
                     Text("Invite")
@@ -188,21 +192,49 @@ fun StaffTab() {
 
 @Composable
 fun SalonSettingsTab() {
+    val context = LocalContext.current
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Salon Settings", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         
-        SettingRow(Icons.Default.Store, "Shop Profile", "Edit name, address, and photos")
-        SettingRow(Icons.Default.Schedule, "Business Hours", "Set master operating hours")
-        SettingRow(Icons.Default.AccountBalanceWallet, "Payouts & Taxes", "Manage salon bank account")
-        SettingRow(Icons.Default.Shield, "Permissions", "Manager vs Staff access")
+        SettingRow(Icons.Default.Store, "Shop Profile", "Edit name, address, and photos") { Toast.makeText(context, "Coming soon!", Toast.LENGTH_SHORT).show() }
+        SettingRow(Icons.Default.Schedule, "Business Hours", "Set master operating hours") { Toast.makeText(context, "Coming soon!", Toast.LENGTH_SHORT).show() }
+        SettingRow(Icons.Default.AccountBalanceWallet, "Payouts & Taxes", "Manage salon bank account") { Toast.makeText(context, "Coming soon!", Toast.LENGTH_SHORT).show() }
+        SettingRow(Icons.Default.Shield, "Permissions", "Manager vs Staff access") { Toast.makeText(context, "Coming soon!", Toast.LENGTH_SHORT).show() }
     }
 }
 
 @Composable
-fun StatCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
+fun SettingRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+        }
+        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+fun StatCard(title: String, value: String, icon: ImageVector, modifier: Modifier = Modifier) {
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
         shape = RoundedCornerShape(16.dp),

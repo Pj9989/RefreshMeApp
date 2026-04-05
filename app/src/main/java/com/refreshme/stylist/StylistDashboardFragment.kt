@@ -56,7 +56,7 @@ class StylistDashboardFragment : Fragment() {
                                                 navController.navigate(R.id.action_stylistDashboardFragment_to_setAvailabilityFragment)
                                             }
                                             StylistDashboardEvent.Waitlist -> {
-                                                Toast.makeText(requireContext(), "Waitlist feature coming soon!", Toast.LENGTH_SHORT).show()
+                                                navController.navigate(R.id.action_stylistDashboardFragment_to_stylistWaitlistFragment)
                                             }
                                         }
                                     } catch (e: Exception) {
@@ -69,9 +69,7 @@ class StylistDashboardFragment : Fragment() {
                                                 StylistDashboardEvent.ManageServices -> navController.navigate(R.id.manageServicesFragment)
                                                 StylistDashboardEvent.ProfileVerification -> navController.navigate(R.id.stylistProfileFragment)
                                                 StylistDashboardEvent.Availability -> navController.navigate(R.id.setAvailabilityFragment)
-                                                StylistDashboardEvent.Waitlist -> {
-                                                    Toast.makeText(requireContext(), "Waitlist feature coming soon!", Toast.LENGTH_SHORT).show()
-                                                }
+                                                StylistDashboardEvent.Waitlist -> navController.navigate(R.id.stylistWaitlistFragment)
                                             }
                                         } catch (e2: Exception) {
                                             android.util.Log.e("StylistDashboard", "Direct navigation also failed", e2)

@@ -83,8 +83,8 @@ fun PayoutsEarningsScreen(
                 BalanceHeroCard(
                     amount = stats.totalEarnings,
                     onRequestPayout = {
-                        // TODO: Implement actual payout logic in ViewModel if needed
-                        Toast.makeText(context, "Payout request submitted!", Toast.LENGTH_LONG).show()
+                        viewModel.requestPayout()
+                        Toast.makeText(context, "Payout request submitted to processing queue!", Toast.LENGTH_LONG).show()
                     }
                 )
             }

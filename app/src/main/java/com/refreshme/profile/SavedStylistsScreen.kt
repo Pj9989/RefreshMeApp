@@ -8,6 +8,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.google.firebase.auth.FirebaseAuth
 import com.refreshme.StylistListItem
 import com.refreshme.data.Stylist
 
@@ -26,6 +28,13 @@ fun SavedStylistsScreen(
     onStylistClick: (Stylist) -> Unit
 ) {
     val favoriteStylists by viewModel.favoriteStylists.collectAsState()
+
+    LaunchedEffect(Unit) {
+        val auth = FirebaseAuth.getInstance()
+        auth.currentUser?.uid?.let { uid ->
+            viewModel.getFavoriteStylists(uid)
+        }
+    }
 
     Scaffold(
         topBar = {

@@ -1,7 +1,12 @@
 package com.refreshme.tryon
 
+import android.app.Application
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.util.Base64
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -18,8 +23,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
@@ -31,21 +36,30 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.scale
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.fragment.findNavController
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.refreshme.ui.theme.RefreshMeTheme
+import org.json.JSONObject
+import java.io.ByteArrayOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class VirtualTryOnFragment : Fragment() {
 
@@ -65,12 +79,20 @@ class VirtualTryOnFragment : Fragment() {
     }
 }
 
-// --- VIEW MODEL ---
-class VirtualTryOnViewModel : ViewModel() {
+data class VirtualTryOnState(
+    val selectedImageUri: Uri? = null,
+    val selectedGender: String = "Female",
+    val selectedRace: String = "Caucasian",
+    val selectedHairstyle: String = "Balayage Waves",
+    val isGenerating: Boolean = false,
+    val generatedImageUrl: String? = null
+)
+
+class VirtualTryOnViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(VirtualTryOnState())
     val uiState: StateFlow<VirtualTryOnState> = _uiState.asStateFlow()
 
-    fun updateSelectedImage(uri: Uri) {
+    fun updateSelectedImage(uri: Uri?) {
         _uiState.value = _uiState.value.copy(selectedImageUri = uri, generatedImageUrl = null)
     }
 
@@ -88,45 +110,145 @@ class VirtualTryOnViewModel : ViewModel() {
 
     fun generateTryOn() {
         val currentState = _uiState.value
-        if (currentState.selectedImageUri == null) return
+        val imageUri = currentState.selectedImageUri ?: return
 
         _uiState.value = currentState.copy(isGenerating = true, generatedImageUrl = null)
 
         viewModelScope.launch {
-            // TODO: Here you would upload the selectedImageUri to Firebase Storage or send it directly 
-            // as Base64 to an AI API (like Replicate, fal.ai, or Leonardo.ai) along with the prompt.
+            try {
+                // 1. Convert the selected image to Base64
+                val base64Image = withContext(Dispatchers.IO) {
+                    uriToBase64(imageUri)
+                }
+                
+                // 2. Build the AI Prompt based on user selections
+                val prompt = "A photo of a ${currentState.selectedRace} ${currentState.selectedGender} with a ${currentState.selectedHairstyle} haircut. Exact same face, identical unedited facial features, same casual expression, same lighting, same background."
+                val negativePrompt = "different face, altered facial features, smile, changed expression, professional, studio lighting, painting, illustration, fake, 3d render, morphed, changed background, changed clothing, blur, oversaturated"
+                
+                // 3. Call Replicate API to generate the image
+                val resultUrl = withContext(Dispatchers.IO) {
+                    callReplicateApi(base64Image, prompt, negativePrompt)
+                }
+
+                if (resultUrl != null) {
+                    _uiState.value = _uiState.value.copy(
+                        isGenerating = false,
+                        generatedImageUrl = resultUrl
+                    )
+                } else {
+                    Log.e("VirtualTryOn", "Result URL was null")
+                    _uiState.value = _uiState.value.copy(isGenerating = false)
+                }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _uiState.value = _uiState.value.copy(isGenerating = false)
+            }
+        }
+    }
+
+    private suspend fun callReplicateApi(base64Image: String?, prompt: String, negativePrompt: String): String? {
+        if (base64Image == null) return null
+        
+        val apiUrl = URL("https://api.replicate.com/v1/predictions")
+        val connection = apiUrl.openConnection() as HttpURLConnection
+        connection.requestMethod = "POST"
+        connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.REPLICATE_API_KEY}")
+        connection.setRequestProperty("Content-Type", "application/json")
+        connection.setRequestProperty("Prefer", "wait")
+        connection.doOutput = true
+
+        val jsonInput = JSONObject().apply {
+            put("version", "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b")
+            put("input", JSONObject().apply {
+                put("image", "data:image/jpeg;base64,$base64Image")
+                put("prompt", prompt)
+                put("negative_prompt", negativePrompt)
+                put("prompt_strength", 0.55)
+            })
+        }
+
+        connection.outputStream.use { os ->
+            val inputBytes = jsonInput.toString().toByteArray(Charsets.UTF_8)
+            os.write(inputBytes, 0, inputBytes.size)
+        }
+
+        val responseCode = connection.responseCode
+        if (responseCode !in 200..299) {
+            val errorStream = connection.errorStream?.bufferedReader()?.use { it.readText() }
+            Log.e("VirtualTryOn", "API Error: HTTP $responseCode - $errorStream")
+            return null
+        }
+
+        var responseStr = connection.inputStream.bufferedReader().use { it.readText() }
+        var jsonResponse = JSONObject(responseStr)
+        var status = jsonResponse.optString("status")
+
+        if (status != "succeeded" && status != "failed" && status != "canceled") {
+            val getUrl = jsonResponse.optJSONObject("urls")?.optString("get") ?: return null
             
-            // val prompt = "Realistic portrait of a ${currentState.selectedRace} ${currentState.selectedGender} with a ${currentState.selectedHairstyle} haircut. High quality, salon lighting."
-            // val resultUrl = AiApi.generateImage(prompt, currentState.selectedImageUri)
+            while (status != "succeeded" && status != "failed" && status != "canceled") {
+                delay(2000)
+                val pollConn = URL(getUrl).openConnection() as HttpURLConnection
+                pollConn.setRequestProperty("Authorization", "Bearer ${BuildConfig.REPLICATE_API_KEY}")
+                
+                val pollRespCode = pollConn.responseCode
+                if (pollRespCode !in 200..299) {
+                    Log.e("VirtualTryOn", "Poll Error: HTTP $pollRespCode")
+                    return null
+                }
+                
+                responseStr = pollConn.inputStream.bufferedReader().use { it.readText() }
+                jsonResponse = JSONObject(responseStr)
+                status = jsonResponse.optString("status")
+            }
+        }
 
-            // Simulating a network request for AI image generation (3 seconds)
-            delay(3000)
+        if (status == "succeeded") {
+            val outputArray = jsonResponse.optJSONArray("output")
+            if (outputArray != null) {
+                return outputArray.optString(0)
+            }
+            // fallback: some APIs return 'output' as string URL instead of an array
+            return if (jsonResponse.has("output")) jsonResponse.optString("output") else null
+        }
+        
+        return null
+    }
 
-            // Mocking the result URL (this should come from the AI API response)
-            val mockGeneratedUrl = "https://images.unsplash.com/photo-1595476108010-b4d1f10d5e42?q=80&w=600&auto=format&fit=crop"
-
-            _uiState.value = _uiState.value.copy(
-                isGenerating = false,
-                generatedImageUrl = mockGeneratedUrl
+    /**
+     * Helper to convert an Android Content Uri into a compressed Base64 string 
+     * which is required by Image-to-Image AI APIs.
+     */
+    private fun uriToBase64(uri: Uri): String? {
+        return try {
+            val inputStream = getApplication<Application>().contentResolver.openInputStream(uri)
+            val bitmap = BitmapFactory.decodeStream(inputStream) ?: return null
+            val outputStream = ByteArrayOutputStream()
+            val maxImageSize = 1024f
+            val ratio = Math.min(
+                maxImageSize / bitmap.width,
+                maxImageSize / bitmap.height
             )
+            val scaledBitmap = if (ratio < 1.0f) {
+                bitmap.scale((bitmap.width * ratio).roundToInt(), (bitmap.height * ratio).roundToInt(), true)
+            } else {
+                bitmap
+            }
+            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream)
+            val byteArray = outputStream.toByteArray()
+            Base64.encodeToString(byteArray, Base64.NO_WRAP)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 }
 
-data class VirtualTryOnState(
-    val selectedImageUri: Uri? = null,
-    val selectedGender: String = "Female",
-    val selectedRace: String = "Caucasian",
-    val selectedHairstyle: String = "Balayage Waves",
-    val isGenerating: Boolean = false,
-    val generatedImageUrl: String? = null
-)
-
 val GENDERS = listOf("Female", "Male", "Non-Binary")
 val RACES = listOf("Caucasian", "African American", "Asian", "Hispanic", "Middle Eastern", "Mixed")
-val HAIRSTYLES = listOf("Balayage Waves", "Pixie Cut", "Bob Cut", "Curtain Bangs", "Buzz Cut", "Fade", "Dreadlocks", "Braids")
+val HAIRSTYLES = listOf("Balayage Waves", "Pixie Cut", "Bob Cut", "Curtain Bangs", "Buzz Cut", "Fade", "Dreadlocks", "Braids", "Layered Shag")
 
-// --- UI SCREEN ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VirtualTryOnScreen(
@@ -148,7 +270,7 @@ fun VirtualTryOnScreen(
                 title = { Text("AI Virtual Try-On", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -177,8 +299,8 @@ fun VirtualTryOnScreen(
             // Image Picker Area
             Box(
                 modifier = Modifier
-                    .size(200.dp)
-                    .clip(RoundedCornerShape(24.dp))
+                    .size(240.dp)
+                    .clip(RoundedCornerShape(32.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .clickable { 
                         if (!uiState.isGenerating) {
@@ -215,10 +337,16 @@ fun VirtualTryOnScreen(
                 
                 if (uiState.isGenerating) {
                     Box(
-                        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.5f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = Color.White)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = Color.White)
+                            Spacer(Modifier.height(12.dp))
+                            Text("Styling hair...", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -226,8 +354,8 @@ fun VirtualTryOnScreen(
             if (uiState.generatedImageUrl != null) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("✨ AI Result ✨", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                TextButton(onClick = { viewModel.updateSelectedImage(uiState.selectedImageUri!!) }) {
-                    Text("Re-upload / Reset")
+                TextButton(onClick = { viewModel.updateSelectedImage(uiState.selectedImageUri) }) {
+                    Text("Clear Result")
                 }
             }
 
@@ -241,14 +369,16 @@ fun VirtualTryOnScreen(
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 SelectionSection("Gender", GENDERS, uiState.selectedGender) { viewModel.updateGender(it) }
-                SelectionSection("Race/Ethnicity", RACES, uiState.selectedRace) { viewModel.updateRace(it) }
+                SelectionSection("Race / Ethnicity", RACES, uiState.selectedRace) { viewModel.updateRace(it) }
                 SelectionSection("Desired Hairstyle", HAIRSTYLES, uiState.selectedHairstyle) { viewModel.updateHairstyle(it) }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Button(
                     onClick = { viewModel.generateTryOn() },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
                     enabled = uiState.selectedImageUri != null && !uiState.isGenerating,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     shape = RoundedCornerShape(16.dp)
@@ -264,15 +394,15 @@ fun VirtualTryOnScreen(
                 
                 if (uiState.selectedImageUri == null) {
                     Text(
-                        "Please upload a selfie first.",
+                        "Please upload a selfie to continue.",
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.fillMaxWidth(),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        textAlign = TextAlign.Center,
                         fontSize = 12.sp
                     )
                 }
 
-                Spacer(modifier = Modifier.height(40.dp))
+                Spacer(modifier = Modifier.height(60.dp))
             }
         }
     }

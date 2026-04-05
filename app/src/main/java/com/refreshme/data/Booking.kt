@@ -2,6 +2,7 @@ package com.refreshme.data
 
 import androidx.annotation.Keep
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.IgnoreExtraProperties
 
 @Keep
 enum class BookingStatus {
@@ -17,6 +18,7 @@ enum class BookingStatus {
     REFUND_PROCESSING
 }
 
+@IgnoreExtraProperties
 @Keep
 data class Booking(
     var id: String = "",
@@ -34,6 +36,12 @@ data class Booking(
     val updatedAt: Timestamp? = null,
     val scheduledStart: Timestamp? = null,
     val isRated: Boolean = false,
+    val isCustomerRated: Boolean = false,
+    
+    // Safety & Monetization fields
+    val emergencyFeeApplied: Double? = 0.0,
+    val travelFeeApplied: Double? = 0.0,
+    val isIdVerified: Boolean = false,
     
     // Mobile Booking / Uber for Barbers fields
     val isMobile: Boolean = false,
@@ -41,7 +49,17 @@ data class Booking(
     val customerLat: Double? = null,
     val customerLng: Double? = null,
     val stylistLat: Double? = null,
-    val stylistLng: Double? = null
+    val stylistLng: Double? = null,
+
+    // Group & Special Event Booking
+    val isEvent: Boolean = false,
+    val groupSize: Int = 1,
+    val eventType: String? = null, // e.g., "Wedding", "Birthday", "Corporate"
+    val additionalParticipants: List<String> = emptyList(),
+
+    // The Modern Salon Experience
+    val isSilentAppointment: Boolean = false,
+    val isSensoryFriendly: Boolean = false
 ) {
     // Helper to get the enum safely
     val bookingStatus: BookingStatus

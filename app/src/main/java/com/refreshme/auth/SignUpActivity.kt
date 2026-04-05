@@ -12,13 +12,11 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.refreshme.BuildConfig
 import com.refreshme.MainActivity
 import com.refreshme.R
 import com.refreshme.databinding.ActivitySignUpBinding
 import com.refreshme.stylist.StylistDashboardActivity
 import com.refreshme.util.AnalyticsHelper
-import com.refreshme.util.RoleBasedNavigationManager
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -131,17 +129,15 @@ class SignUpActivity : AppCompatActivity() {
                             // 5. Analytics
                             AnalyticsHelper.setUserProperties("role", selectedRole)
 
-                            // 6. Navigation: Route directly to the correct dashboard
-                            val dashboardIntent = if (selectedRole == "STYLIST") {
-                                Intent(this@SignUpActivity, StylistDashboardActivity::class.java).apply {
-                                    putExtra(StylistDashboardActivity.EXTRA_PURCHASE_SUCCESS, true)
-                                }
+                            // 6. Navigation: Route to Onboarding so that users can configure their newly created accounts
+                            val onboardingIntent = if (selectedRole == "STYLIST") {
+                                Intent(this@SignUpActivity, StylistOnboardingActivity::class.java)
                             } else {
-                                Intent(this@SignUpActivity, RoleBasedNavigationManager.getDashboardActivity(RoleBasedNavigationManager.UserRole.CUSTOMER))
+                                Intent(this@SignUpActivity, CustomerOnboardingActivity::class.java)
                             }
                             
-                            dashboardIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                            startActivity(dashboardIntent)
+                            onboardingIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            startActivity(onboardingIntent)
                             finish()
 
                         } catch (e: Exception) {

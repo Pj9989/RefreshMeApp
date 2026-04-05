@@ -2,8 +2,6 @@ package com.refreshme.home
 
 import android.location.Location
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -14,34 +12,38 @@ import com.refreshme.User
 import com.refreshme.aistylefinder.AiStyleRequest
 import com.refreshme.aistylefinder.RecommendationEngine
 import com.refreshme.data.Stylist
-import com.refreshme.util.UserManager
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class HomeViewModel : ViewModel() {
 
     private val db by lazy { FirebaseFirestore.getInstance() }
     private val auth by lazy { FirebaseAuth.getInstance() }
 
-    private val _stylists = MutableLiveData<List<Stylist>>()
-    val stylists: LiveData<List<Stylist>> = _stylists
+    private val _stylists = MutableStateFlow<List<Stylist>>(emptyList())
+    val stylists: StateFlow<List<Stylist>> = _stylists.asStateFlow()
 
-    private val _recommendedStylists = MutableLiveData<List<Stylist>>()
-    val recommendedStylists: LiveData<List<Stylist>> = _recommendedStylists
+    private val _recommendedStylists = MutableStateFlow<List<Stylist>>(emptyList())
+    val recommendedStylists: StateFlow<List<Stylist>> = _recommendedStylists.asStateFlow()
 
-    private val _userName = MutableLiveData<String>()
-    val userName: LiveData<String> = _userName
+    private val _userName = MutableStateFlow<String>("")
+    val userName: StateFlow<String> = _userName.asStateFlow()
 
-    private val _styleVibe = MutableLiveData<String?>()
-    val styleVibe: LiveData<String?> = _styleVibe
+    private val _styleVibe = MutableStateFlow<String?>(null)
+    val styleVibe: StateFlow<String?> = _styleVibe.asStateFlow()
 
-    private val _isLoading = MutableLiveData<Boolean>(true)
-    val isLoading: LiveData<Boolean> = _isLoading
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private var currentUserLocation: Location? = null
     private var allLiveStylists: List<Stylist> = emptyList()
     private var userProfile: StyleProfile? = null
     
     private var userListener: ListenerRegistration? = null
+    private var stylistsListener: ListenerRegistration? = null
 
     init {
         observeCurrentUser()
@@ -57,7 +59,7 @@ class HomeViewModel : ViewModel() {
                 if (error != null) return@addSnapshotListener
                 
                 snapshot?.toObject(User::class.java)?.let { user ->
-                    _userName.postValue("What's good, ${user.name} 👋")
+                    _userName.value = "What's good, ${user.name} 👋"
                     userProfile = user.styleProfile
                     
                     user.styleProfile?.let { profile ->
@@ -67,7 +69,7 @@ class HomeViewModel : ViewModel() {
                             "low_maintenance" -> "Low Maintenance"
                             else -> null
                         }
-                        _styleVibe.postValue(formattedVibe)
+                        _styleVibe.value = formattedVibe
                         fetchRecommendedStylists(profile)
                     }
                 }
@@ -77,20 +79,21 @@ class HomeViewModel : ViewModel() {
     fun updateUserLocation(location: Location) {
         currentUserLocation = location
         recalculateStylistDistances(_stylists, allLiveStylists)
-        _recommendedStylists.value?.let { recalculateStylistDistances(_recommendedStylists, it) }
+        recalculateStylistDistances(_recommendedStylists, _recommendedStylists.value)
     }
 
     private fun fetchLiveStylists() {
         if (auth.currentUser == null) {
             _stylists.value = emptyList()
-            _isLoading.postValue(false)
+            _isLoading.value = false
             return
         }
 
-        db.collection("stylists")
+        stylistsListener?.remove()
+        stylistsListener = db.collection("stylists")
             .whereEqualTo("availableNow", true)
             .addSnapshotListener { snapshots, e ->
-                _isLoading.postValue(false)
+                _isLoading.value = false
                 if (e != null) {
                     Log.w("HomeViewModel", "Listen failed.", e)
                     _stylists.value = emptyList()
@@ -113,20 +116,20 @@ class HomeViewModel : ViewModel() {
                 val specialties = RecommendationEngine.getMatchingSpecialties(recommendations)
 
                 if (specialties.isNotEmpty()) {
-                    db.collection("stylists")
+                    val snapshots = db.collection("stylists")
                         .whereIn("specialty", specialties)
                         .limit(10)
                         .get()
-                        .addOnSuccessListener { snapshots ->
-                            val stylists = snapshots.documents.mapNotNull { doc ->
-                                doc.toObject(Stylist::class.java)?.copy(id = doc.id)
-                            }
-                            stylists.forEach { stylist ->
-                                stylist.matchScore = 95
-                                stylist.matchExplanation = RecommendationEngine.getMatchExplanation(stylist.specialty, request)
-                            }
-                            recalculateStylistDistances(_recommendedStylists, stylists)
-                        }
+                        .await()
+                        
+                    val stylists = snapshots.documents.mapNotNull { doc ->
+                        doc.toObject(Stylist::class.java)?.copy(id = doc.id)
+                    }
+                    stylists.forEach { stylist ->
+                        stylist.matchScore = 95
+                        stylist.matchExplanation = RecommendationEngine.getMatchExplanation(stylist.specialty, request)
+                    }
+                    recalculateStylistDistances(_recommendedStylists, stylists)
                 }
             } catch (e: Exception) {
                 Log.e("HomeViewModel", "Error fetching recommended stylists", e)
@@ -134,7 +137,7 @@ class HomeViewModel : ViewModel() {
         }
     }
     
-    private fun recalculateStylistDistances(targetLiveData: MutableLiveData<List<Stylist>>, list: List<Stylist>) {
+    private fun recalculateStylistDistances(targetStateFlow: MutableStateFlow<List<Stylist>>, list: List<Stylist>) {
         val updatedList = list.toList()
         currentUserLocation?.let { location ->
             updatedList.forEach { stylist ->
@@ -147,9 +150,9 @@ class HomeViewModel : ViewModel() {
                     stylist.distance = (distanceInMeters / 1609.34).roundTo(1)
                 }
             }
-            targetLiveData.value = updatedList.sortedBy { it.distance }
+            targetStateFlow.value = updatedList.sortedBy { it.distance }
         } ?: run {
-            targetLiveData.value = updatedList
+            targetStateFlow.value = updatedList
         }
     }
     
@@ -162,5 +165,6 @@ class HomeViewModel : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         userListener?.remove()
+        stylistsListener?.remove()
     }
 }

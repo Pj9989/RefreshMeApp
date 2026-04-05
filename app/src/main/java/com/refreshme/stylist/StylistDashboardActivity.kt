@@ -81,8 +81,9 @@ class StylistDashboardActivity : AppCompatActivity() {
 
         val root = findViewById<View>(R.id.root)
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
-            v.setPadding(v.paddingLeft, top, v.paddingRight, v.paddingBottom)
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            // Only apply top inset to root, letting bottom nav handle its own bottom inset
+            v.setPadding(v.paddingLeft, systemBars.top, v.paddingRight, 0)
             insets
         }
         
@@ -132,6 +133,7 @@ class StylistDashboardActivity : AppCompatActivity() {
                 val trialStartTimeMillis = when (snapshot) {
                     is Timestamp -> snapshot.toDate().time
                     is Long -> snapshot
+                    is java.util.Date -> snapshot.time
                     else -> 0L
                 }
 
@@ -221,9 +223,10 @@ class StylistDashboardActivity : AppCompatActivity() {
 
     private fun isSubscriptionOrTrialActive(snapshot: DocumentSnapshot): Boolean {
         val isSubActive = snapshot.getBoolean("subscriptionActive") == true
-        val trialStartTime = when (snapshot.get("trialStartTime")) {
-             is Timestamp -> (snapshot.get("trialStartTime") as Timestamp).toDate().time
-             is Long -> snapshot.getLong("trialStartTime") ?: 0L
+        val trialStartTime = when (val time = snapshot.get("trialStartTime")) {
+             is Timestamp -> time.toDate().time
+             is Long -> time
+             is java.util.Date -> time.time
              else -> 0L
         }
         

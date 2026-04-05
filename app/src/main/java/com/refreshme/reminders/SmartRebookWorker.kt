@@ -5,11 +5,11 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.refreshme.MainActivity
 import com.refreshme.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,7 +19,7 @@ class SmartRebookWorker(appContext: Context, workerParams: WorkerParameters) :
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val stylistName = inputData.getString(KEY_STYLIST_NAME) ?: "your stylist"
-        val stylistId = inputData.getString(KEY_STYLIST_ID)
+        val stylistId = inputData.getString(KEY_STYLIST_ID) ?: return@withContext Result.failure()
         val serviceName = inputData.getString(KEY_SERVICE_NAME) ?: "haircut"
 
         showNotification(stylistName, stylistId, serviceName)
@@ -27,7 +27,7 @@ class SmartRebookWorker(appContext: Context, workerParams: WorkerParameters) :
         return@withContext Result.success()
     }
 
-    private fun showNotification(stylistName: String, stylistId: String?, serviceName: String) {
+    private fun showNotification(stylistName: String, stylistId: String, serviceName: String) {
         val notificationManager =
             applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -42,10 +42,9 @@ class SmartRebookWorker(appContext: Context, workerParams: WorkerParameters) :
             notificationManager.createNotificationChannel(channel)
         }
 
-        // Deep link to the app (can be handled in MainActivity to jump to stylist profile)
-        val intent = Intent(applicationContext, MainActivity::class.java).apply {
+        // Use the newly configured Deep Link to go straight to the stylist's profile!
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://refreshme.app/stylist/$stylistId")).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            putExtra("stylistId", stylistId)
         }
         
         val pendingIntent = PendingIntent.getActivity(
@@ -66,7 +65,7 @@ class SmartRebookWorker(appContext: Context, workerParams: WorkerParameters) :
                 message = "That fade is growing out. Tap here to book another session with $stylistName."
             }
             serviceLower.contains("line") || serviceLower.contains("edge") || serviceLower.contains("beard") -> {
-                title = "Keep it sharp 🔪"
+                title = "Keep it sharp \uD83D\uDD2A"
                 message = "Time to get that line up fresh again with $stylistName."
             }
             serviceLower.contains("color") || serviceLower.contains("dye") -> {
@@ -80,7 +79,7 @@ class SmartRebookWorker(appContext: Context, workerParams: WorkerParameters) :
         }
 
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_foreground) // Make sure you have this icon or replace it with your app icon
+            .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))

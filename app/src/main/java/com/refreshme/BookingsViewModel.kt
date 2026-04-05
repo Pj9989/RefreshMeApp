@@ -84,4 +84,14 @@ class BookingsViewModel @Inject constructor(
             }
         }
     }
+    
+    fun rescheduleBooking(bookingId: String, newDate: java.util.Date) {
+        viewModelScope.launch {
+            try {
+                repository.rescheduleBooking(bookingId, com.google.firebase.Timestamp(newDate))
+            } catch (e: Exception) {
+                // Ignore for now
+            }
+        }
+    }
 }

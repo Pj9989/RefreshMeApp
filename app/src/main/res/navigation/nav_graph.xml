@@ -45,7 +45,15 @@
         <action
             android:id="@+id/action_dashboard_to_details"
             app:destination="@id/stylistDetailsFragment" />
+        <action
+            android:id="@+id/action_dashboardFragment_to_virtualTryOnFragment"
+            app:destination="@id/virtualTryOnFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/virtualTryOnFragment"
+        android:name="com.refreshme.tryon.VirtualTryOnFragment"
+        android:label="Virtual Try-On" />
 
     <fragment
         android:id="@+id/stylistListFragment"
@@ -69,6 +77,10 @@
             android:name="stylistId"
             app:argType="string"
             android:defaultValue="" />
+
+        <deepLink app:uri="https://refreshme-74f79.web.app/stylist/{stylistId}" />
+        <deepLink app:uri="refreshme://stylist/{stylistId}" />
+
         <action
             android:id="@+id/action_details_to_chat"
             app:destination="@id/chatFragment" />
@@ -154,5 +166,14 @@
     <fragment
         android:id="@+id/aiStyleQuizFragment"
         android:name="com.refreshme.aistylefinder.AiStyleQuizFragment"
-        android:label="AI Style Match" />
+        android:label="AI Style Match">
+        <action
+            android:id="@+id/action_quiz_to_virtualTryOn"
+            app:destination="@id/virtualTryOnFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/favoritesFragment"
+        android:name="com.refreshme.FavoritesFragment"
+        android:label="Saved Stylists" />
 </navigation>

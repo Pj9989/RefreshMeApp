@@ -5,6 +5,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.Exclude
 import com.google.firebase.firestore.IgnoreExtraProperties
 import com.google.firebase.firestore.PropertyName
+import com.refreshme.data.Review
 
 @Keep
 enum class Role {
@@ -13,6 +14,7 @@ enum class Role {
 }
 
 @Keep
+@IgnoreExtraProperties
 data class StyleProfile(
     val gender: String = "",
     val vibe: String = "",
@@ -42,7 +44,11 @@ data class User(
     val subscriptionStatus: String? = null,
     val verified: Boolean? = false,
     val subscriptionId: String? = null,
-    val stripeCustomerId: String? = null
+    val stripeCustomerId: String? = null,
+    val rating: Double = 0.0,
+    val reviewCount: Long = 0,
+    val refreshPoints: Long = 0, // Loyalty points
+    val reviews: List<Review> = emptyList()
 ) {
     @get:Exclude
     val role: Role

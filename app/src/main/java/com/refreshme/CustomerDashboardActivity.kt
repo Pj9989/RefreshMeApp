@@ -27,9 +27,9 @@ class CustomerDashboardActivity : AppCompatActivity() {
 
         val root = findViewById<View>(R.id.root)
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
-            v.setPadding(v.paddingLeft, top, v.paddingRight, v.paddingBottom)
-            insets
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(v.paddingLeft, systemBars.top, v.paddingRight, systemBars.bottom)
+            WindowInsetsCompat.CONSUMED
         }
     }
 
