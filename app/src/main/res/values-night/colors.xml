@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="onboarding_bg">#121212</color>
+    <color name="onboarding_text">#FFFFFF</color>
+    <color name="onboarding_gray">#B0B0B0</color>
+</resources>

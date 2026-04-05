@@ -9,6 +9,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,7 +25,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -48,12 +49,12 @@ data class Message(
 fun MessagesScreen() {
     val messages = remember {
         mutableStateListOf(
-            Message("Sarah Wilson", "Hey, how are you?", "10:00 AM", R.drawable.ic_launcher_foreground),
-            Message("You", "I'm good, thanks! How about you?", "10:01 AM", R.drawable.ic_launcher_foreground),
-            Message("System", "Appointment Confirmed: Haircut with Sarah, Dec 21, 2023 at 2:00 PM.", "10:05 AM", R.drawable.ic_launcher_foreground, MessageType.APPOINTMENT),
-            Message("Sarah Wilson", "Great! See you then.", "10:06 AM", R.drawable.ic_launcher_foreground),
-            Message("System", "Payment Successful: $50 for Haircut.", "10:07 AM", R.drawable.ic_launcher_foreground, MessageType.PAYMENT),
-            Message("System", "Appointment Cancelled by client.", "10:08 AM", R.drawable.ic_launcher_foreground, MessageType.CANCELLATION),
+            Message("Sarah Wilson", "Hey, how are you?", "10:00 AM", R.mipmap.ic_launcher_foreground),
+            Message("You", "I'm good, thanks! How about you?", "10:01 AM", R.mipmap.ic_launcher_foreground),
+            Message("System", "Appointment Confirmed: Haircut with Sarah, Dec 21, 2023 at 2:00 PM.", "10:05 AM", R.mipmap.ic_launcher_foreground, MessageType.APPOINTMENT),
+            Message("Sarah Wilson", "Great! See you then.", "10:06 AM", R.mipmap.ic_launcher_foreground),
+            Message("System", "Payment Successful: $50 for Haircut.", "10:07 AM", R.mipmap.ic_launcher_foreground, MessageType.PAYMENT),
+            Message("System", "Appointment Cancelled by client.", "10:08 AM", R.mipmap.ic_launcher_foreground, MessageType.CANCELLATION),
             )
     }
     var newMessage by remember { mutableStateOf("") }
@@ -70,13 +71,13 @@ fun MessagesScreen() {
                             "Online",
                             fontSize = 12.sp,
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = { /* Handle back */ }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -91,7 +92,7 @@ fun MessagesScreen() {
                 onMessageChange = { newMessage = it },
                 onSend = {
                     if (newMessage.isNotBlank()) {
-                        messages.add(Message("You", newMessage, "10:04 AM", R.drawable.ic_launcher_foreground))
+                        messages.add(Message("You", newMessage, "10:04 AM", R.mipmap.ic_launcher_foreground))
                         newMessage = ""
                         coroutineScope.launch {
                             listState.animateScrollToItem(messages.size - 1)
@@ -104,7 +105,8 @@ fun MessagesScreen() {
         LazyColumn(
             state = listState,
             contentPadding = PaddingValues(top = paddingValues.calculateTopPadding() + 16.dp, bottom = paddingValues.calculateBottomPadding() + 16.dp, start = 16.dp, end = 16.dp),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(messages) { message ->
@@ -165,7 +167,7 @@ fun MessageCard(message: Message) {
             Text(
                 text = message.timestamp,
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -176,26 +178,22 @@ fun SystemMessageCard(message: Message) {
     val icon: ImageVector
     val backgroundColor: Color
     val contentColor: Color
-    val boldText: String
 
     when (message.type) {
         MessageType.APPOINTMENT -> {
             icon = Icons.Default.Event
             backgroundColor = MaterialTheme.colorScheme.secondaryContainer
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-            boldText = "Confirmed"
         }
         MessageType.CANCELLATION -> {
             icon = Icons.Default.Cancel
             backgroundColor = MaterialTheme.colorScheme.errorContainer
             contentColor = MaterialTheme.colorScheme.onErrorContainer
-            boldText = "Cancelled"
         }
         MessageType.PAYMENT -> {
             icon = Icons.Default.Payment
-            backgroundColor = Color(0xFFD4AF37) // Muted Gold
-            contentColor = Color.Black
-            boldText = "Successful"
+            backgroundColor = MaterialTheme.colorScheme.tertiaryContainer
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
         }
         else -> return
     }
@@ -204,7 +202,7 @@ fun SystemMessageCard(message: Message) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), thickness = 1.dp)
+        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), thickness = 1.dp)
         Spacer(modifier = Modifier.height(16.dp))
         Row(
             modifier = Modifier
@@ -235,10 +233,10 @@ fun SystemMessageCard(message: Message) {
         Text(
             text = message.timestamp,
             style = MaterialTheme.typography.labelSmall,
-            color = Color.Gray
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), thickness = 1.dp)
+        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), thickness = 1.dp)
     }
 }
 
@@ -266,7 +264,7 @@ fun ChatBox(
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("Type a message...") },
                 shape = CircleShape,
-                colors = TextFieldDefaults.textFieldColors(
+                colors = TextFieldDefaults.colors(
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent
                 )
@@ -282,7 +280,7 @@ fun ChatBox(
                 )
             ) {
                 Icon(
-                    Icons.Default.Send,
+                    Icons.AutoMirrored.Filled.Send,
                     contentDescription = "Send"
                 )
             }

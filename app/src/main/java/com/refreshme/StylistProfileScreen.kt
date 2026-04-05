@@ -126,16 +126,15 @@ fun GalleryImage(imageUrl: String) {
 fun ServiceItem(service: Service) {
     ListItem(
         headlineContent = { Text(service.name) },
-        supportingContent = { Text("${"$"}${service.price} - ${service.duration} min") }
+        supportingContent = { Text("${"$"}${service.price} - ${service.durationMinutes} min") }
     )
 }
 
 @Composable
 fun ReviewItem(review: Review) {
     Column(modifier = Modifier.padding(16.dp)) {
-        Text(text = review.userId, style = MaterialTheme.typography.bodyMedium) // T O D O: get username from id
-        // You'll need a way to display stars here. For simplicity, I'm just showing the rating.
+        Text(text = review.userName, style = MaterialTheme.typography.bodyMedium)
         Text(text = "Rating: ${review.rating}/5", style = MaterialTheme.typography.bodySmall)
-        Text(text = review.text, style = MaterialTheme.typography.bodyMedium)
+        Text(text = review.comment, style = MaterialTheme.typography.bodyMedium)
     }
 }

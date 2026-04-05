@@ -9,18 +9,89 @@
         android:id="@+id/stylistDashboardFragment"
         android:name="com.refreshme.stylist.StylistDashboardFragment"
         android:label="Dashboard"
-        tools:layout="@layout/fragment_stylist_dashboard" />
+        tools:layout="@layout/fragment_stylist_dashboard">
+        <action
+            android:id="@+id/action_stylistDashboardFragment_to_manageServicesFragment"
+            app:destination="@id/manageServicesFragment" />
+        <action
+            android:id="@+id/action_stylistDashboardFragment_to_setAvailabilityFragment"
+            app:destination="@id/setAvailabilityFragment" />
+        <action
+            android:id="@+id/action_stylistDashboardFragment_to_payoutsEarningsFragment"
+            app:destination="@id/payoutsEarningsFragment" />
+        <action
+            android:id="@+id/action_stylistDashboardFragment_to_stylistBookingsFragment"
+            app:destination="@id/stylistBookingsFragment" />
+        <action
+            android:id="@+id/action_stylistDashboardFragment_to_stylistProfileFragment"
+            app:destination="@id/stylistProfileFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/stylistBookingsFragment"
         android:name="com.refreshme.stylist.StylistBookingsFragment"
         android:label="Bookings"
-        tools:layout="@layout/fragment_stylist_bookings" />
+        tools:layout="@layout/fragment_stylist_bookings">
+        <action
+            android:id="@+id/action_stylistBookingsFragment_to_chatFragment"
+            app:destination="@id/chatFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/messagesFragment"
+        android:name="com.refreshme.chat.StylistMessagesFragment"
+        android:label="Messages"
+        tools:layout="@layout/fragment_messages">
+        <action
+            android:id="@+id/action_messagesFragment_to_chatFragment"
+            app:destination="@id/chatFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/stylistProfileFragment"
         android:name="com.refreshme.stylist.StylistProfileFragment"
         android:label="Profile"
         tools:layout="@layout/fragment_stylist_profile" />
+
+    <fragment
+        android:id="@+id/manageServicesFragment"
+        android:name="com.refreshme.stylist.ManageServicesFragment"
+        android:label="Manage Services"
+        tools:layout="@layout/fragment_stylist_manage" />
+
+    <fragment
+        android:id="@+id/setAvailabilityFragment"
+        android:name="com.refreshme.stylist.SetAvailabilityFragment"
+        android:label="Set Availability"
+        tools:layout="@layout/fragment_stylist_services" />
+
+    <fragment
+        android:id="@+id/payoutsEarningsFragment"
+        android:name="com.refreshme.stylist.PayoutsEarningsFragment"
+        android:label="Payouts &amp; Earnings"
+        tools:layout="@layout/fragment_payout_earnings" />
+        
+    <fragment
+        android:id="@+id/chatFragment"
+        android:name="com.refreshme.chat.ChatFragment"
+        android:label="Chat"
+        tools:layout="@layout/fragment_chat">
+        <argument
+            android:name="otherUserId"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/activeMobileBookingFragment"
+        android:name="com.refreshme.booking.ActiveMobileBookingFragment"
+        android:label="Live Tracking">
+        <argument
+            android:name="bookingId"
+            app:argType="string" />
+        <argument
+            android:name="isStylist"
+            app:argType="boolean"
+            android:defaultValue="false" />
+    </fragment>
 
 </navigation>

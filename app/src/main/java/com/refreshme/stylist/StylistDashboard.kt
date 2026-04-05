@@ -1,5 +1,6 @@
-package com.refreshme.stylist
-
+// package com.refreshme.stylist
+// Commented out to resolve naming conflict with StylistDashboardScreen.kt
+/*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,3 +38,4 @@ fun StylistDashboardScreen(
         }
     }
 }
+*/

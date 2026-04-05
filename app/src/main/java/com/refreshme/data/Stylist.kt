@@ -1,96 +1,112 @@
 package com.refreshme.data
 
-import com.google.android.gms.maps.model.LatLng
+import android.os.Parcelable
 import com.google.firebase.firestore.Exclude
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.IgnoreExtraProperties
 import com.google.firebase.firestore.PropertyName
-// import com.google.maps.android.clustering.ClusterItem
-import java.util.Calendar
-
-enum class ServiceType {
-    AT_HOME,
-    IN_SALON,
-    ALL_HOURS
-}
-
-enum class SubscriptionTier {
-    BASIC,
-    PRO
-}
-
-data class WorkingHours(
-    val dayOfWeek: Int = 0, // Sunday is 1, Saturday is 7
-    val startTime: String = "09:00", // 24-hour format
-    val endTime: String = "17:00"
-)
-
-data class Appointment(
-    val dateTime: Long = 0L, // Unix timestamp
-    val duration: Int = 60 // in minutes
-)
+import kotlinx.parcelize.Parcelize
+import kotlinx.parcelize.TypeParceler
+import java.util.Date
+import com.refreshme.data.GeoPointParceler 
+import com.refreshme.data.DateParceler 
 
 @IgnoreExtraProperties
+@Parcelize
+data class FlashDeal(
+    val title: String = "",
+    val description: String = "",
+    val discountPercentage: Int = 0,
+    val expiryTime: Date? = null,
+    val serviceId: String? = null
+) : Parcelable
+
+@IgnoreExtraProperties
+@Parcelize
+data class SocialMediaLinks(
+    val instagram: String? = null,
+    val tiktok: String? = null,
+    val website: String? = null
+) : Parcelable
+
+@IgnoreExtraProperties
+@Parcelize
+@TypeParceler<GeoPoint?, GeoPointParceler>
+@TypeParceler<Date?, DateParceler>
 data class Stylist(
     val id: String = "",
     val name: String = "",
-    val location: GeoPoint? = null,
-    val profileImageUrl: String? = null,
+    
+    @get:PropertyName("profileImageUrl") @set:PropertyName("profileImageUrl") var profileImageUrl: String? = "",
+    @get:PropertyName("imageUrl") @set:PropertyName("imageUrl") var imageUrl: String? = "", 
+    
     val rating: Double = 0.0,
-    val services: List<Service>? = null,
-    val atHomeServiceFee: Double? = null,
-    val yearsOfExperience: Int? = null,
-    val reviewCount: Int? = null,
-    val address: String? = null,
-    val bio: String? = null,
-    val specialty: String? = null,
-    val offersAtHomeService: Boolean? = null,
-    val portfolioImages: Map<String, String>? = null,
-    @get:PropertyName("verified") @set:PropertyName("verified")
-    var isVerified: Boolean = false,
-    val workingHours: List<WorkingHours>? = null,
-    val bookedAppointments: List<Appointment>? = null,
-    @get:PropertyName("online") @set:PropertyName("online")
-    var isOnline: Boolean = false,
-    val galleryImageUrls: List<String>? = null,
-    val reviews: List<Review>? = null,
-    val isFeatured: Boolean = false,
-    val subscriptionTier: SubscriptionTier = SubscriptionTier.BASIC
-) /*: ClusterItem */ {
-    /*
+    @get:Exclude @set:Exclude var distance: Double = 0.0,
+    
+    @get:PropertyName("availableNow") @set:PropertyName("availableNow") var isAvailable: Boolean? = false,
+    @get:PropertyName("available") @set:PropertyName("available") var availableInDb: Boolean? = false, 
+    
+    val location: GeoPoint? = null,
+    
+    @get:PropertyName("verified") @set:PropertyName("verified") var isVerified: Boolean? = false,
+    @get:PropertyName("isVerified") @set:PropertyName("isVerified") var verifiedInDb: Boolean? = false, 
+    
+    val specialty: String? = "",
+    val vibes: List<String>? = emptyList(), // Feature: Hyper-Local Vibe Search
+    val recommendedFaceShapes: List<String>? = emptyList(), // Feature: AI Consultations
+    val services: List<Service>? = emptyList(),
+    val bio: String? = "",
+    val portfolioImages: List<String>? = emptyList(),
+    val portfolioVideos: List<String>? = emptyList(), // Feature: Video Portfolio Reels
+    val beforeAfterImages: List<BeforeAfter>? = emptyList(),
+    val reviews: List<Review>? = emptyList(), 
+    val address: String? = "", 
+    
+    // Safety & Monetization (Mobile / 24-7)
+    @get:PropertyName("atHomeServiceFee") @set:PropertyName("atHomeServiceFee") var atHomeServiceFee: Double? = 0.0,
+    @get:PropertyName("emergencyFee") @set:PropertyName("emergencyFee") var emergencyFee: Double? = 0.0,
+    @get:PropertyName("travelBufferMinutes") @set:PropertyName("travelBufferMinutes") var travelBufferMinutes: Int? = 30,
+    @get:PropertyName("requiresIdVerificationForMobile") @set:PropertyName("requiresIdVerificationForMobile") var requiresIdVerificationForMobile: Boolean? = true,
+
+    @get:PropertyName("offersAtHomeService") @set:PropertyName("offersAtHomeService") var offersAtHomeService: Boolean? = false,
+    @get:PropertyName("maxTravelRangeKm") @set:PropertyName("maxTravelRangeKm") var maxTravelRangeKm: Int? = 15,
+    @get:PropertyName("online") @set:PropertyName("online") var isOnline: Boolean? = false, 
+    @get:PropertyName("offersEventBooking") @set:PropertyName("offersEventBooking") var offersEventBooking: Boolean? = false,
+
+    val serviceType: ServiceType = ServiceType.IN_SALON,
+    val verificationStatus: VerificationStatus = VerificationStatus.UNVERIFIED,
+    val workingHours: List<WorkingHours>? = emptyList(),
+    val bookedAppointments: List<Appointment>? = emptyList(),
+    val reviewCount: Int? = 0,
+    @get:PropertyName("featured") @set:PropertyName("featured") var isFeatured: Boolean? = false,
+    val galleryImageUrls: List<String>? = emptyList(),
+    @get:PropertyName("yearsOfExperience") @set:PropertyName("yearsOfExperience") var yearsOfExperience: Int? = 0,
+    val tools: List<String>? = emptyList(),
+    val stripeAccountId: String? = null,
+    val stripeAccountStatus: String? = null,
+    val subscriptionTier: String = "BASIC",
+    @get:PropertyName("subscriptionActive") @set:PropertyName("subscriptionActive") var isSubscriptionActive: Boolean = false,
+    @get:PropertyName("trialStartTime") @set:PropertyName("trialStartTime") var trialStartTime: Date? = null,
+    @get:PropertyName("lastOnlineAt") @set:PropertyName("lastOnlineAt") var lastOnlineAt: Date? = null,
+    val socialLinks: SocialMediaLinks? = null, // Feature: Profile Discovery & Enhancements
+    @get:Exclude @set:Exclude var matchScore: Int = 0, 
+    @get:Exclude @set:Exclude var matchExplanation: String? = null,
+    val currentFlashDeal: FlashDeal? = null // Feature: Dynamic Flash Deals
+) : Parcelable {
+    
     @get:Exclude
-    override fun getPosition(): LatLng {
-        return LatLng(location?.latitude ?: 0.0, location?.longitude ?: 0.0)
-    }
+    val displayImageUrl: String?
+        get() = profileImageUrl?.ifBlank { imageUrl } ?: imageUrl
+    
+    @get:Exclude
+    val isVerifiedStylist: Boolean
+        get() = isVerified == true || verifiedInDb == true
+        
+    @get:Exclude
+    val isCurrentlyAvailable: Boolean
+        get() = isAvailable == true || availableInDb == true
 
     @get:Exclude
-    override fun getTitle(): String {
-        return name
-    }
-
-    @get:Exclude
-    override fun getSnippet(): String {
-        return specialty ?: ""
-    }
-
-    @get:Exclude
-    override fun getZIndex(): Float {
-        return 0f
-    }
-    */
-
-    @get:Exclude
-    val isAvailableNow: Boolean
-        get() = isOnline
-
-    @get:Exclude
-    val serviceType: ServiceType
-        get() {
-            val is247 = workingHours?.any { it.startTime == "00:00" && it.endTime == "24:00" } == true
-            return when {
-                is247 -> ServiceType.ALL_HOURS
-                offersAtHomeService == true -> ServiceType.AT_HOME
-                else -> ServiceType.IN_SALON
-            }
-        }
+    val hasActiveFlashDeal: Boolean
+        get() = currentFlashDeal != null && (currentFlashDeal.expiryTime == null || currentFlashDeal.expiryTime.after(Date()))
 }

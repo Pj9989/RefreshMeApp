@@ -1,3 +1,6 @@
 package com.refreshme.data
 
-data class StylistItem(val stylist: Stylist, val isFavorite: Boolean)
+data class StylistItem(val stylist: Stylist, val isFavorite: Boolean) {
+    // Required for Firebase deserialization
+    constructor() : this(Stylist(), false)
+}

@@ -1,0 +1,33 @@
+﻿package com.refreshme.data
+
+import com.google.firebase.firestore.GeoPoint
+import com.google.firebase.firestore.PropertyName
+
+data class Stylist(
+    val id: String = "",
+    val name: String = "",
+    @get:PropertyName("profileImageUrl") @set:PropertyName("profileImageUrl") var profileImageUrl: String = "",
+    val rating: Double = 0.0,
+    var distance: Double = 0.0,
+    @get:PropertyName("availableNow") @set:PropertyName("availableNow") var isAvailable: Boolean? = false, // FIX: Mapped to availableNow
+    val location: GeoPoint? = null,
+    @get:PropertyName("verified") @set:PropertyName("verified") var isVerified: Boolean? = false, // FIX: Mapped to verified
+    val specialty: String = "",
+    val services: List<Service> = emptyList(),
+    val bio: String = "",
+    val portfolioImages: List<String> = emptyList(),
+    val reviews: List<Review> = emptyList(),
+    val address: String = "",
+    @get:PropertyName("atHomeServiceFee") @set:PropertyName("atHomeServiceFee") var atHomeServiceFee: Double? = 0.0,
+    @get:PropertyName("offersAtHomeService") @set:PropertyName("offersAtHomeService") var offersAtHomeService: Boolean? = false,
+    @get:PropertyName("online") @set:PropertyName("online") var isOnline: Boolean? = false, // FIX: Mapped to online, converted to var
+    val serviceType: ServiceType = ServiceType.IN_SALON,
+    val verificationStatus: VerificationStatus = VerificationStatus.UNVERIFIED,
+    val workingHours: List<WorkingHours> = emptyList(),
+    val bookedAppointments: List<Appointment> = emptyList(),
+    val reviewCount: Int? = 0,
+    @get:PropertyName("featured") @set:PropertyName("featured") var isFeatured: Boolean? = false, // FIX: Mapped to featured, converted to var
+    val galleryImageUrls: List<String> = emptyList(),
+    @get:PropertyName("yearsOfExperience") @set:PropertyName("yearsOfExperience") var yearsOfExperience: Int? = 0,
+    val tools: List<String> = emptyList()
+)

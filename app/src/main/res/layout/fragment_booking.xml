@@ -7,6 +7,57 @@
     android:background="#1C1B1F"
     tools:context=".BookingFragment">
 
+    <!-- Service Selection Info -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/serviceSelectionLayout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        app:cardBackgroundColor="#2E2D32"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="8dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/serviceNameText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Service: Haircut"
+                android:textColor="@color/white"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/servicePriceText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Price: $50.00"
+                android:textColor="@color/white"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/depositAmountText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Deposit Due (20%): $10.00"
+                android:textColor="#4CAF50"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
     <!-- Date Selection -->
     <androidx.cardview.widget.CardView
         android:id="@+id/date_card"
@@ -16,7 +67,7 @@
         app:cardBackgroundColor="#2E2D32"
         app:cardCornerRadius="12dp"
         app:cardElevation="8dp"
-        app.layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/serviceSelectionLayout"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
@@ -93,6 +144,46 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"/>
         </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Payment Info Section -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/payment_info_card"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        app:cardBackgroundColor="#3F3E43"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="8dp"
+        app:layout_constraintTop_toBottomOf="@id/time_card"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Deposit Information"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="A non-refundable 20% deposit is required to secure your booking. The remaining balance will be due at the time of your appointment.\n\nRefund Exception: A full deposit refund will be processed if the stylist cancels the appointment."
+                android:textColor="@color/white"
+                android:textSize="14sp" />
+        </LinearLayout>
     </androidx.cardview.widget.CardView>
 
     <Button

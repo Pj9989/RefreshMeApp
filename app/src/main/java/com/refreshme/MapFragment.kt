@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.location.Location
 import android.net.Uri
 import android.os.Bundle
@@ -13,9 +14,9 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -24,33 +25,51 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.MarkerOptions
-import com.google.android.material.appbar.MaterialToolbar
-import com.google.android.material.textfield.TextInputEditText
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.refreshme.auth.SignInActivity
 import com.refreshme.data.Stylist
+import com.refreshme.databinding.FragmentMapBinding
 
 class MapFragment : Fragment(), OnMapReadyCallback {
 
-    private lateinit var mMap: GoogleMap
+    private var _binding: FragmentMapBinding? = null
+    private val binding get() = _binding!!
+
+    private var mMap: GoogleMap? = null
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private val firestore by lazy { FirebaseFirestore.getInstance() }
     private val allStylists = mutableListOf<Stylist>()
+    private lateinit var auth: FirebaseAuth
+    private lateinit var authStateListener: FirebaseAuth.AuthStateListener
+    
+    // Filter state
+    private var showOnlineOnly = false
+    private var searchQuery = ""
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        auth = FirebaseAuth.getInstance()
+        setupAuthStateListener()
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        return inflater.inflate(R.layout.fragment_map, container, false)
+    ): View {
+        _binding = FragmentMapBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        val toolbar = view.findViewById<MaterialToolbar>(R.id.toolbar)
-        toolbar.setNavigationOnClickListener {
+        
+        binding.toolbar.setNavigationOnClickListener {
             findNavController().navigateUp()
         }
 
@@ -58,35 +77,72 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         val mapFragment = childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-        val searchEditText = view.findViewById<TextInputEditText>(R.id.search_edit_text)
-        searchEditText.addTextChangedListener(object : TextWatcher {
+        binding.searchEditText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                filterStylists(s.toString())
+                searchQuery = s.toString()
+                mMap?.let { applyFilters() }
             }
             override fun afterTextChanged(s: Editable?) {}
         })
 
-        val nearMeButton = view.findViewById<Button>(R.id.near_me_button)
-        nearMeButton.setOnClickListener {
-            findNearbyStylists()
+        binding.nearMeButton.text = "Show Online Now"
+        binding.nearMeButton.setOnClickListener {
+            showOnlineOnly = !showOnlineOnly
+            binding.nearMeButton.text = if (showOnlineOnly) "Show All" else "Show Online Now"
+            mMap?.let { applyFilters() }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        auth.addAuthStateListener(authStateListener)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        auth.removeAuthStateListener(authStateListener)
+    }
+
+    private fun setupAuthStateListener() {
+        authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+            if (firebaseAuth.currentUser == null) {
+                val intent = Intent(requireActivity(), SignInActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                requireActivity().finish()
+            }
         }
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
         try {
             mMap = googleMap
-            val style = MapStyleOptions.loadRawResourceStyle(requireContext(), R.raw.map_style_gold)
-            mMap.setMapStyle(style)
-            mMap.uiSettings.isZoomControlsEnabled = true
-            checkLocationPermission()
-            fetchStylists()
-            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(39.8283, -98.5795), 3f))
+            
+            val isDarkMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            if (isDarkMode) {
+                val style = MapStyleOptions.loadRawResourceStyle(requireContext(), R.raw.map_style_gold)
+                mMap?.setMapStyle(style)
+            } else {
+                mMap?.setMapStyle(null)
+            }
+            
+            mMap?.uiSettings?.isZoomControlsEnabled = true
 
-            mMap.setInfoWindowAdapter(CustomInfoWindowAdapter(requireContext(), allStylists))
-            mMap.setOnInfoWindowClickListener { marker ->
+            if (auth.currentUser != null) {
+                loadMapData()
+            }
+
+            mMap?.setInfoWindowAdapter(CustomInfoWindowAdapter(requireContext(), allStylists))
+            mMap?.setOnInfoWindowClickListener { marker ->
                 val stylist = allStylists.find { it.name == marker.title }
-                if (stylist?.location != null) {
+
+                if (stylist?.id != null) {
+                    findNavController().navigate(
+                        R.id.action_map_to_details,
+                        bundleOf("stylistId" to stylist.id)
+                    )
+                } else if (stylist?.location != null) {
                     val gmmIntentUri = Uri.parse("google.navigation:q=${stylist.location.latitude},${stylist.location.longitude}")
                     val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
                     mapIntent.setPackage("com.google.android.apps.maps")
@@ -96,6 +152,11 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         } catch (e: Exception) {
             Log.e("MapFragment", "Error initializing map", e)
         }
+    }
+
+    private fun loadMapData() {
+        checkLocationPermission()
+        fetchStylists()
     }
 
     private fun checkLocationPermission() {
@@ -108,18 +169,21 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                 LOCATION_PERMISSION_REQUEST_CODE
             )
         } else {
-            mMap.isMyLocationEnabled = true
+            mMap?.isMyLocationEnabled = true
             getLastKnownLocation()
         }
     }
 
     @SuppressLint("MissingPermission")
     private fun getLastKnownLocation() {
+        val targetStylistId = arguments?.getString("stylistId")
+        if (targetStylistId != null) return
+
         fusedLocationClient.lastLocation
             .addOnSuccessListener { location ->
-                if (location != null) {
+                if (location != null) { 
                     val userLocation = LatLng(location.latitude, location.longitude)
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 12f))
+                    mMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 12f))
                 }
             }
     }
@@ -135,52 +199,38 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                     val stylist = document.toObject(Stylist::class.java).copy(id = document.id)
                     allStylists.add(stylist)
                 }
-                updateMapWithStylists(allStylists)
+                applyFilters()
             }
             .addOnFailureListener { exception ->
                 Log.w("MapFragment", "Error getting documents: ", exception)
             }
     }
 
-    private fun filterStylists(query: String) {
-        val filteredList = if (query.isEmpty()) {
-            allStylists
-        } else {
-            allStylists.filter {
+    private fun applyFilters() {
+        val query = searchQuery
+        var filteredList = allStylists.toList()
+        
+        if (query.isNotEmpty()) {
+            filteredList = filteredList.filter {
                 it.name?.contains(query, ignoreCase = true) == true ||
                         it.specialty?.contains(query, ignoreCase = true) == true
             }
         }
+        
+        if (showOnlineOnly) {
+            filteredList = filteredList.filter { it.isOnline == true }
+        }
+
         updateMapWithStylists(filteredList)
     }
 
-    @SuppressLint("MissingPermission")
-    private fun findNearbyStylists() {
-        fusedLocationClient.lastLocation
-            .addOnSuccessListener { location ->
-                if (location != null) {
-                    val userLocation = LatLng(location.latitude, location.longitude)
-                    val nearbyStylists = allStylists.filter {
-                        val stylistLocation = it.location
-                        if (stylistLocation != null) {
-                            val distance = FloatArray(1)
-                            Location.distanceBetween(
-                                userLocation.latitude, userLocation.longitude,
-                                stylistLocation.latitude, stylistLocation.longitude,
-                                distance
-                            )
-                            distance[0] / 1000 <= 10 // 10km radius
-                        } else {
-                            false
-                        }
-                    }
-                    updateMapWithStylists(nearbyStylists)
-                }
-            }
-    }
-
     private fun updateMapWithStylists(stylists: List<Stylist>) {
-        mMap.clear()
+        val currentMap = mMap ?: return
+        currentMap.clear()
+        
+        val targetStylistId = arguments?.getString("stylistId")
+        var targetMarker: LatLng? = null
+        
         if (stylists.isNotEmpty()) {
             val boundsBuilder = LatLngBounds.builder()
             var hasLocations = false
@@ -188,14 +238,37 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                 if (stylist.location != null) {
                     hasLocations = true
                     val latLng = LatLng(stylist.location.latitude, stylist.location.longitude)
-                    mMap.addMarker(MarkerOptions().position(latLng).title(stylist.name))
+                    val markerOptions = MarkerOptions().position(latLng).title(stylist.name)
+                    
+                    if (stylist.isOnline == true) {
+                        markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
+                        markerOptions.zIndex(1.0f)
+                    } else {
+                        markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
+                        markerOptions.zIndex(0.0f)
+                    }
+                    
+                    val marker = currentMap.addMarker(markerOptions)
                     boundsBuilder.include(latLng)
+                    
+                    if (stylist.id == targetStylistId) {
+                        targetMarker = latLng
+                        marker?.showInfoWindow()
+                    }
                 }
             }
+            
             if (hasLocations) {
-                val bounds = boundsBuilder.build()
-                val padding = 100
-                mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
+                if (targetMarker != null) {
+                     currentMap.animateCamera(CameraUpdateFactory.newLatLngZoom(targetMarker, 15f))
+                } else if (targetStylistId == null) {
+                    try {
+                        val bounds = boundsBuilder.build()
+                        val padding = 100
+                        currentMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
+                    } catch (_: Exception) {
+                    }
+                }
             }
         }
     }
@@ -210,6 +283,12 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                 checkLocationPermission()
             }
         }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        mMap = null
+        _binding = null
     }
 
     companion object {

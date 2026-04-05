@@ -3,21 +3,96 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph_stylist"
-    app:startDestination="@id/stylistHome">
+    app:startDestination="@id/stylistDashboardFragment">
 
     <fragment
-        android:id="@+id/stylistHome"
-        android:name="com.refreshme.stylist.StylistHomeFragment"
-        android:label="Stylist Home"
-        tools:layout="@layout/fragment_stylist_home" />
+        android:id="@+id/stylistDashboardFragment"
+        android:name="com.refreshme.stylist.StylistDashboardFragment"
+        android:label="Stylist Dashboard"
+        tools:layout="@layout/fragment_stylist_home">
+        <action
+            android:id="@+id/action_stylistDashboardFragment_to_stylistProfileFragment"
+            app:destination="@id/stylistProfileFragment" />
+        <action
+            android:id="@+id/action_stylistDashboardFragment_to_stylistBookingsFragment"
+            app:destination="@id/stylistBookingsFragment" />
+        <action
+            android:id="@+id/action_stylistDashboardFragment_to_payoutsEarningsFragment"
+            app:destination="@id/payoutsEarningsFragment" />
+        <action
+            android:id="@+id/action_stylistDashboardFragment_to_manageServicesFragment"
+            app:destination="@id/manageServicesFragment" />
+        <action
+            android:id="@+id/action_stylistDashboardFragment_to_setAvailabilityFragment"
+            app:destination="@id/setAvailabilityFragment" />
+    </fragment>
+    
     <fragment
-        android:id="@+id/stylistBookings"
+        android:id="@+id/stylistBookingsFragment"
         android:name="com.refreshme.stylist.StylistBookingsFragment"
         android:label="Stylist Bookings"
-        tools:layout="@layout/fragment_stylist_bookings" />
+        tools:layout="@layout/fragment_stylist_bookings">
+        <action
+            android:id="@+id/action_stylistBookingsFragment_to_chatFragment"
+            app:destination="@id/chatFragment" />
+    </fragment>
+
     <fragment
-        android:id="@+id/stylistEarnings"
+        android:id="@+id/payoutsEarningsFragment"
+        android:name="com.refreshme.stylist.PayoutsEarningsFragment"
+        android:label="Earnings &amp; Payouts"
+        tools:layout="@layout/fragment_stylist_earnings" />
+
+    <fragment
+        android:id="@+id/manageServicesFragment"
+        android:name="com.refreshme.stylist.ManageServicesFragment"
+        android:label="Manage Services"
+        tools:layout="@layout/fragment_manage_services" />
+
+    <fragment
+        android:id="@+id/setAvailabilityFragment"
+        android:name="com.refreshme.stylist.SetAvailabilityFragment"
+        android:label="Availability"
+        tools:layout="@layout/fragment_set_availability" />
+
+    <fragment
+        android:id="@+id/stylistEarningsFragment"
         android:name="com.refreshme.stylist.StylistEarningsFragment"
         android:label="Stylist Earnings"
         tools:layout="@layout/fragment_stylist_earnings" />
+
+    <!-- ID changed from stylistMessagesFragment to messagesFragment to match bottom_nav_menu.xml -->
+    <fragment
+        android:id="@+id/messagesFragment"
+        android:name="com.refreshme.chat.StylistMessagesFragment"
+        android:label="Stylist Messages"
+        tools:layout="@layout/fragment_messages">
+        <action
+            android:id="@+id/action_messagesFragment_to_chatFragment"
+            app:destination="@id/chatFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/stylistProfileFragment"
+        android:name="com.refreshme.stylist.StylistProfileFragment"
+        android:label="Stylist Profile"
+        tools:layout="@layout/fragment_stylist_profile" />
+        
+    <!-- Alias for outdated/misspelled 'stylistFragment' ID, keeping for backward compatibility -->
+    <fragment
+        android:id="@+id/stylistFragment"
+        android:name="com.refreshme.stylist.StylistProfileFragment"
+        android:label="Stylist Profile Alias"
+        tools:layout="@layout/fragment_stylist_profile" />
+        
+    <fragment
+        android:id="@+id/chatFragment"
+        android:name="com.refreshme.chat.ChatFragment"
+        android:label="Chat"
+        tools:layout="@layout/fragment_chat">
+        <argument
+            android:name="otherUserId"
+            app:argType="string"
+            android:defaultValue="" />
+    </fragment>
 </navigation>

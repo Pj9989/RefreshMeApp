@@ -2,14 +2,9 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item
-        android:id="@+id/dashboardFragment"
+        android:id="@+id/homeFragment"
         android:icon="@drawable/ic_home_24dp"
-        android:title="Dashboard" />
-
-    <item
-        android:id="@+id/mapFragment"
-        android:icon="@android:drawable/ic_dialog_map"
-        android:title="Explore" />
+        android:title="Home" />
 
     <item
         android:id="@+id/bookingsFragment"

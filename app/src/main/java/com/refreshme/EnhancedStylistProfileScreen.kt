@@ -32,10 +32,14 @@ fun EnhancedStylistProfileScreen(
     onChatClick: (String) -> Unit,
     viewModel: StylistProfileViewModel = viewModel()
 ) {
-    val stylist by viewModel.stylist.collectAsState()
-
+    val uiState by viewModel.uiState.collectAsState()
+    val stylist = uiState.stylist
+    
     LaunchedEffect(stylistId) {
-        viewModel.fetchStylist(stylistId)
+        // Only fetch if not already loading or loaded
+        if (stylistId.isNotEmpty() && !uiState.isLoading && stylist == null) {
+            viewModel.fetchStylist(stylistId)
+        }
     }
 
     Scaffold(
@@ -55,99 +59,110 @@ fun EnhancedStylistProfileScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            stylist?.let {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Header
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+            when {
+                uiState.isLoading -> {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                }
+                uiState.error != null -> {
+                    Text(text = "Error: ${uiState.error}", color = MaterialTheme.colorScheme.error, modifier = Modifier.align(Alignment.Center))
+                }
+                stylist != null -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        it.profileImageUrl?.let { imageUrl ->
-                            Image(
-                                painter = rememberImagePainter(data = imageUrl),
-                                contentDescription = "Stylist Profile Image",
-                                modifier = Modifier
-                                    .size(100.dp)
-                                    .clip(CircleShape),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(it.name, style = MaterialTheme.typography.headlineMedium)
-                            it.specialty?.let { specialty ->
-                                Text(specialty, style = MaterialTheme.typography.bodyLarge)
+                        // Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            stylist.profileImageUrl?.let { imageUrl ->
+                                Image(
+                                    painter = rememberImagePainter(data = imageUrl),
+                                    contentDescription = "Stylist Profile Image",
+                                    modifier = Modifier
+                                        .size(100.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Star, contentDescription = "Rating", tint = MaterialTheme.colorScheme.primary)
-                                Text("${it.rating}", style = MaterialTheme.typography.bodyLarge)
-                            }
-                        }
-                    }
-
-                    // Bio
-                    it.bio?.let { bio ->
-                        if (bio.isNotBlank()) {
-                            Text("Bio", style = MaterialTheme.typography.headlineSmall)
-                            Text(bio, style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-
-                    // Action Buttons
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { onBookClick(stylistId) }) {
-                            Text("Book")
-                        }
-                        Button(onClick = { onChatClick(stylistId) }) {
-                            Text("Chat")
-                        }
-                    }
-
-                    // Portfolio
-                    it.portfolioImages?.let { images ->
-                        if (images.isNotEmpty()) {
-                            Text("Portfolio", style = MaterialTheme.typography.headlineSmall)
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(images.values.toList()) { imageUrl ->
-                                    Image(
-                                        painter = rememberImagePainter(data = imageUrl),
-                                        contentDescription = "Portfolio Image",
-                                        modifier = Modifier.size(150.dp)
-                                    )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stylist.name, style = MaterialTheme.typography.headlineMedium)
+                                stylist.specialty?.let { specialty ->
+                                    Text(specialty, style = MaterialTheme.typography.bodyLarge)
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Star, contentDescription = "Rating", tint = MaterialTheme.colorScheme.primary)
+                                    Text("${stylist.rating}", style = MaterialTheme.typography.bodyLarge)
                                 }
                             }
                         }
-                    }
 
-                    // Services
-                    it.services?.let { services ->
-                        if (services.isNotEmpty()) {
-                            Text("Services", style = MaterialTheme.typography.headlineSmall)
-                            services.forEach { service ->
-                                Card(modifier = Modifier.fillMaxWidth()) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(16.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("${service.name} (${service.duration} mins)")
-                                        Text("$${service.price}")
+                        // Bio
+                        stylist.bio?.let { bio ->
+                            if (bio.isNotBlank()) {
+                                Text("Bio", style = MaterialTheme.typography.headlineSmall)
+                                Text(bio, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+
+                        // Action Buttons
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { onBookClick(stylistId) }) {
+                                Text("Book")
+                            }
+                            Button(onClick = { onChatClick(stylistId) }) {
+                                Text("Chat")
+                            }
+                        }
+
+                        // Portfolio
+                        stylist.portfolioImages?.let { images ->
+                            if (images.isNotEmpty()) {
+                                Text("Portfolio", style = MaterialTheme.typography.headlineSmall)
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(images) { imageUrl ->
+                                        Image(
+                                            painter = rememberImagePainter(data = imageUrl),
+                                            contentDescription = "Portfolio Image",
+                                            modifier = Modifier.size(150.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Services
+                        stylist.services?.let { services ->
+                            if (services.isNotEmpty()) {
+                                Text("Services", style = MaterialTheme.typography.headlineSmall)
+                                services.forEach { service ->
+                                    Card(modifier = Modifier.fillMaxWidth()) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            // FIX: Use durationMinutes instead of duration
+                                            Text("${service.name} (${service.durationMinutes} mins)")
+                                            Text("$${service.price}")
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
-            } ?: run {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                else -> {
+                    // Stylist is null and not loading (e.g., fetch was attempted and failed/returned null)
+                    Text(text = "Stylist profile not found.", modifier = Modifier.align(Alignment.Center))
+                }
             }
         }
     }

@@ -1,0 +1,29 @@
+package com.refreshme.data
+
+import com.google.firebase.firestore.GeoPoint
+
+data class Stylist(
+    val id: String = "",
+    val name: String = "",
+    val profileImageUrl: String = "",
+    val rating: Double = 0.0,
+    var distance: Double = 0.0, // This will be calculated on the client side
+    val available: Boolean = false,
+    val location: GeoPoint? = null, // Using Firestore's GeoPoint for location
+    val isProfileVerified: Boolean = false,
+    val specialty: String = "",
+    val services: List<Service> = emptyList(),
+    val bio: String = "",
+    val portfolioImages: List<String> = emptyList(),
+    val reviews: List<Review> = emptyList(),
+    val address: String = "",
+    val offersAtHomeService: Boolean = false,
+    val isOnline: Boolean = false,
+    val serviceType: ServiceType = ServiceType.IN_SALON,
+    val verificationStatus: VerificationStatus = VerificationStatus.UNVERIFIED,
+    val workingHours: List<WorkingHours> = emptyList(),
+    val bookedAppointments: List<Appointment> = emptyList(),
+    val reviewCount: Int = 0,
+    val isFeatured: Boolean = false,
+    val galleryImageUrls: List<String> = emptyList()
+)

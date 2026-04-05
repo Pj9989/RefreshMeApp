@@ -3,9 +3,11 @@ package com.refreshme
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.github.appintro.AppIntro
 import com.github.appintro.AppIntroFragment
+import com.github.appintro.model.SliderPage
 import com.refreshme.auth.SignInActivity
 
 class OnboardingActivity : AppIntro() {
@@ -21,28 +23,47 @@ class OnboardingActivity : AppIntro() {
             return
         }
 
+        setIndicatorColor(
+            selectedIndicatorColor = ContextCompat.getColor(this, R.color.black),
+            unselectedIndicatorColor = ContextCompat.getColor(this, R.color.gray)
+        )
+        
+        setColorDoneText(ContextCompat.getColor(this, R.color.black))
+        setColorSkipButton(ContextCompat.getColor(this, R.color.black))
+        setNextArrowColor(ContextCompat.getColor(this, R.color.black))
+        setBackArrowColor(ContextCompat.getColor(this, R.color.black))
 
-        // Call addSlide passing your Fragments.
-        // You can use AppIntroFragment to use a pre-built fragment
         addSlide(
             AppIntroFragment.createInstance(
-                title = "Welcome to RefreshMe!",
-                description = "Find and book your next appointment with the best barbers and stylists in your area.",
-                imageDrawable = R.drawable.ic_launcher_foreground
+                SliderPage(
+                    title = getString(R.string.onboarding_title_1),
+                    description = getString(R.string.onboarding_desc_1),
+                    imageDrawable = R.mipmap.ic_launcher_foreground,
+                    titleColorRes = R.color.black,
+                    descriptionColorRes = R.color.black
+                )
             )
         )
         addSlide(
             AppIntroFragment.createInstance(
-                title = "Discover new stylists",
-                description = "Browse through a curated list of stylists and barbers, view their portfolios, and read reviews from other users.",
-                imageDrawable = R.drawable.ic_launcher_foreground
+                SliderPage(
+                    title = getString(R.string.onboarding_title_2),
+                    description = getString(R.string.onboarding_desc_2),
+                    imageDrawable = R.mipmap.ic_launcher_foreground,
+                    titleColorRes = R.color.black,
+                    descriptionColorRes = R.color.black
+                )
             )
         )
         addSlide(
             AppIntroFragment.createInstance(
-                title = "Book with ease",
-                description = "Booking your next appointment is just a few taps away. Choose a stylist, select a service, and pick a time that works for you.",
-                imageDrawable = R.drawable.ic_launcher_foreground
+                SliderPage(
+                    title = getString(R.string.onboarding_title_3),
+                    description = getString(R.string.onboarding_desc_3),
+                    imageDrawable = R.mipmap.ic_launcher_foreground,
+                    titleColorRes = R.color.black,
+                    descriptionColorRes = R.color.black
+                )
             )
         )
     }
@@ -56,13 +77,11 @@ class OnboardingActivity : AppIntro() {
 
     override fun onSkipPressed(currentFragment: Fragment?) {
         super.onSkipPressed(currentFragment)
-        // Decide what to do when the user clicks on Skip
         completeOnboarding()
     }
 
     override fun onDonePressed(currentFragment: Fragment?) {
         super.onDonePressed(currentFragment)
-        // Decide what to do when the user clicks on Done
         completeOnboarding()
     }
 }

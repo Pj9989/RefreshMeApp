@@ -1,202 +1,407 @@
 package com.refreshme.stylist
 
-import android.content.Context // Added for onAttach
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import android.widget.TextView // Added import for TextView
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.tabs.TabLayout
-import com.google.firebase.Timestamp
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import com.refreshme.R
+import com.refreshme.data.Booking
+import com.refreshme.data.BookingRepository
+import com.refreshme.data.BookingStatus
+import com.refreshme.ui.theme.RefreshMeTheme
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class StylistBookingsFragment : Fragment() {
 
-    // Task 3: Badge update listener interface
-    interface BadgeUpdateListener {
-        fun updateBookingsBadge(count: Int)
-    }
-    
-    private lateinit var recyclerView: RecyclerView
-    private lateinit var tabLayout: TabLayout
-    private lateinit var emptyStateTextView: TextView // Added
-    private lateinit var adapter: BookingCardAdapter
-    private val firestore = FirebaseFirestore.getInstance()
-    private val auth = FirebaseAuth.getInstance()
-    
-    private var badgeUpdateListener: BadgeUpdateListener? = null // Listener instance
-
-    override fun onAttach(context: Context) {
-        super.onAttach(context)
-        // Check if the hosting context (Activity/Parent Fragment) implements the interface
-        if (context is BadgeUpdateListener) {
-            badgeUpdateListener = context
-        }
-    }
+    @Inject lateinit var firestore: FirebaseFirestore
+    @Inject lateinit var auth: FirebaseAuth
+    @Inject lateinit var bookingRepository: BookingRepository
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        val view = inflater.inflate(R.layout.fragment_stylist_bookings, container, false)
-        
-        recyclerView = view.findViewById(R.id.bookingsRecyclerView)
-        tabLayout = view.findViewById(R.id.tabLayout)
-        emptyStateTextView = view.findViewById(R.id.emptyStateTextView) // Initialized
-        
-        setupRecyclerView()
-        setupTabs()
-        loadBookings(BookingFilter.UPCOMING)
-        
-        return view
-    }
-
-    private fun setupRecyclerView() {
-        adapter = BookingCardAdapter(
-            onStartClick = { booking ->
-                handleStartBooking(booking)
-            },
-            onCancelClick = { booking ->
-                handleCancelBooking(booking)
-            },
-            onMessageClick = { booking ->
-                handleMessageCustomer(booking)
-            }
-        )
-        
-        recyclerView.layoutManager = LinearLayoutManager(requireContext())
-        recyclerView.adapter = adapter
-    }
-
-    private fun setupTabs() {
-        tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
-            override fun onTabSelected(tab: TabLayout.Tab?) {
-                when (tab?.position) {
-                    0 -> loadBookings(BookingFilter.UPCOMING)
-                    1 -> loadBookings(BookingFilter.COMPLETED)
-                    2 -> loadBookings(BookingFilter.CANCELLED)
+    ): View {
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                RefreshMeTheme {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        StylistBookingsScreen()
+                    }
                 }
             }
-
-            override fun onTabUnselected(tab: TabLayout.Tab?) {}
-            override fun onTabReselected(tab: TabLayout.Tab?) {}
-        })
-    }
-
-    private fun loadBookings(filter: BookingFilter) {
-        val stylistId = auth.currentUser?.uid ?: return
-        
-        var query: Query = firestore.collection("bookings")
-            .whereEqualTo("stylistId", stylistId)
-        
-        query = when (filter) {
-            BookingFilter.UPCOMING -> query.whereIn("status", listOf("PENDING", "CONFIRMED", "IN_PROGRESS"))
-            BookingFilter.COMPLETED -> query.whereEqualTo("status", "COMPLETED")
-            BookingFilter.CANCELLED -> query.whereEqualTo("status", "CANCELLED")
         }
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    fun StylistBookingsScreen() {
+        var selectedTab by remember { mutableIntStateOf(0) }
+        val tabs = listOf("Requests", "Upcoming", "Completed", "Cancelled")
         
-        // Add sorting by startTime (renamed from bookingTime) in ascending order for UPCOMING filter for better UX,
-        // and descending for COMPLETED/CANCELLED (most recent first).
-        val direction = if (filter == BookingFilter.UPCOMING) Query.Direction.ASCENDING else Query.Direction.DESCENDING
-        query.orderBy("startTime", direction) // Changed "bookingTime" to "startTime"
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    // Error = warning (handled by Toast)
-                    Toast.makeText(context, "Error loading bookings", Toast.LENGTH_SHORT).show()
-                    emptyStateTextView.visibility = View.GONE
-                    recyclerView.visibility = View.GONE
-                    // adapter.submitList(emptyList()) // Keep existing data if possible, or clear on error
-                    badgeUpdateListener?.updateBookingsBadge(0) // Clear badge on error
-                    return@addSnapshotListener
-                }
-                
-                val bookings = snapshot?.documents?.mapNotNull { doc ->
-                    try {
-                        StylistBooking(
-                            id = doc.id,
-                            customerId = doc.getString("customerId") ?: "",
-                            customerName = doc.getString("customerName") ?: "Unknown",
-                            customerPhone = doc.getString("customerPhone") ?: "",
-                            serviceName = doc.getString("serviceName") ?: "",
-                            price = doc.getDouble("price") ?: 0.0, // Changed "servicePrice" to "price"
-                            startTime = doc.getTimestamp("startTime"), // Changed "bookingTime" to "startTime"
-                            location = doc.getString("location") ?: "",
-                            status = BookingStatus.valueOf(doc.getString("status") ?: "PENDING"),
-                            notes = doc.getString("notes") ?: "",
-                            createdAt = doc.getTimestamp("createdAt")
-                        )
-                    } catch (e: Exception) {
-                        null
+        var allBookings by remember { mutableStateOf<List<Booking>>(emptyList()) }
+        var isLoading by remember { mutableStateOf(true) }
+        var isRefreshing by remember { mutableStateOf(false) }
+
+        val stylistId = auth.currentUser?.uid ?: ""
+
+        LaunchedEffect(stylistId) {
+            if (stylistId.isBlank()) {
+                Log.e("StylistBookings", "No Stylist ID found (User not logged in?)")
+                return@LaunchedEffect
+            }
+            
+            isLoading = true
+            bookingRepository.getStylistBookings(stylistId).collect { bookings ->
+                Log.d("StylistBookings", "Received ${bookings.size} bookings for stylist: $stylistId")
+                allBookings = bookings
+                isLoading = false
+                isRefreshing = false
+            }
+        }
+
+        val filteredBookings = remember(selectedTab, allBookings) {
+            val statusFilter = when (selectedTab) {
+                0 -> listOf(BookingStatus.REQUESTED, BookingStatus.PENDING)
+                1 -> listOf(BookingStatus.DEPOSIT_PAID, BookingStatus.ACCEPTED, BookingStatus.ON_THE_WAY, BookingStatus.IN_PROGRESS)
+                2 -> listOf(BookingStatus.COMPLETED)
+                else -> listOf(BookingStatus.CANCELLED, BookingStatus.DECLINED)
+            }
+            
+            allBookings.filter { it.bookingStatus in statusFilter }
+                .sortedByDescending { it.requestedAt?.seconds ?: 0 }
+        }
+
+        Scaffold(
+            topBar = {
+                Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+                    TopAppBar(
+                        title = { Text("Client Management", fontWeight = FontWeight.Black) },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent, 
+                            titleContentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        actions = {
+                            IconButton(onClick = { 
+                                isRefreshing = true
+                                viewLifecycleOwner.lifecycleScope.launch {
+                                    delay(800)
+                                    isRefreshing = false
+                                }
+                            }) {
+                                Icon(
+                                    Icons.Default.Refresh, 
+                                    contentDescription = "Refresh", 
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    )
+                    ScrollableTabRow(
+                        selectedTabIndex = selectedTab,
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        edgePadding = 16.dp,
+                        divider = {}
+                    ) {
+                        tabs.forEachIndexed { index, title ->
+                            Tab(
+                                selected = selectedTab == index,
+                                onClick = { selectedTab = index },
+                                text = { 
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(title, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal)
+                                        
+                                        if (index == 0) {
+                                            val requestCount = allBookings.count { it.bookingStatus == BookingStatus.REQUESTED || it.bookingStatus == BookingStatus.PENDING }
+                                            if (requestCount > 0) {
+                                                Spacer(Modifier.width(4.dp))
+                                                Surface(
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    shape = CircleShape,
+                                                    modifier = Modifier.size(16.dp)
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Text(requestCount.toString(), color = MaterialTheme.colorScheme.onPrimary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                        }
                     }
-                } ?: emptyList()
-                
-                // Task 3: Calculate and update badge count (only for UPCOMING tab)
-                if (filter == BookingFilter.UPCOMING) {
-                    val pendingCount = bookings.count { it.status == BookingStatus.PENDING }
-                    badgeUpdateListener?.updateBookingsBadge(pendingCount)
                 }
-                
-                // Differentiate EMPTY vs DATA (Empty = calm message)
-                if (bookings.isEmpty()) {
-                    emptyStateTextView.text = when(filter) {
-                        BookingFilter.UPCOMING -> "No upcoming bookings\nGo online to start receiving requests"
-                        BookingFilter.COMPLETED -> "No completed bookings yet"
-                        BookingFilter.CANCELLED -> "No cancelled bookings"
-                    }
-                    emptyStateTextView.visibility = View.VISIBLE
-                    recyclerView.visibility = View.GONE
-                    adapter.submitList(emptyList())
+            },
+            containerColor = MaterialTheme.colorScheme.background
+        ) { padding ->
+            Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+                if (isLoading || isRefreshing) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                } else if (filteredBookings.isEmpty()) {
+                    EmptyBookingsView(tabs[selectedTab])
                 } else {
-                    emptyStateTextView.visibility = View.GONE
-                    recyclerView.visibility = View.VISIBLE
-                    adapter.submitList(bookings)
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(filteredBookings, key = { it.id }) { booking ->
+                            BookingActionCard(
+                                booking = booking,
+                                onAccept = { handleAcceptBooking(booking) },
+                                onDecline = { handleDeclineBooking(booking) },
+                                onStart = { handleStartBooking(booking) },
+                                onTrack = { handleTrackBooking(booking) },
+                                onCancel = { handleCancelBooking(booking) },
+                                onMessage = { handleMessageCustomer(booking) }
+                            )
+                        }
+                    }
                 }
             }
-    }
-
-    private fun handleStartBooking(booking: StylistBooking) {
-        val newStatus = when (booking.status) {
-            BookingStatus.PENDING, BookingStatus.CONFIRMED -> BookingStatus.IN_PROGRESS
-            BookingStatus.IN_PROGRESS -> BookingStatus.COMPLETED
-            else -> return
         }
-        
-        firestore.collection("bookings").document(booking.id)
-            .update("status", newStatus.name)
-            .addOnSuccessListener {
-                val message = if (newStatus == BookingStatus.IN_PROGRESS) 
-                    "Booking started" else "Booking completed"
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-            }
-            .addOnFailureListener {
-                Toast.makeText(context, "Failed to update booking", Toast.LENGTH_SHORT).show()
-            }
     }
 
-    private fun handleCancelBooking(booking: StylistBooking) {
-        firestore.collection("bookings").document(booking.id)
-            .update("status", BookingStatus.CANCELLED.name)
-            .addOnSuccessListener {
-                Toast.makeText(context, "Booking cancelled", Toast.LENGTH_SHORT).show()
+    @Composable
+    fun BookingActionCard(
+        booking: Booking,
+        onAccept: () -> Unit,
+        onDecline: () -> Unit,
+        onStart: () -> Unit,
+        onTrack: () -> Unit,
+        onCancel: () -> Unit,
+        onMessage: () -> Unit
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(24.dp),
+            border = if (booking.bookingStatus == BookingStatus.REQUESTED || booking.bookingStatus == BookingStatus.PENDING || booking.bookingStatus == BookingStatus.DEPOSIT_PAID) 
+                BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)) 
+                else null
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val initial = if (booking.customerName.isNotEmpty()) booking.customerName.take(1).uppercase() else "?"
+                        Text(initial, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(booking.customerName, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 18.sp)
+                        Text(booking.serviceName, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
+                    }
+                    val priceDisplay = (booking.priceCents.toDouble() / 100.0)
+                    Text("$${String.format(Locale.US, "%.0f", priceDisplay)}", fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp)
+                }
+                
+                if (booking.isMobile) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.DirectionsCar, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("House Call", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                Spacer(Modifier.height(16.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AccessTime, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    val timeStr = booking.requestedAt?.let { SimpleDateFormat("EEE, MMM d • h:mm a", Locale.getDefault()).format(it.toDate()) } ?: "Time Pending"
+                    Text(text = timeStr, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                }
+
+                if (booking.notes.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.Top) {
+                        Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(booking.notes, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, lineHeight = 18.sp)
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    when (booking.bookingStatus) {
+                        BookingStatus.REQUESTED, BookingStatus.PENDING -> {
+                            Button(onClick = onAccept, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+                                Text("Accept")
+                            }
+                            OutlinedButton(onClick = onDecline, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                                Text("Decline")
+                            }
+                        }
+                        BookingStatus.DEPOSIT_PAID, BookingStatus.ACCEPTED, BookingStatus.ON_THE_WAY, BookingStatus.IN_PROGRESS -> {
+                            if (booking.isMobile) {
+                                Button(
+                                    onClick = onTrack, 
+                                    modifier = Modifier.weight(1.5f), 
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                ) {
+                                    Text("Open Mobile Map")
+                                }
+                            } else {
+                                val buttonText = if (booking.bookingStatus == BookingStatus.IN_PROGRESS) "Complete Session" else "Start Session"
+                                val buttonColor = if (booking.bookingStatus == BookingStatus.IN_PROGRESS) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary
+                                
+                                Button(
+                                    onClick = onStart, 
+                                    modifier = Modifier.weight(1.5f), 
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = buttonColor)
+                                ) {
+                                    Text(buttonText)
+                                }
+                            }
+                            IconButton(onClick = onMessage, modifier = Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), CircleShape)) {
+                                Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Message", tint = MaterialTheme.colorScheme.onSurface)
+                            }
+                            IconButton(onClick = onCancel, modifier = Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), CircleShape)) {
+                                Icon(Icons.Default.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                        else -> {
+                            OutlinedButton(onClick = onMessage, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                                Icon(Icons.Default.MailOutline, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Message Client")
+                            }
+                        }
+                    }
+                }
             }
-            .addOnFailureListener {
-                Toast.makeText(context, "Failed to cancel booking", Toast.LENGTH_SHORT).show()
-            }
+        }
     }
 
-    private fun handleMessageCustomer(booking: StylistBooking) {
-        // TODO: Navigate to chat screen with customer
-        Toast.makeText(context, "Opening chat with ${booking.customerName}", Toast.LENGTH_SHORT).show()
+    @Composable
+    fun EmptyBookingsView(tabName: String) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(Icons.Default.EventBusy, contentDescription = null, modifier = Modifier.size(80.dp), tint = MaterialTheme.colorScheme.surfaceVariant)
+            Spacer(Modifier.height(16.dp))
+            Text("No $tabName", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text("Your $tabName will appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+        }
     }
 
-    private enum class BookingFilter {
-        UPCOMING, COMPLETED, CANCELLED
+    private fun handleAcceptBooking(booking: Booking) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                bookingRepository.acceptBookingRequest(booking.id)
+                Toast.makeText(context, "Booking Accepted!", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Log.e("StylistBookings", "Failed to accept", e)
+            }
+        }
+    }
+
+    private fun handleDeclineBooking(booking: Booking) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                bookingRepository.declineBookingRequest(booking.id)
+                Toast.makeText(context, "Booking Declined", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Log.e("StylistBookings", "Failed to decline", e)
+            }
+        }
+    }
+
+    private fun handleStartBooking(booking: Booking) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val nextStatus = if (booking.bookingStatus == BookingStatus.IN_PROGRESS) BookingStatus.COMPLETED else BookingStatus.IN_PROGRESS
+                bookingRepository.updateBookingStatus(booking.id, nextStatus)
+                val msg = if (nextStatus == BookingStatus.COMPLETED) "Session Completed!" else "Session Started!"
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Log.e("StylistBookings", "Failed to update status", e)
+            }
+        }
+    }
+    
+    private fun handleTrackBooking(booking: Booking) {
+        try {
+            findNavController().navigate(
+                R.id.activeMobileBookingFragment,
+                Bundle().apply { 
+                    putString("bookingId", booking.id)
+                    putBoolean("isStylist", true)
+                }
+            )
+        } catch (e: Exception) {
+            Log.e("StylistBookings", "Navigation to Tracking failed", e)
+        }
+    }
+
+    private fun handleCancelBooking(booking: Booking) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                bookingRepository.updateBookingStatus(booking.id, BookingStatus.CANCELLED)
+                Toast.makeText(context, "Booking Cancelled", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Log.e("StylistBookings", "Failed to cancel", e)
+            }
+        }
+    }
+
+    private fun handleMessageCustomer(booking: Booking) {
+        try {
+            findNavController().navigate(
+                R.id.chatFragment,
+                Bundle().apply { putString("otherUserId", booking.customerId) }
+            )
+        } catch (e: Exception) {
+            Log.e("StylistBookings", "Navigation failed", e)
+        }
     }
 }

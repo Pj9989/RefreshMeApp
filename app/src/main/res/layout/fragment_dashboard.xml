@@ -20,7 +20,7 @@
         style="@style/TextAppearance.RefreshMe.DashboardTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android.text="RefreshMe Dashboard"
+        android:text="RefreshMe Dashboard"
         android:layout_marginBottom="24dp" />
 
     <Button

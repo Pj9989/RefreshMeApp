@@ -5,15 +5,16 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.refreshme.R
 import com.refreshme.data.Conversation
 
 class ConversationAdapter(
-    private val conversations: List<Conversation>,
     private val onConversationClick: (Conversation) -> Unit
-) : RecyclerView.Adapter<ConversationAdapter.ViewHolder>() {
+) : ListAdapter<Conversation, ConversationAdapter.ViewHolder>(ConversationDiffCallback()) {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val profileImage: ImageView = view.findViewById(R.id.profile_image)
@@ -28,7 +29,7 @@ class ConversationAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val conversation = conversations[position]
+        val conversation = getItem(position)
         holder.userName.text = conversation.otherUserName
         holder.lastMessage.text = conversation.lastMessage
         Glide.with(holder.itemView.context)
@@ -38,6 +39,14 @@ class ConversationAdapter(
             .into(holder.profileImage)
         holder.itemView.setOnClickListener { onConversationClick(conversation) }
     }
+}
 
-    override fun getItemCount() = conversations.size
+class ConversationDiffCallback : DiffUtil.ItemCallback<Conversation>() {
+    override fun areItemsTheSame(oldItem: Conversation, newItem: Conversation): Boolean {
+        return oldItem.id == newItem.id
+    }
+
+    override fun areContentsTheSame(oldItem: Conversation, newItem: Conversation): Boolean {
+        return oldItem == newItem
+    }
 }

@@ -3,8 +3,11 @@ package com.refreshme
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -14,9 +17,11 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -27,35 +32,54 @@ import com.google.firebase.auth.FirebaseAuth
 import com.refreshme.auth.SignInActivity
 import com.refreshme.booking.BookingsScreen
 import com.refreshme.chat.ChatScreen
+import com.refreshme.profile.EditProfileActivity
 import com.refreshme.profile.UserProfileScreen
-import com.refreshme.stylist.SubscriptionActivity
+import com.refreshme.stylist.MyStylistProfileScreen
+import com.refreshme.stylist.StylistScheduleScreen
 import com.refreshme.ui.theme.RefreshMeTheme
+import com.refreshme.util.UserManager
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivityCompose : ComponentActivity() {
+    
+    private val mainViewModel: MainViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (BuildConfig.DEBUG) {
-            DatabaseSeeder.seedData()
-        }
+        
+        // Data seeding is now handled in RefreshMeApplication to avoid multiple calls
+        
         setContent {
             RefreshMeTheme {
-                MainScreen()
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    MainScreen(mainViewModel)
+                }
             }
         }
     }
 
     companion object {
         fun newIntent(context: Context): Intent {
-            return Intent(context, MainActivity::class.java)
+            return Intent(context, MainActivityCompose::class.java)
         }
     }
 
     @Composable
-    fun MainScreen() {
+    fun MainScreen(viewModel: MainViewModel) {
         val navController = rememberNavController()
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
         val auth = FirebaseAuth.getInstance()
+        val context = LocalContext.current
+        
+        // Reactively observe the current user data from the MainViewModel
+        // This is the SINGLE source of truth for the user's role and profile data in the UI
+        val currentUserData by viewModel.currentUserData.collectAsState()
+        val currentUserRole = currentUserData?.role?.name
 
         // Determine if we should show the bottom bar
         val showBottomBar = currentRoute in listOf("dashboard", "stylist_list", "bookings", "profile")
@@ -75,7 +99,6 @@ class MainActivityCompose : ComponentActivity() {
             ) {
                 // --- AUTH ROUTES ---
                 composable("login") {
-                    val context = LocalContext.current
                     LaunchedEffect(Unit) {
                         val intent = Intent(context, SignInActivity::class.java)
                         context.startActivity(intent)
@@ -92,7 +115,8 @@ class MainActivityCompose : ComponentActivity() {
                 }
 
                 composable("stylist_list") {
-                    StylistListRoute(
+                    // Use the existing StylistListRoute from StylistListScreen.kt
+                    com.refreshme.StylistListRoute(
                         onStylistClick = { stylist ->
                             navController.navigate("stylist_details/${stylist.id}")
                         }
@@ -104,21 +128,44 @@ class MainActivityCompose : ComponentActivity() {
                 }
 
                 composable("profile") {
-                    UserProfileScreen(
-                        onEditProfile = { /* Navigate to edit profile */ },
-                        onManageSubscription = {
-                            val intent = Intent(this@MainActivityCompose, SubscriptionActivity::class.java)
-                            startActivity(intent)
-                        },
-                        onSignOut = {
-                            auth.signOut()
-                            navController.navigate("login") { popUpTo("profile") { inclusive = true } }
-                        },
-                        onViewBookings = { navController.navigate("bookings") }
-                    )
+                    if (currentUserData == null) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    } else {
+                        when (currentUserRole) {
+                            Role.STYLIST.name -> {
+                                MyStylistProfileScreen(
+                                    user = currentUserData,
+                                    onEditProfile = { 
+                                        context.startActivity(Intent(context, EditProfileActivity::class.java))
+                                    },
+                                    onSignOut = {
+                                        auth.signOut()
+                                        UserManager.clear()
+                                        navController.navigate("login") { popUpTo("profile") { inclusive = true } }
+                                    },
+                                    onViewSchedule = { navController.navigate("schedule") }
+                                )
+                            }
+                            Role.CUSTOMER.name -> {
+                                UserProfileScreen(
+                                    viewModel = viewModel(),
+                                    onEditProfile = { 
+                                        context.startActivity(Intent(context, EditProfileActivity::class.java))
+                                    },
+                                    onSignOut = {
+                                        auth.signOut()
+                                        UserManager.clear()
+                                        navController.navigate("login") { popUpTo("profile") { inclusive = true } }
+                                    },
+                                    onViewBookings = { navController.navigate("bookings") }
+                                )
+                            }
+                        }
+                    }
                 }
 
-                // --- FEATURE ROUTES ---
                 composable(
                     route = "stylist_details/{stylistId}",
                     arguments = listOf(navArgument("stylistId") { type = NavType.StringType })
@@ -137,9 +184,16 @@ class MainActivityCompose : ComponentActivity() {
                     arguments = listOf(navArgument("stylistId") { type = NavType.StringType })
                 ) { backStackEntry ->
                     val stylistId = backStackEntry.arguments?.getString("stylistId") ?: return@composable
+                    val ctx = LocalContext.current
                     BookingScreen(
                         stylistId = stylistId,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onShowDatePicker = {
+                            Toast.makeText(ctx, "Date Picker not implemented yet", Toast.LENGTH_SHORT).show()
+                        },
+                        onPresentPayment = { secret ->
+                            Toast.makeText(ctx, "Payment not implemented yet", Toast.LENGTH_SHORT).show()
+                        }
                     )
                 }
 
@@ -154,6 +208,10 @@ class MainActivityCompose : ComponentActivity() {
                         currentUserId = currentUserId,
                         onBack = { navController.popBackStack() }
                     )
+                }
+                
+                composable("schedule") {
+                    StylistScheduleScreen(onBack = { navController.popBackStack() })
                 }
             }
         }

@@ -37,7 +37,7 @@ class ReminderWorker(appContext: Context, workerParams: WorkerParameters) :
         }
 
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentTitle("Upcoming Appointment")
             .setContentText("You have an appointment with $stylistName at $appointmentTime.")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

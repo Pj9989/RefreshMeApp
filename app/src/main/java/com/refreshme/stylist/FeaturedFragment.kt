@@ -1,5 +1,6 @@
 package com.refreshme.stylist
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -13,6 +14,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.refreshme.BuildConfig
 import com.refreshme.R
+import com.refreshme.auth.SignInActivity
 import com.stripe.android.PaymentConfiguration
 import com.stripe.android.paymentsheet.PaymentSheet
 import com.stripe.android.paymentsheet.PaymentSheetResult
@@ -23,8 +25,15 @@ class FeaturedFragment : Fragment() {
 
     private val firestore by lazy { FirebaseFirestore.getInstance() }
     private val auth by lazy { FirebaseAuth.getInstance() }
+    // REVERT: Using default instance, assuming deployment is in us-central1 or the region is configured globally
     private val functions by lazy { FirebaseFunctions.getInstance() }
     private lateinit var paymentSheet: PaymentSheet
+    private lateinit var authStateListener: FirebaseAuth.AuthStateListener
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setupAuthStateListener()
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -40,10 +49,36 @@ class FeaturedFragment : Fragment() {
 
         val purchaseButton = view.findViewById<Button>(R.id.purchase_button)
         purchaseButton.setOnClickListener {
-            createFeaturedPaymentIntent()
+            if (auth.currentUser != null) {
+                createFeaturedPaymentIntent()
+            } else {
+                Toast.makeText(context, "You must be logged in to purchase", Toast.LENGTH_SHORT).show()
+            }
         }
 
         return view
+    }
+
+    override fun onStart() {
+        super.onStart()
+        auth.addAuthStateListener(authStateListener)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        auth.removeAuthStateListener(authStateListener)
+    }
+
+    private fun setupAuthStateListener() {
+        authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+            if (firebaseAuth.currentUser == null) {
+                // User is signed out, redirect to SignInActivity
+                val intent = Intent(requireActivity(), SignInActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                requireActivity().finish()
+            }
+        }
     }
 
     private fun createFeaturedPaymentIntent() {

@@ -1,0 +1,45 @@
+Debug:
+Alias name: androiddebugkey
+Creation date: Oct 13, 2025
+Entry type: PrivateKeyEntry
+Certificate chain length: 1
+Certificate[1]:
+Owner: C=US, O=Android, CN=Android Debug
+Issuer: C=US, O=Android, CN=Android Debug
+Serial number: 1
+Valid from: Mon Oct 13 10:25:10 EDT 2025 until: Wed Oct 06 10:25:10 EDT 2055
+Certificate fingerprints:
+	 SHA1: 34:29:A4:B3:1E:18:17:DE:34:BF:C4:CE:94:33:4F:34:DE:B1:C5:6E
+	 SHA256: AC:7D:F2:8B:19:1C:B3:B9:B6:D9:E7:24:8B:0A:69:22:B8:88:2C:25:65:6B:16:74:0A:A3:EF:4E:92:2E:BB:A5
+Signature algorithm name: SHA256withRSA
+Subject Public Key Algorithm: 2048-bit RSA key
+Version: 1
+
+
+Release:
+Alias name: upload
+Creation date: Nov 20, 2025
+Entry type: PrivateKeyEntry
+Certificate chain length: 1
+Certificate[1]:
+Owner: CN=RefreshMe, OU=Development, O=RefreshMe, L=City, ST=State, C=US
+Issuer: CN=RefreshMe, OU=Development, O=RefreshMe, L=City, ST=State, C=US
+Serial number: 604c18fb35ecf4c1
+Valid from: Thu Nov 20 10:55:44 EST 2025 until: Mon Nov 14 10:55:44 EST 2050
+Certificate fingerprints:
+	 SHA1: 40:9A:56:17:66:88:15:AD:31:0A:D0:E1:DF:46:71:0C:8E:8E:F8:1C
+	 SHA256: E4:C5:30:BA:75:4C:02:C2:7F:67:28:35:FF:40:10:A6:B3:B9:B4:0B:BF:D5:8C:C5:6B:A2:AE:C7:95:F5:42:08
+Signature algorithm name: SHA256withRSA
+Subject Public Key Algorithm: 2048-bit RSA key
+Version: 3
+
+Extensions: 
+
+#1: ObjectId: 2.5.29.14 Criticality=false
+SubjectKeyIdentifier [
+KeyIdentifier [
+0000: 0C 23 7D B9 E8 3C FE B6   F1 42 23 3C 96 0A 4F C3  .#...<...B#<..O.
+0010: 69 DF 68 ED                                        i.h.
+]
+]
+

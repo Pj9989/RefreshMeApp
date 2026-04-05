@@ -1,0 +1,186 @@
+{
+  "project_info": {
+    "project_number": "12424011789",
+    "project_id": "refreshme-74f79",
+    "storage_bucket": "refreshme-74f79.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:12424011789:android:6a9207dac144b1fcbef544",
+        "android_client_info": {
+          "package_name": "RefreshMeApp.com"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFSbJBi204-Osgy_VGf04O2ifDXxBJBWI"
+        },
+        {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:12424011789:android:53e91a907be8c5b2bef544",
+        "android_client_info": {
+          "package_name": "com.refreshme"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFSbJBi204-Osgy_VGf04O2ifDXxBJBWI"
+        },
+        {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:12424011789:android:4edef29fea624274bef544",
+        "android_client_info": {
+          "package_name": "com.refreshme.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "12424011789-sltcauc7ncgoa2j0rhtb1mufbcik4gq1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.refreshme.app",
+            "certificate_hash": "3429a4b31e1817de34bfc4ce94334f34deb1c56e"
+          }
+        },
+        {
+          "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFSbJBi204-Osgy_VGf04O2ifDXxBJBWI"
+        },
+        {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:12424011789:android:c8b0001323620e7ebef544",
+        "android_client_info": {
+          "package_name": "com.refreshme.barber"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "12424011789-o5qf7kp1qd9u7rkv5gm8rjijfki7v7o0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.refreshme.barber",
+            "certificate_hash": "fc07a7d8547c73344cfe2c91042d6cc6a3c4e547"
+          }
+        },
+        {
+          "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFSbJBi204-Osgy_VGf04O2ifDXxBJBWI"
+        },
+        {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:12424011789:android:3cd6e6ae116e1315bef544",
+        "android_client_info": {
+          "package_name": "com.refreshmeapp.ui"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFSbJBi204-Osgy_VGf04O2ifDXxBJBWI"
+        },
+        {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

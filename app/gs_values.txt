@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="default_web_client_id" translatable="false">12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com</string>
+    <string name="gcm_defaultSenderId" translatable="false">12424011789</string>
+    <string name="google_api_key" translatable="false">AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8</string>
+    <string name="google_app_id" translatable="false">1:12424011789:android:c8b0001323620e7ebef544</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8</string>
+    <string name="google_storage_bucket" translatable="false">refreshme-74f79.firebasestorage.app</string>
+    <string name="project_id" translatable="false">refreshme-74f79</string>
+</resources>

@@ -8,6 +8,10 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.refreshme.databinding.FragmentSubscriptionBinding
 
+/**
+ * Subscription system removed. This fragment now redirects stylists to set up
+ * their Stripe Connect payout account instead.
+ */
 class SubscriptionFragment : Fragment() {
 
     private var _binding: FragmentSubscriptionBinding? = null
@@ -19,11 +23,11 @@ class SubscriptionFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentSubscriptionBinding.inflate(inflater, container, false)
-        
+
         binding.manageSubscriptionButton.setOnClickListener {
-            startActivity(Intent(requireContext(), SubscriptionActivity::class.java))
+            startActivity(Intent(requireContext(), ManagePayoutsActivity::class.java))
         }
-        
+
         return binding.root
     }
 

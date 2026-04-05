@@ -12,10 +12,17 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.refreshme.BuildConfig
 import com.refreshme.MainActivity
+import com.refreshme.R
 import com.refreshme.databinding.ActivitySignUpBinding
+import com.refreshme.stylist.StylistDashboardActivity
 import com.refreshme.util.AnalyticsHelper
-import java.util.Calendar
+import com.refreshme.util.RoleBasedNavigationManager
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class SignUpActivity : AppCompatActivity() {
 
@@ -47,7 +54,7 @@ class SignUpActivity : AppCompatActivity() {
         val selectedRoleId = binding.roleRadioGroup.checkedRadioButtonId
 
         if (selectedRoleId == -1) {
-            Toast.makeText(this, "Please select a role.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.error_select_role), Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -56,23 +63,21 @@ class SignUpActivity : AppCompatActivity() {
             binding.customerRadioButton.id -> "CUSTOMER"
             else -> "CUSTOMER"
         }
-        Log.d("SignUpActivity", "Selected role: $selectedRole")
-
 
         if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Please fill in all fields.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.error_fill_all_fields), Toast.LENGTH_SHORT).show()
             return
         }
 
         if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            binding.emailLayout.error = "Invalid email format"
+            binding.emailLayout.error = getString(R.string.error_invalid_email_format)
             return
         } else {
             binding.emailLayout.error = null
         }
 
         if (password.length < 6) {
-            binding.passwordLayout.error = "Password must be at least 6 characters"
+            binding.passwordLayout.error = getString(R.string.error_password_min_length)
             return
         } else {
             binding.passwordLayout.error = null
@@ -85,13 +90,23 @@ class SignUpActivity : AppCompatActivity() {
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     val user = firebaseAuth.currentUser
-                    val profileUpdates = UserProfileChangeRequest.Builder()
-                        .setDisplayName(name)
-                        .build()
+                    val userId = user?.uid ?: return@addOnCompleteListener
+                    
+                    CoroutineScope(Dispatchers.Main).launch {
+                        try {
+                            // 1. Update user profile name
+                            val profileUpdates = UserProfileChangeRequest.Builder().setDisplayName(name).build()
+                            user.updateProfile(profileUpdates).await()
 
-                    user?.updateProfile(profileUpdates)?.addOnCompleteListener { profileUpdateTask ->
-                        if (profileUpdateTask.isSuccessful) {
-                            val userId = user.uid
+                            // 2. Send verification email
+                            try {
+                                user.sendEmailVerification().await()
+                                Toast.makeText(this@SignUpActivity, "Verification email sent to $email", Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                Log.e("SignUpActivity", "Failed to send verification email: ${e.message}")
+                            }
+
+                            // 3. Create /users/{uid} document
                             val userMap = hashMapOf<String, Any>(
                                 "name" to name,
                                 "email" to email,
@@ -99,56 +114,50 @@ class SignUpActivity : AppCompatActivity() {
                                 "createdAt" to FieldValue.serverTimestamp(),
                                 "verified" to false
                             )
+                            firestore.collection("users").document(userId).set(userMap).await()
 
+                            // 4. If STYLIST, grant trial in /stylists/{uid} document
                             if (selectedRole == "STYLIST") {
-                                val calendar = Calendar.getInstance()
-                                calendar.add(Calendar.MONTH, 1)
-                                userMap["subscriptionActive"] = true // Free trial is active
-                                userMap["subscriptionSource"] = "google_play"
-                                userMap["lastPurchaseTime"] = System.currentTimeMillis()
+                                val stylistTrialMap = hashMapOf<String, Any>(
+                                    "trialStartTime" to FieldValue.serverTimestamp(),
+                                    "subscriptionActive" to false,
+                                    "name" to name
+                                )
+                                firestore.collection("stylists").document(userId).set(stylistTrialMap).await()
                             }
 
-                            firestore.collection("users").document(userId)
-                                .set(userMap)
-                                .addOnSuccessListener {
-                                    firestore.collection("users").document(userId).get()
-                                        .addOnSuccessListener { doc ->
-                                            val savedRole = doc.getString("role")
-                                            Log.d("SignUpActivity", "ROLE SAVED IN FIRESTORE = $savedRole for uid: $userId")
-                                            Toast.makeText(this, "Signed up as: $savedRole", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this@SignUpActivity, getString(R.string.signup_success_format, selectedRole), Toast.LENGTH_LONG).show()
 
-                                            binding.progressBar.visibility = View.GONE
-                                            binding.signUpButton.isEnabled = true
+                            // 5. Analytics
+                            AnalyticsHelper.setUserProperties("role", selectedRole)
 
-                                            // IMPORTANT: analytics key should not be hardcoded to "customer"
-                                            AnalyticsHelper.setUserProperties("role", selectedRole)
-
-                                            startActivity(MainActivity.newIntent(this))
-                                            finish()
-                                        }
-                                        .addOnFailureListener { e ->
-                                            Log.e("SignUpActivity", "Failed to re-read user doc: ${e.message}")
-                                            binding.progressBar.visibility = View.GONE
-                                            binding.signUpButton.isEnabled = true
-                                            startActivity(MainActivity.newIntent(this))
-                                            finish()
-                                        }
+                            // 6. Navigation: Route directly to the correct dashboard
+                            val dashboardIntent = if (selectedRole == "STYLIST") {
+                                Intent(this@SignUpActivity, StylistDashboardActivity::class.java).apply {
+                                    putExtra(StylistDashboardActivity.EXTRA_PURCHASE_SUCCESS, true)
                                 }
-                                .addOnFailureListener { e ->
-                                    binding.progressBar.visibility = View.GONE
-                                    binding.signUpButton.isEnabled = true
-                                    Toast.makeText(this, "Failed to save user data: ${e.message}", Toast.LENGTH_SHORT).show()
-                                }
-                        } else {
+                            } else {
+                                Intent(this@SignUpActivity, RoleBasedNavigationManager.getDashboardActivity(RoleBasedNavigationManager.UserRole.CUSTOMER))
+                            }
+                            
+                            dashboardIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            startActivity(dashboardIntent)
+                            finish()
+
+                        } catch (e: Exception) {
+                            Log.e("SignUpActivity", "Failed to initialize user data: ${e.message}", e)
+                            Toast.makeText(this@SignUpActivity, getString(R.string.error_save_user_data), Toast.LENGTH_SHORT).show()
+                            firebaseAuth.signOut()
+                        } finally {
                             binding.progressBar.visibility = View.GONE
                             binding.signUpButton.isEnabled = true
-                            Toast.makeText(this, "Failed to update profile: ${profileUpdateTask.exception?.message}", Toast.LENGTH_SHORT).show()
                         }
                     }
                 } else {
                     binding.progressBar.visibility = View.GONE
                     binding.signUpButton.isEnabled = true
-                    Toast.makeText(this, "Sign up failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                    Log.e("Auth", "Sign up failed", task.exception)
+                    Toast.makeText(this, getString(R.string.error_signup_failed) + ": ${task.exception?.message}", Toast.LENGTH_SHORT).show()
                 }
             }
     }

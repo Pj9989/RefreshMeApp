@@ -21,15 +21,9 @@ fun DashboardScreen(
     onMyBookings: () -> Unit,
     onStylistClick: (Stylist) -> Unit
 ) {
-    // Using a softer background color as per the UI style guide
-    val backgroundColor = Color(0xFF1C1B1F)
-    val primaryButtonColor = Color(0xFFD0BCFF)
-    val secondaryButtonColor = Color(0xFF4A4458)
-    val textColor = Color.White
-
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = backgroundColor
+        color = MaterialTheme.colorScheme.background
     ) {
         Column(
             modifier = Modifier
@@ -42,7 +36,7 @@ fun DashboardScreen(
                 text = "Welcome back!",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = textColor,
+                color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center
             )
 
@@ -51,7 +45,7 @@ fun DashboardScreen(
             Text(
                 text = "Ready for your next refresh?",
                 fontSize = 18.sp,
-                color = textColor.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                 textAlign = TextAlign.Center
             )
 
@@ -61,7 +55,7 @@ fun DashboardScreen(
             Button(
                 onClick = onFindStylist,
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = primaryButtonColor),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(60.dp)
@@ -70,7 +64,7 @@ fun DashboardScreen(
                     text = "Find a Stylist",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             }
 
@@ -80,7 +74,7 @@ fun DashboardScreen(
             Button(
                 onClick = onMyBookings,
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = secondaryButtonColor),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
@@ -88,7 +82,7 @@ fun DashboardScreen(
                 Text(
                     text = "My Bookings",
                     fontSize = 16.sp,
-                    color = textColor
+                    color = MaterialTheme.colorScheme.onSecondary
                 )
             }
         }

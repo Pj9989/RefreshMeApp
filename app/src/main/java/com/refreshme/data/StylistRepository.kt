@@ -1,37 +1,52 @@
 package com.refreshme.data
 
+import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class StylistRepository {
+@Singleton
+class StylistRepository @Inject constructor(
+    private val firestore: FirebaseFirestore
+) {
 
-    private val firestore = FirebaseFirestore.getInstance()
-
-    suspend fun getStylist(stylistId: String): Stylist? {
+    suspend fun getStylist(stylistId: String): Result<Stylist?> {
         return try {
             val document = firestore.collection("stylists").document(stylistId).get().await()
             if (document != null && document.exists()) {
-                document.toObject(Stylist::class.java)?.copy(id = document.id)
+                val stylist = try {
+                    document.toObject(Stylist::class.java)?.copy(id = document.id)
+                } catch (e: Exception) {
+                    Log.e("StylistRepository", "Error parsing stylist $stylistId", e)
+                    null
+                }
+                Result.success(stylist)
             } else {
-                null
+                Result.success(null)
             }
         } catch (e: Exception) {
-            null
+            Result.failure(e)
         }
     }
 
-    suspend fun getStylists(): List<Stylist> {
+    suspend fun getVerifiedStylists(): Result<List<Stylist>> {
         return try {
-            val documents = firestore.collection("stylists").whereEqualTo("isVerified", true).get().await()
-            if (documents.isEmpty) {
-                emptyList()
-            } else {
-                documents.map { document ->
-                    document.toObject(Stylist::class.java).copy(id = document.id)
+            val snapshot = firestore.collection("stylists")
+                .get()
+                .await()
+            
+            val stylists = snapshot.documents.mapNotNull { doc ->
+                try {
+                    doc.toObject(Stylist::class.java)?.copy(id = doc.id)
+                } catch (e: Exception) {
+                    Log.e("StylistRepository", "Skipping stylist ${doc.id} due to parsing error", e)
+                    null
                 }
             }
+            Result.success(stylists)
         } catch (e: Exception) {
-            emptyList()
+            Result.failure(e)
         }
     }
 }

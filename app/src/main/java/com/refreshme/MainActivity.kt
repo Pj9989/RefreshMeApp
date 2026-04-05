@@ -1,69 +1,103 @@
 ﻿package com.refreshme
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.os.bundleOf
+import androidx.navigation.NavController
+import androidx.navigation.fragment.NavHostFragment
+import androidx.navigation.ui.setupWithNavController
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.refreshme.auth.SignInActivity
-import com.refreshme.stylist.StylistDashboardActivity
+import com.refreshme.auth.RoleSelectActivity
+import com.refreshme.databinding.ActivityMainBinding
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
-    private val firebaseAuth by lazy { FirebaseAuth.getInstance() }
-    private val firestore by lazy { FirebaseFirestore.getInstance() }
+    private lateinit var binding: ActivityMainBinding
+    private lateinit var navController: NavController
+
+    @Inject
+    lateinit var auth: FirebaseAuth
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_loading)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        val currentUser = firebaseAuth.currentUser
-        if (currentUser == null) {
-            launchActivity(SignInActivity::class.java)
+        if (auth.currentUser == null) {
+            startActivity(Intent(this, RoleSelectActivity::class.java))
+            finish()
             return
         }
 
-        firestore.collection("users").document(currentUser.uid).get()
-            .addOnSuccessListener { document ->
-                val roleRaw = document.getString("role")
-                val role = roleRaw?.uppercase()
-                Log.d(
-                    "ROLE_DEBUG",
-                    "uid=${currentUser.uid} docExists=${document.exists()} roleRaw=$roleRaw"
-                )
+        askNotificationPermission()
 
-                if (role.isNullOrBlank()) {
-                    Log.e("ROLE_DEBUG", "ROLE MISSING. Check Firestore users/${currentUser.uid}")
-                    launchActivity(CustomerDashboardActivity::class.java)
-                    return@addOnSuccessListener
+        val navHostFragment = supportFragmentManager
+            .findFragmentById(R.id.nav_host_fragment_activity_main) as NavHostFragment
+        navController = navHostFragment.navController
+        
+        binding.bottomNavView.setupWithNavController(navController)
+
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            when (destination.id) {
+                R.id.chatFragment, R.id.bookingFragment, R.id.faceScanFragment, R.id.stylistDetailsFragment -> {
+                    binding.bottomNavView.visibility = android.view.View.GONE
                 }
-
-                if (role == "STYLIST") {
-                    launchActivity(StylistDashboardActivity::class.java)
-                } else {
-                    launchActivity(CustomerDashboardActivity::class.java)
+                else -> {
+                    binding.bottomNavView.visibility = android.view.View.VISIBLE
                 }
-            }
-            .addOnFailureListener { e ->
-                Log.e("MainActivity", "Failed to fetch user role, defaulting to Customer.", e)
-                launchActivity(CustomerDashboardActivity::class.java)
-            }
-    }
-
-    private fun <T : AppCompatActivity> launchActivity(activityClass: Class<T>) {
-        startActivity(Intent(this, activityClass).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        })
-        finish()
-    }
-
-    companion object {
-        fun newIntent(context: Context): Intent {
-            return Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             }
         }
+        
+        // Handle notification if activity was started from one
+        handleIntent(intent)
+    }
+    
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        val type = intent?.getStringExtra("notification_type")
+        val targetId = intent?.getStringExtra("target_id") ?: intent?.getStringExtra("chat_id")
+        
+        Log.d("MainActivity", "Handling intent: type=$type, targetId=$targetId")
+        
+        if (type == "chat" && targetId != null) {
+            // Navigate to chat fragment
+            navController.navigate(
+                R.id.chatFragment,
+                bundleOf("otherUserId" to targetId)
+            )
+        }
+    }
+
+    private fun askNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
+    companion object {
+        fun newIntent(context: Context) = Intent(context, MainActivity::class.java)
     }
 }

@@ -2,34 +2,39 @@ package com.refreshme
 
 import android.app.Application
 import com.google.firebase.FirebaseApp
-import com.google.firebase.appcheck.FirebaseAppCheck
-import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
-import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreSettings
+import com.google.firebase.firestore.PersistentCacheSettings
+import dagger.hilt.android.HiltAndroidApp
 
+@HiltAndroidApp
 class RefreshMeApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
         
-        // Initialize Firebase first
+        // Initialize Firebase before any other services
         FirebaseApp.initializeApp(this)
         
-        // Initialize Firebase App Check after Firebase initialization
-        val firebaseAppCheck = FirebaseAppCheck.getInstance()
+        // Enable Firestore Offline Persistence
+        val settings = FirebaseFirestoreSettings.Builder()
+            .setLocalCacheSettings(PersistentCacheSettings.newBuilder().build())
+            .build()
+        FirebaseFirestore.getInstance().firestoreSettings = settings
         
-        // Use debug provider for debug builds, Play Integrity for release
-        if (BuildConfig.DEBUG) {
-            firebaseAppCheck.installAppCheckProviderFactory(
-                DebugAppCheckProviderFactory.getInstance()
-            )
-        } else {
-            firebaseAppCheck.installAppCheckProviderFactory(
-                PlayIntegrityAppCheckProviderFactory.getInstance()
-            )
-        }
-        
-        if (BuildConfig.DEBUG) {
+        // Initialize App Check (Debug for local, Play Integrity for release)
+        AppCheckInitializer.initialize(this)
+
+        // Initialize Crashlytics
+        CrashlyticsInitializer.initialize(this)
+
+        // Seeding is disabled because it violates Firestore security rules (Permission Denied)
+        // when logged in as a normal user. Hardcoded stylist IDs cannot be written to.
+        /*
+        if (BuildConfig.DEBUG && FirebaseAuth.getInstance().currentUser != null) {
             DatabaseSeeder.seedData()
         }
+        */
     }
 }

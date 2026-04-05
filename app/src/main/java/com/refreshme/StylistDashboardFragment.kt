@@ -1,25 +1,2 @@
-package com.refreshme
-
-import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import androidx.compose.ui.platform.ComposeView
-import androidx.fragment.app.Fragment
-import com.refreshme.ui.theme.RefreshMeTheme
-
-class StylistDashboardFragment : Fragment() {
-
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
-        return ComposeView(requireContext()).apply {
-            setContent {
-                RefreshMeTheme {
-                    StylistDashboardScreen()
-                }
-            }
-        }
-    }
-}
+// DELETED - DUPLICATE OF com.refreshme.stylist.StylistDashboardFragment
+// Use the version in the .stylist subpackage for better organization.

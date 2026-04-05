@@ -1,12 +1,25 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+﻿<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="com.android.vending.BILLING" />
+
+    <!-- Required for WorkManager foreground services on Android 14+ -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
+
+    <queries>
+        <package android:name="com.google.android.gms" />
+    </queries>
 
     <application
         android:name=".RefreshMeApplication"
@@ -21,7 +34,11 @@
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="@string/google_maps_key" />
+            android:value="${MAPS_API_KEY}" />
+
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
 
         <activity
             android:name=".OnboardingActivity"
@@ -32,11 +49,15 @@
             </intent-filter>
         </activity>
 
+        <!-- Fixed: Set to exported="false" as it has no intent-filter -->
         <activity
             android:name=".MainActivity"
-            android:exported="true" />
+            android:exported="false" />
         <activity
             android:name=".auth.SignInActivity"
+            android:exported="false" />
+        <activity
+            android:name=".auth.SignUpActivity"
             android:exported="false" />
 
         <!-- New, dedicated dashboard activities -->
@@ -46,6 +67,18 @@
         <activity
             android:name=".stylist.StylistDashboardActivity"
             android:exported="false" />
+        <activity
+            android:name=".stylist.ManageServicesActivity"
+            android:exported="false" />
+        <activity
+            android:name=".stylist.ManageWorkingHoursActivity"
+            android:exported="false" />
+        <activity
+            android:name=".stylist.ManagePortfolioActivity"
+            android:exported="false" />
+        <activity
+            android:name=".stylist.ManagePayoutsActivity"
+            android:exported="false" />
 
         <activity
             android:name=".auth.RoleSelectActivity"
@@ -53,10 +86,6 @@
         <activity
             android:name=".auth.StylistAuthActivity"
             android:exported="false" />
-        <!-- Obsolete: This activity is no longer used -->
-        <!-- <activity
-            android:name=".stylist.StylistMainActivity"
-            android:exported="false" /> -->
         <activity
             android:name=".profile.EditProfileActivity"
             android:exported="false" />
@@ -68,7 +97,7 @@
             android:name=".PhotoViewerActivity"
             android:exported="false" />
         <activity
-            android:name=".SubscriptionActivity"
+            android:name=".StylistSubscriptionActivity"
             android:exported="false" />
         <activity
             android:name=".identity.IdentityVerificationActivity"
@@ -82,6 +111,12 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- Explicitly define WorkManager's foreground service to specify type for Android 15 (API 35) -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
 
     </application>
 </manifest>

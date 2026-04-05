@@ -9,4 +9,7 @@
     <color name="unselected_icon_gray">#8A857A</color>
     <color name="white">#FFFFFF</color>
     <color name="transparent">#00000000</color>
+    <color name="green">#4CAF50</color>
+    <color name="darker_gray">#424242</color> <!-- ADDED: Missing darker_gray color -->
+    <color name="red">#F44336</color> <!-- ADDED: Red color for errors/warnings -->
 </resources>

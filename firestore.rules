@@ -1,156 +1,88 @@
-// Production-ready Firestore Security Rules for RefreshMe App
-//
-// Key Principles:
-// 1. Default Deny: Access is denied unless explicitly allowed.
-// 2. Least Privilege: Users can only access the data they absolutely need.
-// 3. Role-Based Access Control (RBAC): Permissions are based on user roles (CUSTOMER vs. STYLIST).
-// 4. Identity Verification Gate: Going online and at-home services require `verified == true`,
-//    which is set exclusively by the Stripe Identity webhook via Firebase Functions.
-// 5. Data Validation: Enforce data types, formats, and required fields on write operations.
-//
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Functions ---
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isCustomer() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CUSTOMER';
-    }
-
-    function isStylistUser() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'STYLIST';
-    }
-
-    // Returns true only if the current user has been identity-verified by Stripe.
-    // The `verified` flag is written exclusively by the Firebase Function webhook
-    // (identity.verification_session.verified event) and cannot be set by the client.
-    function isVerified() {
-      return isSignedIn() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.verified == true;
-    }
-
-    // Prevents a non-verified stylist from going online even if they bypass the app-level gate.
-    function onlineUpdateIsAllowed() {
-      let incoming = request.resource.data;
-      let goingOnline = incoming.get('online', false) == true ||
-                        incoming.get('availableNow', false) == true;
-      return !goingOnline || isVerified();
-    }
-
-    // --- Collections ---
-
-    // The `users` collection stores private user data, including their role.
+    // User Profile Rules
     match /users/{userId} {
-      // READ: A user can only read their own data.
-      allow read: if isOwner(userId);
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
 
-      // CREATE: A new user can create their own document upon sign-up.
-      // The `role` must be either 'CUSTOMER' or 'STYLIST'.
-      // Clients must NOT set `verified` or `verificationStatus` on create.
-      allow create: if isOwner(userId)
-                    && request.resource.data.role in ['CUSTOMER', 'STYLIST']
-                    && !('verified' in request.resource.data)
-                    && !('verificationStatus' in request.resource.data);
+      match /favorites/{favoriteId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
 
-      // UPDATE: A user can only update their own document.
-      // The `role` cannot be changed after it has been set.
-      // `verified` and `verificationStatus` are server-only fields; clients cannot modify them.
-      allow update: if isOwner(userId)
-                    && request.resource.data.role == resource.data.role
-                    && request.resource.data.get('verified', false) == resource.data.get('verified', false)
-                    && request.resource.data.get('verificationStatus', '') == resource.data.get('verificationStatus', '');
-
-      // DELETE: Not allowed for data integrity.
-      allow delete: if false;
-
-      // Subcollection: `bookings`
       match /bookings/{bookingId} {
-        // READ, WRITE: A user can only access their own bookings.
-        allow read, write: if isOwner(userId);
-      }
-
-      // Subcollection: `favorites`
-      match /favorites/{stylistId} {
-        // READ, WRITE: A customer can only manage their own list of favorites.
-        allow read, write: if isCustomer() && isOwner(userId);
+        allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
 
-    // The `stylists` collection stores public-facing stylist profiles.
+    // Stylist Profile Rules
     match /stylists/{stylistId} {
-      // READ: Any signed-in user can view stylist profiles.
-      allow read: if isSignedIn();
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == stylistId; // Allow stylist creation during signup
+      allow update, delete: if request.auth != null && request.auth.uid == stylistId;
 
-      // CREATE: A user with the 'STYLIST' role can create their own profile.
-      // A new stylist cannot create their profile as already online.
-      allow create: if isStylistUser() && isOwner(stylistId)
-                    && request.resource.data.get('online', false) == false
-                    && request.resource.data.get('availableNow', false) == false;
-
-      // UPDATE: Only the stylist who owns the profile can update it.
-      // Going online (`online: true`) requires identity verification.
-      // `verified` and `verificationStatus` are server-only fields.
-      allow update: if isStylistUser() && isOwner(stylistId)
-                    && onlineUpdateIsAllowed()
-                    && request.resource.data.get('verified', false) == resource.data.get('verified', false)
-                    && request.resource.data.get('verificationStatus', '') == resource.data.get('verificationStatus', '');
-
-      // DELETE: Not allowed to prevent accidental data loss.
-      allow delete: if false;
-    }
-
-    // The `reviews` collection stores reviews written by customers for stylists.
-    match /reviews/{reviewId} {
-      // READ: Any signed-in user can read reviews.
-      allow read: if isSignedIn();
-
-      // CREATE: A customer can write a review.
-      allow create: if isCustomer();
-
-      // UPDATE, DELETE: Users cannot edit or delete reviews after posting.
-      allow update, delete: if false;
-    }
-
-    // The `waitlists` collection stores users waiting for a cancellation slot.
-    match /waitlists/{waitlistId} {
-      // READ: Only the user who created the entry can read it.
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-
-      // CREATE: Any signed-in customer can join a waitlist.
-      // They must set their own userId and cannot forge another user's entry.
-      allow create: if isCustomer()
-                    && request.resource.data.userId == request.auth.uid
-                    && request.resource.data.stylistId is string
-                    && request.resource.data.targetDate is timestamp;
-
-      // UPDATE: Not allowed — join or leave only.
-      allow update: if false;
-
-      // DELETE: A user can remove themselves from the waitlist.
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    // The `conversations` collection stores chat messages between users.
-    match /conversations/{conversationId} {
-
-      // READ, WRITE on the document itself is restricted.
-      allow read, write: if false;
-
-      // Subcollection: `messages`
-      match /messages/{messageId} {
-        // READ, WRITE: Only participants of the conversation can access messages.
-        // The `conversationId` is expected to be formatted as `userId1_userId2`.
-        allow read, write: if isSignedIn() && request.auth.uid in conversationId.split('_');
+      match /services/{serviceId} {
+        allow read: if true;
+        allow write: if request.auth != null && request.auth.uid == stylistId;
       }
+
+      match /aiSummary/{summaryId} {
+        allow read: if true;
+        allow write: if false; // Only Cloud Functions (Admin) should write here
+      }
+    }
+
+    // Booking Rules
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null && (
+        resource == null ||
+        request.auth.uid == resource.data.userId ||
+        request.auth.uid == resource.data.stylistId
+      );
+      // Allow reading bookings to determine availability/stats if you are the stylist
+      allow list: if request.auth != null && request.query.limit <= 100 &&
+                  (request.query.filters.size() > 0 && request.query.filters[0].op == '==' && request.query.filters[0].field == 'stylistId' && request.query.filters[0].value == request.auth.uid);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.userId ||
+        request.auth.uid == resource.data.stylistId
+      );
+    }
+
+    // Chat Rules
+    match /chats/{chatId} {
+      allow read: if request.auth != null && request.auth.uid in resource.data.participants;
+      allow create: if request.auth != null && request.auth.uid in request.resource.data.participants;
+      allow update: if request.auth != null && request.auth.uid in resource.data.participants;
+
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null &&
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
+    }
+
+    // Reviews Rules
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // Styles & AI Requests
+    match /styles/{styleId} {
+      allow read: if true;
+      allow write: if false; // System defined
+    }
+
+    match /aiStyleRequests/{requestId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+
+    // Default fallback: Deny all
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

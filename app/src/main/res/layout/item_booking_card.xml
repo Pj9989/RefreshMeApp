@@ -71,6 +71,29 @@
             android:orientation="horizontal"
             android:gravity="end">
 
+            <!-- New Accept/Decline buttons -->
+            <Button
+                android:id="@+id/btnDecline"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Decline"
+                android:visibility="gone"
+                android:textSize="12sp"
+                tools:visibility="visible" />
+
+            <Button
+                android:id="@+id/btnAccept"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Accept"
+                android:visibility="gone"
+                android:textSize="12sp"
+                tools:visibility="visible" />
+            <!-- End of New buttons -->
+
             <Button
                 android:id="@+id/btnMessage"
                 style="?attr/materialButtonOutlinedStyle"

@@ -1,424 +1,547 @@
 import * as functions from "firebase-functions/v2";
+import * as legacyFunctions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { onRequest } from "firebase-functions/v2/https";
 import { onCall } from "firebase-functions/v2/https";
 import { defineString } from "firebase-functions/params";
 import Stripe from "stripe";
+import { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } from "firebase-functions/v2/firestore";
+import { VertexAI } from "@google-cloud/vertexai";
 
 admin.initializeApp();
 
 const stripeSecretKey = defineString("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineString("STRIPE_WEBHOOK_SECRET");
 
-// ---------------------------------------------------------------------------
-// Helper: get a Stripe instance
-// ---------------------------------------------------------------------------
-function getStripe(): Stripe {
-  return new Stripe(stripeSecretKey.value(), {
-    apiVersion: "2026-02-25.clover",
-  });
+// Deposit rate constant (20%)
+const DEPOSIT_RATE = 0.20;
+export const BUILD_ENV = "live";
+
+// Initialize Vertex AI
+const vertexAi = new VertexAI({ project: process.env.GCLOUD_PROJECT, location: "us-central1" });
+const generativeModel = vertexAi.getGenerativeModel({ model: "gemini-1.5-flash-001" });
+
+// --- PUSH NOTIFICATION HELPERS ---
+
+async function sendPushNotification(userId: string, title: string, body: string, data?: any) {
+    try {
+        const userDoc = await admin.firestore().collection("users").doc(userId).get();
+        let fcmToken = userDoc.data()?.fcmToken;
+
+        if (!fcmToken) {
+            // Check stylist doc too
+            const stylistDoc = await admin.firestore().collection("stylists").doc(userId).get();
+            fcmToken = stylistDoc.data()?.fcmToken;
+        }
+
+        if (!fcmToken) {
+            console.log(`No FCM token for user ${userId}, skipping notification.`);
+            return;
+        }
+
+        const message: admin.messaging.Message = {
+            token: fcmToken,
+            notification: {
+                title: title,
+                body: body,
+            },
+            data: data || {},
+            android: {
+                priority: "high",
+                notification: {
+                    channelId: "refresh_me_notifications",
+                }
+            }
+        };
+
+        await admin.messaging().send(message);
+        console.log(`Notification sent to user ${userId}`);
+    } catch (error) {
+        console.error(`Error sending notification to user ${userId}:`, error);
+    }
 }
 
-// ---------------------------------------------------------------------------
-// stripeWebhook – handles subscription events AND identity verification events
-// ---------------------------------------------------------------------------
+// --- AUTH TRIGGERS (CLEANUP) ---
+
+// Automatically delete user data when their account is deleted
+export const onUserDeleted = legacyFunctions.auth.user().onDelete(async (user) => {
+    const uid = user.uid;
+    const db = admin.firestore();
+    const batch = db.batch();
+
+    console.log(`User ${uid} deleted. Cleaning up Firestore data...`);
+
+    // 1. Delete user profile
+    batch.delete(db.collection("users").doc(uid));
+
+    // 2. Delete stylist profile if it exists
+    batch.delete(db.collection("stylists").doc(uid));
+
+    // 3. Mark their bookings as 'cancelled' or anonymize them
+    const bookingsSnapshot = await db.collection("bookings").where("userId", "==", uid).get();
+    bookingsSnapshot.docs.forEach(doc => {
+        batch.update(doc.ref, {
+            customerName: "[Deleted Account]",
+            customerPhotoUrl: null,
+            status: "CANCELLED",
+            deletionNote: "Customer deleted their account"
+        });
+    });
+
+    return batch.commit();
+});
+
+// --- FIRESTORE TRIGGERS ---
+
+// 1. STYLE RECOMMENDATIONS
+export const generateStyleRecommendations = onDocumentCreated("aiStyleRequests/{requestId}", async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+    const requestData = snapshot.data();
+    const requestId = event.params.requestId;
+
+    try {
+        await admin.firestore().collection("aiStyleRequests").doc(requestId).update({ status: "processing" });
+        const stylesSnapshot = await admin.firestore().collection("styles").get();
+        const styleCatalog = stylesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        if (styleCatalog.length === 0) throw new Error("Style catalog is empty.");
+
+        const prompt = `
+            You are an expert hairstylist AI. A user has provided the following preferences:
+            ${JSON.stringify(requestData.answers, null, 2)}
+            ... (rest of prompt)
+        `;
+
+        const resp = await generativeModel.generateContent(prompt);
+        const content = resp?.response?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+        const jsonString = content.substring(content.indexOf("{"), content.lastIndexOf("}") + 1);
+        const result = JSON.parse(jsonString);
+
+        await admin.firestore().collection("aiStyleRequests").doc(requestId).update({
+            status: "done",
+            result: result,
+        });
+    } catch (error) {
+        console.error("Error generating style recommendations:", error);
+    }
+});
+
+// 2. NEW BOOKING NOTIFICATION (To Stylist)
+export const onBookingCreated = onDocumentCreated("bookings/{bookingId}", async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+    const booking = snapshot.data();
+
+    const stylistId = booking.stylistId;
+    const customerName = booking.customerName || "A customer";
+
+    await sendPushNotification(
+        stylistId,
+        "New Booking Request! ??",
+        `${customerName} requested an appointment for ${booking.serviceName}.`,
+        {
+            type: "booking_request",
+            targetId: event.params.bookingId
+        }
+    );
+});
+
+// 3. BOOKING STATUS UPDATE NOTIFICATION (To Customer)
+export const onBookingUpdated = onDocumentUpdated("bookings/{bookingId}", async (event) => {
+    const newData = event.data?.after.data();
+    const prevData = event.data?.before.data();
+    
+    if (!newData || !prevData) return;
+
+    // If status changed
+    if (newData.status !== prevData.status) {
+        const userId = newData.userId || newData.customerId;
+        const stylistName = newData.stylistName || "Your stylist";
+
+        let title = "Booking Update";
+        let body = `Your appointment status is now: ${newData.status}`;
+
+        if (newData.status === "ACCEPTED" || newData.status === "accepted") {
+            title = "Booking Confirmed! ?";
+            body = `${stylistName} has accepted your appointment request. See you soon!`;
+        } else if (newData.status === "DECLINED" || newData.status === "declined") {
+            title = "Booking Declined ?";
+            body = `Unfortunately, ${stylistName} could not accept your request at this time.`;
+        } else if (newData.status === "DEPOSIT_PAID" || newData.status === "paid") {
+            // Stylist might want to know
+            await sendPushNotification(
+                newData.stylistId,
+                "Deposit Paid! ??",
+                `The deposit for ${newData.customerName}'s appointment has been confirmed.`,
+                { type: "booking", targetId: event.params.bookingId }
+            );
+            return;
+        }
+
+        await sendPushNotification(userId, title, body, {
+            type: "booking",
+            targetId: event.params.bookingId
+        });
+    }
+});
+
+// 4. NEW MESSAGE NOTIFICATION
+export const onMessageCreated = onDocumentCreated("chats/{chatId}/messages/{messageId}", async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+    const message = snapshot.data();
+
+    const receiverId = message.receiverId;
+    const senderId = message.senderId;
+
+    // Fetch sender name
+    let senderName = "Someone";
+    try {
+        const senderDoc = await admin.firestore().collection("users").doc(senderId).get();
+        if (!senderDoc.exists) {
+            // Check stylists collection if not in users
+            const stylistDoc = await admin.firestore().collection("stylists").doc(senderId).get();
+            senderName = stylistDoc.data()?.name || "Someone";
+        } else {
+            senderName = senderDoc.data()?.name || "Someone";
+        }
+    } catch (e) {
+        console.warn("Could not fetch sender name for notification");
+    }
+
+    await sendPushNotification(
+        receiverId,
+        `New Message from ${senderName}`,
+        message.type === "IMAGE" ? "?? Sent a photo" : message.text,
+        {
+            type: "chat",
+            targetId: senderId,
+            imageUrl: message.imageUrl || ""
+        }
+    );
+});
+
+// 5. FLASH DEAL NOTIFICATION (To Customers)
+export const onFlashDealCreated = onDocumentUpdated("stylists/{stylistId}", async (event) => {
+    const newData = event.data?.after.data();
+    const prevData = event.data?.before.data();
+
+    if (!newData || !prevData) return;
+
+    // Check if a flash deal was added
+    if (newData.currentFlashDeal && !prevData.currentFlashDeal) {
+        const stylistName = newData.name || "A stylist";
+        const dealTitle = newData.currentFlashDeal.title;
+        const discount = newData.currentFlashDeal.discountPercentage;
+
+        // Find customers (limit for demo/cost)
+        const customersSnapshot = await admin.firestore().collection("users").where("userRoleValue", "==", "CUSTOMER").limit(50).get();
+
+        const notifications = customersSnapshot.docs.map(doc => {
+            return sendPushNotification(
+                doc.id,
+                "Flash Deal! ??",
+                `${stylistName} just launched a deal: ${dealTitle} (${discount}% OFF). Book now!`,
+                { type: "stylist_detail", targetId: event.params.stylistId }
+            );
+        });
+
+        await Promise.all(notifications);
+    }
+});
+
+
+// --- STRIPE CONNECT & PAYMENTS ---
+
+const PLATFORM_FEE_PERCENT = 0.10; // RefreshMe takes 10% of every booking
+
 export const stripeWebhook = onRequest(async (req, res) => {
-  const stripe = getStripe();
+  const stripe = new Stripe(stripeSecretKey.value(), {});
   const sig = req.headers["stripe-signature"] as string;
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(
-      req.rawBody,
-      sig,
-      stripeWebhookSecret.value()
-    );
+    event = stripe.webhooks.constructEvent(req.rawBody, sig, stripeWebhookSecret.value());
   } catch (err: any) {
     res.status(400).send(`Webhook Error: ${err.message}`);
     return;
   }
 
+  const db = admin.firestore();
+
   switch (event.type) {
-    // -----------------------------------------------------------------------
-    // Subscription events
-    // -----------------------------------------------------------------------
-    case "customer.subscription.created":
-    case "customer.subscription.updated": {
-      const subscription = event.data.object as Stripe.Subscription;
-      const customerId = subscription.customer as string;
-      const customer = await stripe.customers.retrieve(customerId);
-      const firebaseUID = (customer as Stripe.Customer).metadata?.firebaseUID;
-
-      if (firebaseUID) {
-        await admin.firestore().collection("users").doc(firebaseUID).set(
-          {
-            stripeCustomerId: customerId,
-            subscriptionId: subscription.id,
-            subscriptionStatus: subscription.status,
-            isSubscribed: subscription.status === "active",
-          },
-          { merge: true }
-        );
+    // Stripe Connect: sync account status when stylist completes onboarding
+    case "account.updated": {
+      const connectAccount = event.data.object as Stripe.Account;
+      const stylistUID = connectAccount.metadata?.firebaseUID;
+      if (stylistUID) {
+        await db.collection("stylists").doc(stylistUID).set({
+          stripeAccountId: connectAccount.id,
+          stripeChargesEnabled: connectAccount.charges_enabled,
+          stripePayoutsEnabled: connectAccount.payouts_enabled,
+          stripeOnboardingComplete: connectAccount.charges_enabled && connectAccount.payouts_enabled,
+        }, { merge: true });
       }
       break;
     }
 
-    case "customer.subscription.deleted": {
-      const deletedSubscription = event.data.object as Stripe.Subscription;
-      const deletedCustomerId = deletedSubscription.customer as string;
-      const deletedCustomer = await stripe.customers.retrieve(deletedCustomerId);
-      const deletedFirebaseUID = (deletedCustomer as Stripe.Customer).metadata?.firebaseUID;
-
-      if (deletedFirebaseUID) {
-        await admin.firestore().collection("users").doc(deletedFirebaseUID).set(
-          { subscriptionStatus: "canceled", isSubscribed: false },
-          { merge: true }
-        );
-      }
-      break;
-    }
-
-    case "invoice.payment_succeeded": {
-      const invoice = event.data.object as Stripe.Invoice;
-      const invoiceCustomerId = invoice.customer as string;
-      const invoiceSubscriptionId = (invoice as any).subscription as string | null;
-
-      if (invoiceSubscriptionId) {
-        const invoiceCustomer = await stripe.customers.retrieve(invoiceCustomerId);
-        const invoiceFirebaseUID = (invoiceCustomer as Stripe.Customer).metadata?.firebaseUID;
-
-        if (invoiceFirebaseUID) {
-          await admin.firestore().collection("users").doc(invoiceFirebaseUID).set(
-            { subscriptionStatus: "active", isSubscribed: true },
-            { merge: true }
-          );
-        }
-      }
-      break;
-    }
-
-    case "invoice.payment_failed": {
-      const failedInvoice = event.data.object as Stripe.Invoice;
-      const failedCustomerId = failedInvoice.customer as string;
-      const failedCustomer = await stripe.customers.retrieve(failedCustomerId);
-      const failedFirebaseUID = (failedCustomer as Stripe.Customer).metadata?.firebaseUID;
-
-      if (failedFirebaseUID) {
-        await admin.firestore().collection("users").doc(failedFirebaseUID).set(
-          { subscriptionStatus: "past_due", isSubscribed: false },
-          { merge: true }
-        );
-      }
-      break;
-    }
-
-    // -----------------------------------------------------------------------
-    // Stripe Identity events
-    // -----------------------------------------------------------------------
-    case "identity.verification_session.verified": {
-      // The user's identity has been successfully verified.
+    case "identity.verification_session.verified":
       const session = event.data.object as Stripe.Identity.VerificationSession;
-      const firebaseUID = session.metadata?.firebaseUID;
-
-      if (firebaseUID) {
-        const verifiedData = {
+      const uid = session.metadata?.userId;
+      if (uid) {
+        const verificationUpdates = {
           verified: true,
-          verificationStatus: "verified",
-          verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-          stripeVerificationSessionId: session.id,
+          verificationStatus: "VERIFIED"
         };
+        await db.collection("users").doc(uid).set(verificationUpdates, { merge: true });
 
-        // Update both the users document and the stylists document (if it exists)
-        const batch = admin.firestore().batch();
-        batch.set(
-          admin.firestore().collection("users").doc(firebaseUID),
-          verifiedData,
-          { merge: true }
-        );
-        batch.set(
-          admin.firestore().collection("stylists").doc(firebaseUID),
-          verifiedData,
-          { merge: true }
-        );
-        await batch.commit();
-
-        console.log(`Identity verified for Firebase UID: ${firebaseUID}`);
+        const stylistDoc = await db.collection("stylists").doc(uid).get();
+        if (stylistDoc.exists) {
+            await db.collection("stylists").doc(uid).set(verificationUpdates, { merge: true });
+        }
+        console.log(`User ${uid} identity verified via Stripe.`);
       }
       break;
-    }
 
-    case "identity.verification_session.requires_input": {
-      // Verification failed or needs more input (e.g., document unreadable).
-      const session = event.data.object as Stripe.Identity.VerificationSession;
-      const firebaseUID = session.metadata?.firebaseUID;
-
-      if (firebaseUID) {
-        const failedData = {
-          verified: false,
-          verificationStatus: "failed",
-          stripeVerificationSessionId: session.id,
-        };
-
-        const batch = admin.firestore().batch();
-        batch.set(
-          admin.firestore().collection("users").doc(firebaseUID),
-          failedData,
-          { merge: true }
-        );
-        batch.set(
-          admin.firestore().collection("stylists").doc(firebaseUID),
-          failedData,
-          { merge: true }
-        );
-        await batch.commit();
-
-        console.log(`Identity verification failed for Firebase UID: ${firebaseUID}`);
+    case "identity.verification_session.requires_input":
+      const sessionInput = event.data.object as Stripe.Identity.VerificationSession;
+      const uidInput = sessionInput.metadata?.userId;
+      if (uidInput) {
+        await db.collection("users").doc(uidInput).set({
+            verificationStatus: "REQUIRES_INPUT"
+        }, { merge: true });
       }
       break;
-    }
-
-    case "identity.verification_session.canceled": {
-      const session = event.data.object as Stripe.Identity.VerificationSession;
-      const firebaseUID = session.metadata?.firebaseUID;
-
-      if (firebaseUID) {
-        const canceledData = {
-          verified: false,
-          verificationStatus: "canceled",
-          stripeVerificationSessionId: session.id,
-        };
-
-        const batch = admin.firestore().batch();
-        batch.set(
-          admin.firestore().collection("users").doc(firebaseUID),
-          canceledData,
-          { merge: true }
-        );
-        batch.set(
-          admin.firestore().collection("stylists").doc(firebaseUID),
-          canceledData,
-          { merge: true }
-        );
-        await batch.commit();
-      }
-      break;
-    }
-
-    default:
-      console.log(`Unhandled event type: ${event.type}`);
   }
-
-  res.json({ received: true, type: event.type });
+  res.json({ received: true });
 });
 
-// ---------------------------------------------------------------------------
-// createIdentityVerificationSession – called from the Android app to start
-// a Stripe Identity verification session for the current user.
-// ---------------------------------------------------------------------------
 export const createIdentityVerificationSession = onCall(async (request) => {
-  if (!request.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "User must be authenticated to start identity verification."
-    );
-  }
+    if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    const stripe = new Stripe(stripeSecretKey.value(), {});
 
-  const stripe = getStripe();
-  const firebaseUID = request.auth.uid;
-
-  try {
-    const session = await stripe.identity.verificationSessions.create({
-      type: "document",
-      metadata: {
-        // Store the Firebase UID so the webhook can look up the user
-        firebaseUID: firebaseUID,
-      },
-      options: {
-        document: {
-          // Accept driving license, passport, and ID card
-          allowed_types: ["driving_license", "passport", "id_card"],
-          require_live_capture: true,
-          require_matching_selfie: true,
+    try {
+      const session = await stripe.identity.verificationSessions.create({
+        type: "document",
+        metadata: {
+          userId: request.auth.uid,
         },
-      },
-    });
+      });
 
-    // Mark verification as pending in Firestore immediately
-    const pendingData = {
-      verificationStatus: "pending",
-      stripeVerificationSessionId: session.id,
-    };
+      const ephemeralKey = await stripe.ephemeralKeys.create(
+        { verification_session: session.id },
+        { apiVersion: "2023-10-16" } as any
+      );
 
-    const batch = admin.firestore().batch();
-    batch.set(
-      admin.firestore().collection("users").doc(firebaseUID),
-      pendingData,
-      { merge: true }
-    );
-    batch.set(
-      admin.firestore().collection("stylists").doc(firebaseUID),
-      pendingData,
-      { merge: true }
-    );
-    await batch.commit();
+      return {
+        id: session.id,
+        client_secret: ephemeralKey.secret,
+      };
+    } catch (error: any) {
+      console.error("Stripe Identity Error:", error);
+      throw new functions.https.HttpsError("internal", error.message);
+    }
+  });
 
-    // Create an ephemeral key for the VerificationSession so the Android SDK
-    // can securely present the verification sheet to the user.
-    const ephemeralKey = await stripe.ephemeralKeys.create(
-      { verification_session: session.id },
-      { apiVersion: "2025-10-29.clover" }
-    );
+// createSubscription removed — using Stripe Connect + platform fee model
 
-    // Return the session ID and ephemeral key secret to the Android SDK
-    return {
-      verificationSessionId: session.id,
-      ephemeralKeySecret: ephemeralKey.secret,
-    };
-  } catch (error: any) {
-    console.error("Error creating identity verification session:", error);
-    throw new functions.https.HttpsError(
-      "internal",
-      `Failed to create verification session: ${error.message}`
-    );
-  }
-});
 
-// ---------------------------------------------------------------------------
-// createSubscription – unchanged from original
-// ---------------------------------------------------------------------------
-export const createSubscription = onCall(async (request) => {
-  if (!request.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "User must be authenticated"
-    );
-  }
+export const createBookingPaymentIntent = onCall(async (request) => {
+  if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+  const stripe = new Stripe(stripeSecretKey.value(), {});
 
-  const stripe = getStripe();
-  const { userId, priceId } = request.data;
-
-  if (!userId || !priceId) {
-    throw new functions.https.HttpsError(
-      "invalid-argument",
-      "Missing required parameters: userId and priceId"
-    );
-  }
+  const {
+      stylistId,
+      userId,
+      serviceName,
+      servicePrice,
+      bookingDate
+  } = request.data;
 
   try {
     const userEmail = request.auth.token.email;
-
-    if (!userEmail) {
-      throw new functions.https.HttpsError(
-        "failed-precondition",
-        "User email not found"
-      );
-    }
+    const depositAmount = Math.round(servicePrice * DEPOSIT_RATE * 100);
 
     let customer: Stripe.Customer;
-    const existingCustomers = await stripe.customers.list({
-      email: userEmail,
-      limit: 1,
-    });
+    const existing = await stripe.customers.list({ email: userEmail, limit: 1 });
+    if (existing.data.length > 0) customer = existing.data[0];
+    else customer = await stripe.customers.create({ email: userEmail as string, metadata: { firebaseUID: userId } });
 
-    if (existingCustomers.data.length > 0) {
-      customer = existingCustomers.data[0];
-    } else {
-      customer = await stripe.customers.create({
+    // Look up stylist's connected Stripe account for destination charges
+    const stylistDoc = await admin.firestore().collection("stylists").doc(stylistId).get();
+    const stylistStripeAccountId = stylistDoc.data()?.stripeAccountId as string | undefined;
+
+    const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
+      amount: depositAmount,
+      currency: "usd",
+      customer: customer.id,
+      metadata: { stylistId, userId, serviceName, paymentType: "deposit" },
+    };
+
+    if (stylistStripeAccountId) {
+      // Destination charge: 10% platform fee, rest goes to stylist automatically
+      paymentIntentParams.application_fee_amount = Math.round(depositAmount * PLATFORM_FEE_PERCENT);
+      paymentIntentParams.transfer_data = { destination: stylistStripeAccountId };
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
+
+    const bookingRef = admin.firestore().collection("bookings").doc();
+
+    const bookingData = {
+        ...request.data, // Include all fields sent by Android
+        id: bookingRef.id,
+        depositAmount: depositAmount / 100,
+        date: bookingDate ? admin.firestore.Timestamp.fromMillis(bookingDate) : admin.firestore.FieldValue.serverTimestamp(),
+        status: "pending_payment",
+        paymentIntentId: paymentIntent.id,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    await bookingRef.set(bookingData);
+
+    return { bookingId: bookingRef.id, clientSecret: paymentIntent.client_secret, depositAmount: depositAmount / 100 };
+  } catch (error: any) {
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
+
+// --- STRIPE CONNECT ONBOARDING ---
+
+export const createConnectAccount = onCall(async (request) => {
+  if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+  const stripe = new Stripe(stripeSecretKey.value(), {});
+  const userId = request.auth.uid;
+
+  try {
+    const stylistRef = admin.firestore().collection("stylists").doc(userId);
+    const stylistDoc = await stylistRef.get();
+    let accountId = stylistDoc.data()?.stripeAccountId as string | undefined;
+
+    if (!accountId) {
+      const userEmail = request.auth.token.email;
+      const account = await stripe.accounts.create({
+        type: "express",
         email: userEmail,
         metadata: { firebaseUID: userId },
+        capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
       });
+      accountId = account.id;
+      await stylistRef.set({ stripeAccountId: accountId, stripeOnboardingComplete: false }, { merge: true });
     }
 
-    const subscription = await stripe.subscriptions.create({
-      customer: customer.id,
-      items: [{ price: priceId }],
-      payment_behavior: "default_incomplete",
-      payment_settings: { save_default_payment_method: "on_subscription" },
-      expand: ["latest_invoice.payment_intent"],
+    const accountLink = await stripe.accountLinks.create({
+      account: accountId,
+      refresh_url: "https://refreshme-74f79.web.app/connect-refresh",
+      return_url: "https://refreshme-74f79.web.app/connect-return",
+      type: "account_onboarding",
     });
 
-    const invoice = subscription.latest_invoice as Stripe.Invoice;
-    const confirmationSecret = (invoice as any).confirmation_secret as { client_secret?: string } | null;
-    const paymentIntent = (invoice as any).payment_intent as Stripe.PaymentIntent | null;
-
-    await admin.firestore().collection("users").doc(userId).set(
-      {
-        stripeCustomerId: customer.id,
-        subscriptionId: subscription.id,
-        subscriptionStatus: subscription.status,
-      },
-      { merge: true }
-    );
-
-    // Support both old payment_intent expand and new confirmation_secret pattern
-    const clientSecret =
-      paymentIntent?.client_secret ??
-      confirmationSecret?.client_secret ??
-      null;
-
-    return {
-      clientSecret,
-      subscriptionId: subscription.id,
-    };
+    return { url: accountLink.url, accountId };
   } catch (error: any) {
-    console.error("Error creating subscription:", error);
-    throw new functions.https.HttpsError(
-      "internal",
-      `Failed to create subscription: ${error.message}`
-    );
+    console.error("createConnectAccount error:", error);
+    throw new functions.https.HttpsError("internal", error.message);
   }
 });
 
+export const getConnectAccountStatus = onCall(async (request) => {
+  if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+  const stripe = new Stripe(stripeSecretKey.value(), {});
+  const userId = request.auth.uid;
 
-import { onDocumentDeleted } from "firebase-functions/v2/firestore";
+  try {
+    const stylistDoc = await admin.firestore().collection("stylists").doc(userId).get();
+    const accountId = stylistDoc.data()?.stripeAccountId as string | undefined;
 
-// --------------------------------------------------------------------------
-// onAppointmentCancelled - triggers when a booking is deleted, then notifies
-// users on the waitlist for that stylist and date.
-// --------------------------------------------------------------------------
-export const onAppointmentCancelled = onDocumentDeleted("users/{userId}/bookings/{bookingId}", async (event) => {
-  const eventData = event.data;
-  if (!eventData) {
-    console.error("No data associated with the event");
-    return;
+    if (!accountId) return { status: "not_connected", accountId: null, chargesEnabled: false };
+
+    const account = await stripe.accounts.retrieve(accountId);
+    const status = account.charges_enabled ? "active" : "pending";
+
+    // Sync latest status to Firestore
+    await admin.firestore().collection("stylists").doc(userId).set({
+      stripeChargesEnabled: account.charges_enabled,
+      stripePayoutsEnabled: account.payouts_enabled,
+      stripeOnboardingComplete: account.charges_enabled && account.payouts_enabled,
+    }, { merge: true });
+
+    return { status, accountId, chargesEnabled: account.charges_enabled, payoutsEnabled: account.payouts_enabled };
+  } catch (error: any) {
+    throw new functions.https.HttpsError("internal", error.message);
   }
-  const deletedBooking = eventData.data();
-  const stylistId = deletedBooking.stylistId;
-  const bookingDate = deletedBooking.dateTime.toDate(); // Convert Firestore Timestamp to JS Date
+});
 
-  // Normalize the date to the start of the day to match how it's stored in the waitlist
-  const targetDate = new Date(bookingDate.getFullYear(), bookingDate.getMonth(), bookingDate.getDate());
+export const summarizeStylistReviews = onCall(async (request) => {
+    if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    const { stylistId } = request.data;
+    const summaryRef = admin.firestore().collection("stylists").doc(stylistId).collection("aiSummary").doc("current");
 
-  const waitlistQuery = admin.firestore().collection("waitlists")
-    .where("stylistId", "==", stylistId)
-    .where("targetDate", "==", admin.firestore.Timestamp.fromDate(targetDate));
+    try {
+        const reviewsSnapshot = await admin.firestore().collection("reviews").where("stylistId", "==", stylistId).limit(50).get();
+        if (reviewsSnapshot.empty) return { summary: "No reviews yet." };
 
-  const waitlistSnapshot = await waitlistQuery.get();
+        const reviewsText = reviewsSnapshot.docs.map(doc => `- ${doc.data().text}`).join("\n");
+        const prompt = `Analyze these reviews and provide a structred summary with a Vibe Check and 3 Strengths:\n${reviewsText}`;
 
-  if (waitlistSnapshot.empty) {
-    console.log(`No waitlist entries found for stylist ${stylistId} on ${targetDate.toDateString()}`);
-    return;
-  }
+        const resp = await generativeModel.generateContent(prompt);
+        const text = resp?.response?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
-  const notificationPromises: Promise<any>[] = [];
-
-  for (const doc of waitlistSnapshot.docs) {
-    const waitlistedUserId = doc.data().userId;
-    const userDoc = await admin.firestore().collection("users").doc(waitlistedUserId).get();
-    const fcmToken = userDoc.data()?.fcmToken;
-
-    if (fcmToken) {
-      const message = {
-        notification: {
-          title: "A spot just opened up!",
-          body: `An appointment with ${deletedBooking.stylistName} on ${targetDate.toLocaleDateString()} is now available. First come, first served!`,
-        },
-        token: fcmToken,
-      };
-
-      notificationPromises.push(admin.messaging().send(message));
+        await summaryRef.set({ summary: text, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+        return { summary: text };
+    } catch (error) {
+        throw new functions.https.HttpsError("internal", "Failed to generate summary.");
     }
-  }
-
-  await Promise.all(notificationPromises);
 });
+
+// onAppointmentCancelled - notifies waitlisted users when a booking is deleted
+export const onAppointmentCancelled = onDocumentDeleted(
+  "bookings/{bookingId}",
+  async (event) => {
+    const eventData = event.data;
+    if (!eventData) return;
+
+    const deletedBooking = eventData.data();
+    const stylistId = deletedBooking.stylistId;
+
+    // Fallback to "date" if "dateTime" is not present, depending on how you store dates.
+    const bookingTimestamp = deletedBooking.dateTime || deletedBooking.date;
+    if (!bookingTimestamp) return;
+
+    const bookingDate: Date = bookingTimestamp.toDate();
+    const targetDate = new Date(
+      bookingDate.getFullYear(),
+      bookingDate.getMonth(),
+      bookingDate.getDate()
+    );
+
+    // Get the start and end of the target date in milliseconds
+    const startOfDay = targetDate.getTime();
+    const endOfDay = startOfDay + 24 * 60 * 60 * 1000;
+
+    // Query the waitlist for the corresponding stylist and date
+    const waitlistSnapshot = await admin.firestore().collection("waitlists")
+      .where("stylistId", "==", stylistId)
+      .where("targetDate", ">=", startOfDay)
+      .where("targetDate", "<", endOfDay)
+      .get();
+
+    if (waitlistSnapshot.empty) {
+      console.log(`No waitlisted users found for stylist ${stylistId} on ${targetDate}`);
+      return;
+    }
+
+    // Notify all matched users
+    const notifications = waitlistSnapshot.docs.map(doc => {
+      const waitlistEntry = doc.data();
+      return sendPushNotification(
+        waitlistEntry.userId,
+        "Waitlist Alert! ??",
+        "An appointment just opened up for your requested date. Book now before it's gone!"
+      );
+    });
+
+    await Promise.all(notifications);
+  }
+);

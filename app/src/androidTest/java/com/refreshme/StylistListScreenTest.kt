@@ -33,8 +33,13 @@ class StylistListScreenTest {
                     isLoading = false,
                     error = null,
                     searchQuery = "",
+                    currentRating = 0f,
+                    currentPrice = 1000f,
+                    isMobileOnly = false,
                     onSearchQueryChange = {},
-                    onStylistClick = {}
+                    onStylistClick = {},
+                    onRefresh = {},
+                    onApplyFilters = { _, _, _ -> }
                 )
             }
         }
@@ -60,14 +65,19 @@ class StylistListScreenTest {
                     isLoading = false,
                     error = null,
                     searchQuery = searchQuery.value,
+                    currentRating = 0f,
+                    currentPrice = 1000f,
+                    isMobileOnly = false,
                     onSearchQueryChange = { searchQuery.value = it },
-                    onStylistClick = {}
+                    onStylistClick = {},
+                    onRefresh = {},
+                    onApplyFilters = { _, _, _ -> }
                 )
             }
         }
 
         // Perform a search
-        composeTestRule.onNodeWithText("Search by name or location").performTextInput("Alice")
+        composeTestRule.onNodeWithText("Search by name or specialty").performTextInput("Alice")
 
         // Assert that only the searched stylist is displayed
         composeTestRule.onNodeWithText("Alice").assertIsDisplayed()

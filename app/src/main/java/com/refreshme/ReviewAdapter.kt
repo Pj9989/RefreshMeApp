@@ -25,9 +25,9 @@ class ReviewAdapter(private val reviews: List<Review>) :
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val review = reviews[position]
-        holder.userName.text = review.userId // TODO: Fetch user name from user ID
-        holder.ratingBar.rating = review.rating
-        holder.reviewComment.text = review.text
+        holder.userName.text = review.userName
+        holder.ratingBar.rating = review.rating.toFloat()
+        holder.reviewComment.text = review.comment
     }
 
     override fun getItemCount() = reviews.size

@@ -1,4 +1,27 @@
-﻿{
+{
+  "hosting": {
+    "site": "refreshme-74f79",
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/safety-center",
+        "destination": "/safety-center.html"
+      },
+      {
+        "source": "/help",
+        "destination": "/help.html"
+      },
+      {
+        "source": "/privacy",
+        "destination": "/privacy.html"
+      }
+    ]
+  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"

@@ -25,7 +25,7 @@ class PhotoAdapter(private val photos: List<String>) :
         Glide.with(holder.itemView.context)
             .load(photoUrl)
             .placeholder(R.drawable.ic_launcher_background)
-            .error(R.drawable.ic_launcher_foreground)
+            .error(R.mipmap.ic_launcher_foreground)
             .into(holder.galleryImage)
     }
 

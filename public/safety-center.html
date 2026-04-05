@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safety Center - RefreshMe</title>
+    <style>
+        :root {
+            --gold: #C9A84C;
+            --gold-light: #E8C96A;
+            --bg: #0D0D0D;
+            --surface: #1A1A1A;
+            --surface2: #242424;
+            --text: #F0F0F0;
+            --text-muted: #9A9A9A;
+            --border: #2E2E2E;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        .header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-logo {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--gold);
+            letter-spacing: -0.5px;
+        }
+        .header-logo span { color: var(--text); }
+        .header-badge {
+            margin-left: auto;
+            background: var(--gold);
+            color: #000;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ── Hero ── */
+        .hero {
+            background: linear-gradient(160deg, #1A1A1A 0%, #0D0D0D 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 48px 24px 40px;
+            text-align: center;
+        }
+        .hero-icon {
+            width: 72px;
+            height: 72px;
+            background: rgba(201, 168, 76, 0.12);
+            border: 2px solid var(--gold);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 32px;
+        }
+        .hero h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 10px;
+        }
+        .hero p {
+            font-size: 15px;
+            color: var(--text-muted);
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        /* ── Container ── */
+        .container {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 32px 20px 60px;
+        }
+
+        /* ── Guarantee Banner ── */
+        .guarantee-banner {
+            background: var(--surface2);
+            border: 1px solid var(--gold);
+            border-radius: 16px;
+            padding: 24px 20px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            margin-bottom: 32px;
+        }
+        .guarantee-banner .icon {
+            font-size: 28px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .guarantee-banner h2 {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--gold);
+            margin-bottom: 6px;
+        }
+        .guarantee-banner p {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        /* ── Section ── */
+        .section-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 14px;
+            margin-top: 32px;
+        }
+
+        /* ── Cards ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 12px;
+        }
+        .card h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card h3 .card-icon {
+            font-size: 18px;
+            width: 34px;
+            height: 34px;
+            background: rgba(201, 168, 76, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .card p {
+            font-size: 14px;
+            color: var(--text-muted);
+            padding-left: 44px;
+        }
+
+        /* ── Tips list ── */
+        .tips-list {
+            list-style: none;
+            padding: 0;
+        }
+        .tips-list li {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .tips-list li::before {
+            content: "✓";
+            color: var(--gold);
+            font-weight: 700;
+            font-size: 15px;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        /* ── Report CTA ── */
+        .report-cta {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px 20px;
+            text-align: center;
+            margin-top: 32px;
+        }
+        .report-cta h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+        .report-cta p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-gold {
+            background: var(--gold);
+            color: #000;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid var(--gold);
+            color: var(--gold);
+            margin-top: 10px;
+        }
+
+        /* ── Footer ── */
+        .footer {
+            text-align: center;
+            padding: 24px 20px;
+            font-size: 12px;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+        .footer a { color: var(--gold); text-decoration: none; }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-logo">Refresh<span>Me</span></div>
+        <div class="header-badge">Safety Center</div>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero">
+        <div class="hero-icon">🛡️</div>
+        <h1>Your Safety is Our Priority</h1>
+        <p>Guidelines, tips, and tools to help you have a safe and positive experience on RefreshMe.</p>
+    </div>
+
+    <div class="container">
+
+        <!-- Safety Guarantee Banner -->
+        <div class="guarantee-banner">
+            <div class="icon">🔒</div>
+            <div>
+                <h2>RefreshMe Safety Guarantee</h2>
+                <p>All Stylists on our platform have been verified and passed basic identity checks before being approved to take bookings. We continuously monitor for policy violations to keep our community safe.</p>
+            </div>
+        </div>
+
+        <!-- How We Verify Stylists -->
+        <div class="section-title">How We Verify Stylists</div>
+
+        <div class="card">
+            <h3><span class="card-icon">🪪</span> Identity Verification</h3>
+            <p>Every stylist submits a government-issued ID that is verified through our identity partner. Unverified stylists cannot accept bookings.</p>
+        </div>
+
+        <div class="card">
+            <h3><span class="card-icon">⭐</span> Ratings & Reviews</h3>
+            <p>After every appointment, customers can leave a rating and review. Stylists with consistently low ratings are reviewed and may be removed from the platform.</p>
+        </div>
+
+        <div class="card">
+            <h3><span class="card-icon">📋</span> Platform Guidelines</h3>
+            <p>All stylists agree to our Community Guidelines and Code of Conduct before joining. Violations are taken seriously and may result in permanent removal.</p>
+        </div>
+
+        <!-- Safety Tips -->
+        <div class="section-title">Safety Tips for Customers</div>
+
+        <ul class="tips-list">
+            <li>Always book appointments through the RefreshMe app — never pay or communicate outside the platform.</li>
+            <li>Check a stylist's rating and reviews before booking. Look for verified badges on their profile.</li>
+            <li>For at-home appointments, let a trusted person know your location and the appointment time.</li>
+            <li>Use the in-app chat to communicate with your stylist. Keep all conversations on the platform.</li>
+            <li>If something feels wrong, trust your instincts. You can cancel a booking at any time before it begins.</li>
+            <li>After your appointment, leave an honest review to help keep the community safe for everyone.</li>
+        </ul>
+
+        <!-- Safety Tips for Stylists -->
+        <div class="section-title">Safety Tips for Stylists</div>
+
+        <ul class="tips-list">
+            <li>Only accept bookings through the app. Never share your personal phone number or address publicly.</li>
+            <li>Review a customer's profile and booking history before confirming an appointment.</li>
+            <li>For mobile appointments, share your schedule with a trusted contact and check in after each visit.</li>
+            <li>Report any customer who makes you feel unsafe — your report is confidential and taken seriously.</li>
+            <li>Keep all payment and communication within the RefreshMe platform for your protection.</li>
+        </ul>
+
+        <!-- Report Section -->
+        <div class="report-cta">
+            <h2>Report a Safety Issue</h2>
+            <p>If you experienced or witnessed unsafe behavior, harassment, or a policy violation, please report it immediately. All reports are reviewed by our Trust & Safety team within 24 hours.</p>
+            <a href="mailto:safety@refreshmeapp.com?subject=Safety%20Report" class="btn btn-gold">Report an Issue</a>
+            <br>
+            <a href="/help.html" class="btn btn-outline">Visit Help Center</a>
+        </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>© 2026 RefreshMe · <a href="/privacy.html">Privacy Policy</a> · <a href="/help.html">Help Center</a> · <a href="mailto:safety@refreshmeapp.com">safety@refreshmeapp.com</a></p>
+    </div>
+
+</body>
+</html>

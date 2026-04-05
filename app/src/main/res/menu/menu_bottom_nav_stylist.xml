@@ -1,14 +1,22 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
-        android:id="@+id/stylistHome"
+        android:id="@+id/stylistDashboardFragment"
         android:title="Dashboard"
         android:icon="@drawable/ic_house" />
     <item
-        android:id="@+id/stylistBookings"
+        android:id="@+id/stylistBookingsFragment"
         android:title="Bookings"
         android:icon="@drawable/ic_calendar" />
     <item
-        android:id="@+id/stylistEarnings"
+        android:id="@+id/stylistEarningsFragment"
         android:title="Earnings"
         android:icon="@drawable/ic_store" />
+    <item
+        android:id="@+id/stylistMessagesFragment"
+        android:title="Messages"
+        android:icon="@android:drawable/ic_dialog_email" />
+    <item
+        android:id="@+id/stylistProfileFragment"
+        android:title="Profile"
+        android:icon="@drawable/ic_profile" />
 </menu>

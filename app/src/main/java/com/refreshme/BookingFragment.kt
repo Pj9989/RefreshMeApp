@@ -5,175 +5,148 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.google.android.material.datepicker.MaterialDatePicker
 import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.functions.FirebaseFunctions
-import com.refreshme.databinding.FragmentBookingBinding
 import com.stripe.android.PaymentConfiguration
 import com.stripe.android.paymentsheet.PaymentSheet
 import com.stripe.android.paymentsheet.PaymentSheetResult
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
+import com.refreshme.booking.BookingScreen
+import com.refreshme.booking.NewBookingViewModel
+import com.refreshme.ui.theme.RefreshMeTheme
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
+import java.util.Calendar
+import java.util.Date
 
+@AndroidEntryPoint
 class BookingFragment : Fragment() {
 
-    private var _binding: FragmentBookingBinding? = null
-    private val binding get() = _binding!!
-
     private val args: BookingFragmentArgs by navArgs()
-    private val firestore by lazy { FirebaseFirestore.getInstance() }
-    private val auth by lazy { FirebaseAuth.getInstance() }
-    private val functions by lazy { FirebaseFunctions.getInstance() }
+    private val viewModel: NewBookingViewModel by viewModels()
+
     private lateinit var paymentSheet: PaymentSheet
 
-    private val selectedCalendar = Calendar.getInstance()
-    private var servicePrice = 0.0
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        PaymentConfiguration.init(
+            requireContext(),
+            "pk_test_51SPX9XHjA06voCTJjL1Pm8yDegMEKUPiTBtnm1ikjbV4C3ZvwkQNcxmCaSDZz1YggZ85NxXI40Jcsa52CGHhKu5800TIUmyRND"
+        )
+        paymentSheet = PaymentSheet(this, ::onPaymentSheetResult)
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentBookingBinding.inflate(inflater, container, false)
-
-        PaymentConfiguration.init(
-            requireContext(),
-            BuildConfig.STRIPE_PUBLISHABLE_KEY
-        )
-        paymentSheet = PaymentSheet(this, ::onPaymentSheetResult)
-
-        binding.selectDateButton.setOnClickListener {
-            showDatePicker()
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                RefreshMeTheme {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        Box(modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars)) {
+                            BookingScreen(
+                                stylistId = args.stylistId,
+                                serviceName = args.serviceName,
+                                servicePrice = args.servicePrice,
+                                onBack = { findNavController().popBackStack() },
+                                onDateTimeClick = { showDateTimePicker() },
+                                onAsapClick = {
+                                    val calendar = Calendar.getInstance()
+                                    calendar.add(Calendar.HOUR_OF_DAY, 1)
+                                    viewModel.selectDate(calendar.time)
+                                },
+                                onPaymentRequired = { clientSecret, _ ->
+                                    val config = PaymentSheet.Configuration(
+                                        merchantDisplayName = "RefreshMe",
+                                        allowsDelayedPaymentMethods = true
+                                    )
+                                    paymentSheet.presentWithPaymentIntent(clientSecret, config)
+                                },
+                                onBookingSuccess = {
+                                    Toast.makeText(requireContext(), "Booking Confirmed!", Toast.LENGTH_SHORT).show()
+                                    findNavController().popBackStack()
+                                    findNavController().navigate(R.id.bookingsFragment)
+                                },
+                                viewModel = viewModel
+                            )
+                        }
+                    }
+                }
+            }
         }
-
-        binding.selectTimeButton.setOnClickListener {
-            showTimePicker()
-        }
-
-        binding.confirmBookingButton.setOnClickListener {
-            createBookingPaymentIntent()
-        }
-
-        return binding.root
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
-
-    private fun showDatePicker() {
+    private fun showDateTimePicker() {
         val datePicker = MaterialDatePicker.Builder.datePicker()
-            .setTitleText("Select date")
+            .setTitleText("Select Appointment Date")
             .setSelection(MaterialDatePicker.todayInUtcMilliseconds())
             .build()
 
-        datePicker.addOnPositiveButtonClickListener {
-            selectedCalendar.timeInMillis = it
-            updateSelectedDateText()
+        datePicker.addOnPositiveButtonClickListener { selectedDateMillis ->
+            val timePicker = MaterialTimePicker.Builder()
+                .setTimeFormat(TimeFormat.CLOCK_12H)
+                .setHour(12)
+                .setMinute(0)
+                .setTitleText("Select Time")
+                .build()
+
+            timePicker.addOnPositiveButtonClickListener {
+                val calendar = Calendar.getInstance().apply {
+                    timeInMillis = selectedDateMillis
+                    set(Calendar.HOUR_OF_DAY, timePicker.hour)
+                    set(Calendar.MINUTE, timePicker.minute)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+
+                if (calendar.timeInMillis < System.currentTimeMillis()) {
+                    Toast.makeText(requireContext(), "Please select a future time", Toast.LENGTH_SHORT).show()
+                    return@addOnPositiveButtonClickListener
+                }
+
+                viewModel.selectDate(calendar.time)
+            }
+
+            timePicker.show(parentFragmentManager, "TIME_PICKER")
         }
 
         datePicker.show(parentFragmentManager, "DATE_PICKER")
     }
 
-    private fun showTimePicker() {
-        val timePicker = MaterialTimePicker.Builder()
-            .setTimeFormat(TimeFormat.CLOCK_12H)
-            .setHour(12)
-            .setMinute(0)
-            .setTitleText("Select time")
-            .build()
-
-        timePicker.addOnPositiveButtonClickListener {
-            selectedCalendar.set(Calendar.HOUR_OF_DAY, timePicker.hour)
-            selectedCalendar.set(Calendar.MINUTE, timePicker.minute)
-            updateSelectedTimeText()
-        }
-
-        timePicker.show(parentFragmentManager, "TIME_PICKER")
-    }
-
-    private fun updateSelectedDateText() {
-        val sdf = SimpleDateFormat("MM/dd/yyyy", Locale.getDefault())
-        binding.selectedDateText.text = "Selected Date: ${sdf.format(selectedCalendar.time)}"
-    }
-
-    private fun updateSelectedTimeText() {
-        val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
-        binding.selectedTimeText.text = "Selected Time: ${sdf.format(selectedCalendar.time)}"
-    }
-
-    private fun createBookingPaymentIntent() {
-        lifecycleScope.launch {
-            try {
-                // For simplicity, let's assume a fixed service price
-                servicePrice = 50.0
-                val data = hashMapOf(
-                    "stylistId" to args.stylistId,
-                    "userId" to auth.currentUser?.uid,
-                    "amount" to (servicePrice * 100).toLong() // Amount in cents
-                )
-
-                val result = functions
-                    .getHttpsCallable("createBookingPaymentIntent")
-                    .call(data)
-                    .await()
-
-                val response = result.data as? HashMap<String, Any>
-                val clientSecret = response?.get("clientSecret") as? String
-
-                if (clientSecret != null) {
-                    paymentSheet.presentWithPaymentIntent(
-                        clientSecret,
-                        PaymentSheet.Configuration(
-                            merchantDisplayName = "RefreshMe"
-                        )
-                    )
-                }
-            } catch (e: Exception) {
-                Toast.makeText(context, "Error creating payment intent: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
     private fun onPaymentSheetResult(paymentSheetResult: PaymentSheetResult) {
         when (paymentSheetResult) {
             is PaymentSheetResult.Canceled -> {
+                viewModel.resetState()
                 Toast.makeText(context, "Payment canceled", Toast.LENGTH_SHORT).show()
             }
             is PaymentSheetResult.Failed -> {
+                viewModel.resetState()
                 Toast.makeText(context, "Payment failed: ${paymentSheetResult.error.message}", Toast.LENGTH_LONG).show()
             }
             is PaymentSheetResult.Completed -> {
-                createBooking()
+                Toast.makeText(context, "Payment Done. Finalizing...", Toast.LENGTH_SHORT).show()
+                viewModel.finalizeBooking(requireContext())
             }
         }
-    }
-
-    private fun createBooking() {
-        val booking = hashMapOf(
-            "stylistId" to args.stylistId,
-            "userId" to auth.currentUser?.uid,
-            "date" to selectedCalendar.time,
-            "status" to "confirmed",
-            "price" to servicePrice
-        )
-
-        firestore.collection("bookings").add(booking)
-            .addOnSuccessListener {
-                Toast.makeText(context, "Booking successful!", Toast.LENGTH_SHORT).show()
-                parentFragmentManager.popBackStack()
-            }
-            .addOnFailureListener { e ->
-                Toast.makeText(context, "Booking failed: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
     }
 }

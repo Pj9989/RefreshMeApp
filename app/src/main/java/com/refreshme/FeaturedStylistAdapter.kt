@@ -28,7 +28,7 @@ class FeaturedStylistAdapter(
 
         init {
             itemView.setOnClickListener {
-                onStylistClicked(stylists[bindingAdapterPosition])
+                onStylistClicked(bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let { stylists[it] } ?: return@setOnClickListener)
             }
         }
 
@@ -38,7 +38,7 @@ class FeaturedStylistAdapter(
                 .load(stylist.profileImageUrl)
                 .circleCrop()
                 .placeholder(R.drawable.ic_launcher_background)
-                .error(R.drawable.ic_launcher_foreground)
+                .error(R.mipmap.ic_launcher_foreground)
                 .into(binding.stylistImage)
         }
     }

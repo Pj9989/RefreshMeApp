@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RefreshMe – Find a Stylist Near You, Right Now</title>
+  <meta name="description" content="RefreshMe connects you with available barbers and hairstylists in real-time. Book instantly, get refreshed today." />
+  <link rel="icon" type="image/webp" href="assets/logo_round.webp" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== NAVIGATION ===== -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="#" class="nav-logo">
+        <img src="assets/logo_round.webp" alt="RefreshMe Logo" class="nav-logo-img" />
+        <span class="nav-logo-text">RefreshMe</span>
+      </a>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how-it-works">How It Works</a></li>
+        <li><a href="#for-stylists">For Stylists</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#download" class="nav-cta">Get the App</a></li>
+      </ul>
+      <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero" id="home">
+    <div class="hero-bg-glow"></div>
+    <div class="hero-container">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="badge-dot"></span>
+          Available Now in Your Area
+        </div>
+        <h1 class="hero-title">
+          Your Next <span class="gradient-text">Fresh Look</span><br />
+          Is One Tap Away
+        </h1>
+        <p class="hero-subtitle">
+          RefreshMe connects you with verified barbers and hairstylists who are available <em>right now</em> — at a shop near you or at your door.
+        </p>
+        <div class="hero-actions">
+          <a href="#download" class="btn btn-primary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.38.07 2.34.74 3.15.8 1.2-.24 2.35-.93 3.64-.84 1.55.12 2.72.72 3.47 1.82-3.19 1.9-2.43 6.12.74 7.3-.6 1.46-1.38 2.9-3 3.8zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+            Download on iOS
+          </a>
+          <a href="https://play.google.com/store" class="btn btn-secondary" target="_blank" rel="noopener">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3.18 23.76c.37.2.8.22 1.2.04l12.55-7.25-2.88-2.88-10.87 10.09zm-1.13-20.5C1.77 3.6 1.5 4.03 1.5 4.6v14.8c0 .57.27 1 .55 1.34l.07.07L9.7 12.7v-.18L2.12 3.19l-.07.07zm17.7 8.1L17.1 9.4l-3.16 3.16 3.16 3.16 2.67-1.54c.76-.44.76-1.15 0-1.82zm-15.3 9.23L15.9 13.1l-2.88-2.88L3.45 20.59z"/></svg>
+            Get it on Android
+          </a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat">
+            <span class="stat-num">500+</span>
+            <span class="stat-label">Verified Stylists</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-num">Real-Time</span>
+            <span class="stat-label">Availability</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-num">4.8★</span>
+            <span class="stat-label">App Rating</span>
+          </div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="phone-mockup">
+          <div class="phone-frame">
+            <div class="phone-screen">
+              <div class="app-screen">
+                <div class="app-header">
+                  <div class="app-logo-small">
+                    <img src="assets/logo_round.webp" alt="RefreshMe" />
+                  </div>
+                  <span class="app-title-small">RefreshMe</span>
+                  <div class="app-notif">3</div>
+                </div>
+                <div class="app-welcome">
+                  <p class="app-welcome-sub">Welcome back!</p>
+                  <p class="app-welcome-main">Ready for your next refresh?</p>
+                </div>
+                <div class="app-cards">
+                  <div class="stylist-card">
+                    <div class="stylist-avatar">
+                      <div class="avatar-placeholder">JD</div>
+                      <div class="online-dot"></div>
+                    </div>
+                    <div class="stylist-info">
+                      <p class="stylist-name">James D.</p>
+                      <p class="stylist-spec">Barber · 0.3 mi</p>
+                      <div class="stylist-stars">★★★★★</div>
+                    </div>
+                    <button class="book-btn">Book</button>
+                  </div>
+                  <div class="stylist-card">
+                    <div class="stylist-avatar">
+                      <div class="avatar-placeholder gold-bg">MR</div>
+                      <div class="online-dot"></div>
+                    </div>
+                    <div class="stylist-info">
+                      <p class="stylist-name">Maria R.</p>
+                      <p class="stylist-spec">Stylist · 0.7 mi</p>
+                      <div class="stylist-stars">★★★★☆</div>
+                    </div>
+                    <button class="book-btn">Book</button>
+                  </div>
+                  <div class="stylist-card">
+                    <div class="stylist-avatar">
+                      <div class="avatar-placeholder purple-bg">TK</div>
+                      <div class="online-dot"></div>
+                    </div>
+                    <div class="stylist-info">
+                      <p class="stylist-name">Tony K.</p>
+                      <p class="stylist-spec">Barber · 1.1 mi</p>
+                      <div class="stylist-stars">★★★★★</div>
+                    </div>
+                    <button class="book-btn">Book</button>
+                  </div>
+                </div>
+                <div class="app-nav-bar">
+                  <div class="nav-item active">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                    <span>Home</span>
+                  </div>
+                  <div class="nav-item">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                    <span>Nearby</span>
+                  </div>
+                  <div class="nav-item">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
+                    <span>Bookings</span>
+                  </div>
+                  <div class="nav-item">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                    <span>Profile</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="phone-glow"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FEATURES ===== -->
+  <section class="features" id="features">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-tag">Why RefreshMe</span>
+        <h2 class="section-title">Everything You Need for a <span class="gradient-text">Perfect Refresh</span></h2>
+        <p class="section-subtitle">No more waiting, no more guessing. See who's available and book in seconds.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon gold-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          </div>
+          <h3>Real-Time Availability</h3>
+          <p>See exactly which stylists are online and ready to take you right now — no phone tag, no waiting.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon purple-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/></svg>
+          </div>
+          <h3>Instant Booking</h3>
+          <p>Book your appointment in seconds. Choose your service, pick a time, and you're done — no back-and-forth.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon gold-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+          </div>
+          <h3>At-Home Service</h3>
+          <p>Prefer to stay home? Many of our stylists come to you. Filter for "Come to Me" and get pampered at your door.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon purple-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+          </div>
+          <h3>Verified Reviews</h3>
+          <p>Every stylist is rated by real customers. Read reviews, see portfolios, and choose with confidence every time.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon gold-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+          </div>
+          <h3>In-App Messaging</h3>
+          <p>Chat directly with your stylist before and after your appointment. Coordinate details without leaving the app.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon purple-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+          </div>
+          <h3>Verified Professionals</h3>
+          <p>Every stylist on RefreshMe is verified. Browse licensed barbers and cosmetologists you can trust.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== HOW IT WORKS ===== -->
+  <section class="how-it-works" id="how-it-works">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-tag">Simple Process</span>
+        <h2 class="section-title">Get Refreshed in <span class="gradient-text">3 Easy Steps</span></h2>
+      </div>
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-number">01</div>
+          <div class="step-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          </div>
+          <h3>Find Nearby Stylists</h3>
+          <p>Open the app and instantly see verified barbers and hairstylists who are available right now in your area.</p>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step-card">
+          <div class="step-number">02</div>
+          <div class="step-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </div>
+          <h3>Choose Your Stylist</h3>
+          <p>Browse profiles, read reviews, view portfolios, and pick the perfect professional for your style.</p>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step-card">
+          <div class="step-number">03</div>
+          <div class="step-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/></svg>
+          </div>
+          <h3>Book &amp; Get Refreshed</h3>
+          <p>Confirm your appointment in seconds. Show up, sit down, and walk out looking fresh. It's that simple.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOR STYLISTS ===== -->
+  <section class="for-stylists" id="for-stylists">
+    <div class="section-container">
+      <div class="stylist-split">
+        <div class="stylist-visual">
+          <div class="stylist-dashboard-mockup">
+            <div class="dash-header">
+              <span class="dash-title">Stylist Dashboard</span>
+              <div class="dash-toggle">
+                <span class="toggle-label">Available for Bookings</span>
+                <div class="toggle-switch on"></div>
+              </div>
+            </div>
+            <div class="dash-cards">
+              <div class="dash-card">
+                <div class="dash-card-icon">📅</div>
+                <div class="dash-card-info">
+                  <p class="dash-card-title">Upcoming Appointments</p>
+                  <p class="dash-card-val">3 today</p>
+                </div>
+              </div>
+              <div class="dash-card">
+                <div class="dash-card-icon">💰</div>
+                <div class="dash-card-info">
+                  <p class="dash-card-title">Earnings This Week</p>
+                  <p class="dash-card-val gold-text">$340</p>
+                </div>
+              </div>
+              <div class="dash-card">
+                <div class="dash-card-icon">⭐</div>
+                <div class="dash-card-info">
+                  <p class="dash-card-title">Your Rating</p>
+                  <p class="dash-card-val gold-text">4.9 / 5.0</p>
+                </div>
+              </div>
+              <div class="dash-card">
+                <div class="dash-card-icon">✅</div>
+                <div class="dash-card-info">
+                  <p class="dash-card-title">Profile Status</p>
+                  <p class="dash-card-val purple-text">Verified</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="stylist-content">
+          <span class="section-tag">For Professionals</span>
+          <h2 class="section-title">Grow Your <span class="gradient-text">Client Base</span> Instantly</h2>
+          <p class="stylist-desc">Whether you're an independent barber, a salon stylist, or a mobile professional — RefreshMe puts you in front of customers who are ready to book <strong>right now</strong>.</p>
+          <ul class="stylist-benefits">
+            <li>
+              <div class="benefit-icon">🟢</div>
+              <div>
+                <strong>Go Online, Get Clients</strong>
+                <p>Toggle your availability and start receiving booking requests immediately.</p>
+              </div>
+            </li>
+            <li>
+              <div class="benefit-icon">📊</div>
+              <div>
+                <strong>Manage Your Schedule</strong>
+                <p>Set your weekly hours, manage appointments, and track your earnings — all in one place.</p>
+              </div>
+            </li>
+            <li>
+              <div class="benefit-icon">🏆</div>
+              <div>
+                <strong>Build Your Reputation</strong>
+                <p>Collect reviews, showcase your portfolio, and become the go-to stylist in your area.</p>
+              </div>
+            </li>
+            <li>
+              <div class="benefit-icon">💬</div>
+              <div>
+                <strong>Direct Client Communication</strong>
+                <p>Message clients directly through the app to confirm details and build lasting relationships.</p>
+              </div>
+            </li>
+          </ul>
+          <a href="#pricing" class="btn btn-primary">Join as a Stylist</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PRICING ===== -->
+  <section class="pricing" id="pricing">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-tag">Pricing</span>
+        <h2 class="section-title">Simple, Transparent <span class="gradient-text">Pricing</span></h2>
+        <p class="section-subtitle">Customers use RefreshMe for free. Stylists choose a plan that fits their business.</p>
+      </div>
+      <div class="pricing-grid">
+        <!-- Customer -->
+        <div class="pricing-card">
+          <div class="pricing-badge free-badge">Free</div>
+          <h3 class="pricing-name">For Customers</h3>
+          <div class="pricing-price">
+            <span class="price-amount">$0</span>
+            <span class="price-period">forever</span>
+          </div>
+          <ul class="pricing-features">
+            <li><span class="check">✓</span> Find available stylists nearby</li>
+            <li><span class="check">✓</span> Instant booking</li>
+            <li><span class="check">✓</span> Real-time availability</li>
+            <li><span class="check">✓</span> In-app messaging</li>
+            <li><span class="check">✓</span> Reviews &amp; ratings</li>
+            <li><span class="check">✓</span> Booking history</li>
+          </ul>
+          <a href="#download" class="btn btn-outline">Download Free</a>
+        </div>
+        <!-- Basic Stylist -->
+        <div class="pricing-card featured-plan">
+          <div class="pricing-badge popular-badge">Most Popular</div>
+          <h3 class="pricing-name">Stylist Basic</h3>
+          <div class="pricing-price">
+            <span class="price-amount">$10</span>
+            <span class="price-period">/month</span>
+          </div>
+          <p class="pricing-trial">First month free</p>
+          <ul class="pricing-features">
+            <li><span class="check">✓</span> Standard stylist profile</li>
+            <li><span class="check">✓</span> Unlimited bookings</li>
+            <li><span class="check">✓</span> Real-time availability toggle</li>
+            <li><span class="check">✓</span> Basic analytics dashboard</li>
+            <li><span class="check">✓</span> Email support</li>
+            <li><span class="check">✓</span> Client messaging</li>
+          </ul>
+          <a href="#download" class="btn btn-primary">Start Free Trial</a>
+        </div>
+        <!-- Pro Stylist -->
+        <div class="pricing-card">
+          <div class="pricing-badge pro-badge">Pro</div>
+          <h3 class="pricing-name">Stylist Pro</h3>
+          <div class="pricing-price">
+            <span class="price-amount">$25</span>
+            <span class="price-period">/month</span>
+          </div>
+          <ul class="pricing-features">
+            <li><span class="check">✓</span> Featured listing placement</li>
+            <li><span class="check">✓</span> Advanced analytics</li>
+            <li><span class="check">✓</span> Custom branding options</li>
+            <li><span class="check">✓</span> Priority search ranking</li>
+            <li><span class="check">✓</span> 24/7 priority support</li>
+            <li><span class="check">✓</span> Everything in Basic</li>
+          </ul>
+          <a href="#download" class="btn btn-outline">Get Started</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== DOWNLOAD ===== -->
+  <section class="download" id="download">
+    <div class="section-container">
+      <div class="download-card">
+        <div class="download-glow"></div>
+        <div class="download-content">
+          <img src="assets/logo_round.webp" alt="RefreshMe" class="download-logo" />
+          <h2 class="download-title">Ready to Get <span class="gradient-text">Refreshed?</span></h2>
+          <p class="download-subtitle">Download RefreshMe today and find your next stylist in seconds. Available on iOS and Android.</p>
+          <div class="download-buttons">
+            <a href="#" class="store-btn apple-btn">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.38.07 2.34.74 3.15.8 1.2-.24 2.35-.93 3.64-.84 1.55.12 2.72.72 3.47 1.82-3.19 1.9-2.43 6.12.74 7.3-.6 1.46-1.38 2.9-3 3.8zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+              <div>
+                <span class="store-sub">Download on the</span>
+                <span class="store-name">App Store</span>
+              </div>
+            </a>
+            <a href="https://play.google.com/store" class="store-btn google-btn" target="_blank" rel="noopener">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3.18 23.76c.37.2.8.22 1.2.04l12.55-7.25-2.88-2.88-10.87 10.09zm-1.13-20.5C1.77 3.6 1.5 4.03 1.5 4.6v14.8c0 .57.27 1 .55 1.34l.07.07L9.7 12.7v-.18L2.12 3.19l-.07.07zm17.7 8.1L17.1 9.4l-3.16 3.16 3.16 3.16 2.67-1.54c.76-.44.76-1.15 0-1.82zm-15.3 9.23L15.9 13.1l-2.88-2.88L3.45 20.59z"/></svg>
+              <div>
+                <span class="store-sub">Get it on</span>
+                <span class="store-name">Google Play</span>
+              </div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-brand">
+        <a href="#" class="nav-logo">
+          <img src="assets/logo_round.webp" alt="RefreshMe Logo" class="nav-logo-img" />
+          <span class="nav-logo-text">RefreshMe</span>
+        </a>
+        <p class="footer-tagline">Find a stylist near you, right now.</p>
+        <div class="footer-social">
+          <a href="#" aria-label="Instagram" class="social-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+          </a>
+          <a href="#" aria-label="Twitter" class="social-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          </a>
+          <a href="#" aria-label="Facebook" class="social-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>App</h4>
+          <ul>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#how-it-works">How It Works</a></li>
+            <li><a href="#download">Download</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Stylists</h4>
+          <ul>
+            <li><a href="#for-stylists">Join as a Stylist</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="#download">Get the App</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Company</h4>
+          <ul>
+            <li><a href="privacy.html">Privacy Policy</a></li>
+            <li><a href="terms.html">Terms of Service</a></li>
+            <li><a href="mailto:support@refreshmeapp.com">Contact Us</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2025 RefreshMe. All rights reserved. | <a href="https://refreshmeapp.com">refreshmeapp.com</a></p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -3,36 +3,84 @@ package com.refreshme
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.functions.FirebaseFunctions
 import com.refreshme.data.Booking
+import com.refreshme.data.BookingRepository
+import com.refreshme.data.BookingStatus
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import javax.inject.Inject
 
-class BookingsViewModel : ViewModel() {
+sealed class BookingsUiState {
+    object Loading : BookingsUiState()
+    data class Success(val bookings: List<Booking>) : BookingsUiState()
+    data class Error(val message: String) : BookingsUiState()
+}
 
-    private val firestore = FirebaseFirestore.getInstance()
-    private val auth = FirebaseAuth.getInstance()
+@HiltViewModel
+class BookingsViewModel @Inject constructor(
+    private val repository: BookingRepository,
+    private val auth: FirebaseAuth,
+    private val functions: FirebaseFunctions
+) : ViewModel() {
 
-    private val _bookings = MutableStateFlow<List<Booking>>(emptyList())
-    val bookings: StateFlow<List<Booking>> = _bookings
+    private val _uiState = MutableStateFlow<BookingsUiState>(BookingsUiState.Loading)
+    val uiState: StateFlow<BookingsUiState> = _uiState.asStateFlow()
+
+    private val _showRatingDialog = MutableStateFlow<Booking?>(null)
+    val showRatingDialog: StateFlow<Booking?> = _showRatingDialog.asStateFlow()
 
     init {
-        fetchBookings()
+        observeBookings()
     }
 
-    private fun fetchBookings() {
+    private fun observeBookings() {
+        val uid = auth.currentUser?.uid
+        if (uid == null) {
+            _uiState.value = BookingsUiState.Error("User not logged in")
+            return
+        }
+
         viewModelScope.launch {
-            val userId = auth.currentUser?.uid ?: return@launch
+            repository.getCustomerBookings(uid)
+                .catch { e ->
+                    _uiState.value = BookingsUiState.Error("Failed to load bookings: ${e.localizedMessage}")
+                }
+                .collect { bookings ->
+                    _uiState.value = BookingsUiState.Success(bookings)
+                }
+        }
+    }
+
+    fun openRatingDialog(booking: Booking) {
+        _showRatingDialog.value = booking
+    }
+
+    fun closeRatingDialog() {
+        _showRatingDialog.value = null
+    }
+
+    fun submitReview(booking: Booking, rating: Double, comment: String) {
+        viewModelScope.launch {
+            repository.submitReview(booking, rating, comment)
+            closeRatingDialog()
+        }
+    }
+
+    fun cancelBooking(bookingId: String) {
+        viewModelScope.launch {
             try {
-                val snapshot = firestore.collection("bookings")
-                    .whereEqualTo("userId", userId)
-                    .get()
+                val data = hashMapOf("bookingId" to bookingId)
+                functions.getHttpsCallable("cancelBooking")
+                    .call(data)
                     .await()
-                _bookings.value = snapshot.toObjects(Booking::class.java)
             } catch (e: Exception) {
-                // Handle error
+                repository.updateBookingStatus(bookingId, BookingStatus.CANCELLED)
             }
         }
     }

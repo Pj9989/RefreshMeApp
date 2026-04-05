@@ -1,0 +1,7 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Debug-only unrestricted API key -->
+    <string name="google_api_key" translatable="false">AIzaSyAklSC4AxDGzwdQ1dsgpVAUtYeSc0fUN4</string>
+    <string name="google_crashlytics_mapping_file_id" translatable="false"></string>
+    <string name="google_app_id" translatable="false">1:12424011789:android:c8b0001323620e7ebef544</string>
+</resources>

@@ -3,124 +3,135 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/dashboardFragment">
+    app:startDestination="@id/homeFragment">
 
-    <!-- Global actions for bottom navigation -->
+    <!-- Global actions -->
+    <action android:id="@+id/action_global_homeFragment"
+        app:destination="@id/homeFragment" />
+
     <action android:id="@+id/action_global_dashboardFragment"
         app:destination="@id/dashboardFragment" />
+
     <action android:id="@+id/action_global_stylistListFragment"
         app:destination="@id/stylistListFragment" />
-    <action android:id="@+id/action_global_userProfileFragment"
-        app:destination="@id/userProfileFragment" />
-    <action android:id="@+id/action_global_settingsFragment"
-        app:destination="@id/settingsFragment" />
+
+    <!-- Fragment definitions -->
+    <fragment
+        android:id="@+id/roleSelectFragment"
+        android:name="com.refreshme.auth.RoleSelectFragment"
+        android:label="Select Role"
+        tools:layout="@layout/fragment_role_select" />
+
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.refreshme.home.HomeFragment"
+        android:label="Home"
+        tools:layout="@layout/fragment_home">
+        <action
+            android:id="@+id/action_home_to_details"
+            app:destination="@id/stylistDetailsFragment" />
+        <action
+            android:id="@+id/action_home_to_quiz"
+            app:destination="@id/aiStyleQuizFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/dashboardFragment"
         android:name="com.refreshme.DashboardFragment"
-        android:label="Dashboard"
-        tools:layout="@layout/fragment_dashboard">
+        android:label="Dashboard">
         <action
             android:id="@+id/action_dashboardFragment_to_mapFragment"
             app:destination="@id/mapFragment" />
         <action
-            android:id="@+id/action_dashboardFragment_to_stylistProfileFragment"
-            app:destination="@id/stylistProfileFragment" />
-    </fragment>
-
-    <fragment
-        android:id="@+id/stylistsFragment"
-        android:name="com.refreshme.StylistsFragment"
-        android:label="Stylists"
-        tools:layout="@layout/fragment_stylists">
-        <action
-            android:id="@+id/action_stylistsFragment_to_stylistProfileFragment"
-            app:destination="@id/stylistProfileFragment" />
+            android:id="@+id/action_dashboard_to_details"
+            app:destination="@id/stylistDetailsFragment" />
     </fragment>
 
     <fragment
         android:id="@+id/stylistListFragment"
         android:name="com.refreshme.StylistListFragment"
-        android:label="Stylists"
-        tools:layout="@layout/fragment_stylist_list">
+        android:label="Stylists">
+        <argument
+            android:name="styleIds"
+            app:argType="string[]"
+            app:nullable="true"
+            android:defaultValue="@null" />
         <action
-            android:id="@+id/action_stylistListFragment_to_stylistProfileFragment"
-            app:destination="@id/stylistProfileFragment" />
-        <action
-            android:id="@+id/action_stylistListFragment_to_filterBottomSheetFragment"
-            app:destination="@id/filterBottomSheetFragment" />
+            android:id="@+id/action_list_to_details"
+            app:destination="@id/stylistDetailsFragment" />
     </fragment>
 
     <fragment
-        android:id="@+id/stylistProfileFragment"
-        android:name="com.refreshme.StylistProfileFragment"
+        android:id="@+id/stylistDetailsFragment"
+        android:name="com.refreshme.StylistDetailsFragment"
         android:label="Stylist Profile">
         <argument
             android:name="stylistId"
-            app:argType="string" />
+            app:argType="string"
+            android:defaultValue="" />
         <action
-            android:id="@+id/action_stylistProfileFragment_to_chatFragment"
+            android:id="@+id/action_details_to_chat"
             app:destination="@id/chatFragment" />
         <action
-            android:id="@+id/action_stylistProfileFragment_to_bookingFragment"
+            android:id="@+id/action_details_to_booking"
             app:destination="@id/bookingFragment" />
     </fragment>
 
     <fragment
         android:id="@+id/bookingsFragment"
         android:name="com.refreshme.BookingsFragment"
-        android:label="Bookings"
-        tools:layout="@layout/fragment_bookings" />
+        android:label="My Bookings">
+        <action
+            android:id="@+id/action_bookings_to_chat"
+            app:destination="@id/chatFragment" />
+        <action
+            android:id="@+id/action_bookings_to_map"
+            app:destination="@id/mapFragment" />
+        <action
+            android:id="@+id/action_bookings_to_liveTracking"
+            app:destination="@id/activeMobileBookingFragment" />
+    </fragment>
 
     <fragment
-        android:id="@+id/paymentsFragment"
-        android:name="com.refreshme.PaymentsFragment"
-        android:label="Payments"
-        tools:layout="@layout/fragment_payments" />
+        android:id="@+id/activeMobileBookingFragment"
+        android:name="com.refreshme.booking.ActiveMobileBookingFragment"
+        android:label="Live Tracking">
+        <argument
+            android:name="bookingId"
+            app:argType="string" />
+        <argument
+            android:name="isStylist"
+            app:argType="boolean"
+            android:defaultValue="false" />
+    </fragment>
 
     <fragment
         android:id="@+id/messagesFragment"
-        android:name="com.refreshme.MessagesFragment"
-        android:label="Messages"
-        tools:layout="@layout/fragment_messages">
+        android:name="com.refreshme.chat.CustomerMessagesFragment"
+        android:label="Messages">
         <action
-            android:id="@+id/action_messagesFragment_to_chatFragment"
+            android:id="@+id/action_messages_to_chat"
             app:destination="@id/chatFragment" />
     </fragment>
-
-    <fragment
-        android:id="@+id/mapFragment"
-        android:name="com.refreshme.MapFragment"
-        android:label="Map" >
-        <action
-            android:id="@+id/action_mapFragment_to_stylistProfileFragment"
-            app:destination="@id/stylistProfileFragment" />
-    </fragment>
-
-    <fragment
-        android:id="@+id/userProfileFragment"
-        android:name="com.refreshme.profile.UserProfileFragment"
-        android:label="User Profile" />
-
-    <fragment
-        android:id="@+id/settingsFragment"
-        android:name="com.refreshme.SettingsFragment" 
-        android:label="Settings" />
 
     <fragment
         android:id="@+id/chatFragment"
         android:name="com.refreshme.chat.ChatFragment"
         android:label="Chat">
         <argument
-            android:name="conversationId"
+            android:name="otherUserId"
             app:argType="string" />
     </fragment>
 
-    <dialog
-        android:id="@+id/filterBottomSheetFragment"
-        android:name="com.refreshme.FilterBottomSheetFragment"
-        android:label="Filter Options"
-        tools:layout="@layout/fragment_filter_bottom_sheet" />
+    <fragment
+        android:id="@+id/mapFragment"
+        android:name="com.refreshme.MapFragment"
+        android:label="Map">
+        <argument
+            android:name="stylistId"
+            app:argType="string"
+            android:defaultValue="" />
+    </fragment>
 
     <fragment
         android:id="@+id/bookingFragment"
@@ -129,6 +140,19 @@
         <argument
             android:name="stylistId"
             app:argType="string" />
+        <argument
+            android:name="serviceName"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
+        <argument
+            android:name="servicePrice"
+            app:argType="float"
+            android:defaultValue="0.0" />
     </fragment>
 
+    <fragment
+        android:id="@+id/aiStyleQuizFragment"
+        android:name="com.refreshme.aistylefinder.AiStyleQuizFragment"
+        android:label="AI Style Match" />
 </navigation>

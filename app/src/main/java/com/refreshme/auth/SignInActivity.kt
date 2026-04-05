@@ -9,29 +9,49 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.firestore.FirebaseFirestore
-import com.refreshme.MainActivity
+import com.google.firebase.messaging.FirebaseMessaging
+import com.refreshme.R
 import com.refreshme.databinding.ActivitySignInBinding
 import com.refreshme.databinding.DialogForgotPasswordBinding
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
+import com.refreshme.util.RoleBasedNavigationManager
+import com.refreshme.util.RoleBasedNavigationManager.UserRole
 
 class SignInActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySignInBinding
     private lateinit var firebaseAuth: FirebaseAuth
-    private val firestore by lazy { FirebaseFirestore.getInstance() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        firebaseAuth = FirebaseAuth.getInstance()
+
+        if (firebaseAuth.currentUser != null) {
+            binding = ActivitySignInBinding.inflate(layoutInflater)
+            setContentView(binding.root)
+            
+            binding.emailLayout.visibility = View.GONE
+            binding.passwordLayout.visibility = View.GONE
+            binding.signInButton.visibility = View.GONE
+            binding.roleRadioGroup.visibility = View.GONE
+            binding.signUpTextView.visibility = View.GONE
+            binding.forgotPasswordTextView.visibility = View.GONE
+            binding.progressBar.visibility = View.VISIBLE
+            
+            updateFcmToken()
+            checkUserRoleAndNavigate()
+            return
+        }
+
         binding = ActivitySignInBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        firebaseAuth = FirebaseAuth.getInstance()
+        binding.customerRadioButton.setText(R.string.customer)
+        binding.stylistRadioButton.setText(R.string.stylist)
 
         binding.signInButton.setOnClickListener {
             signInUser()
@@ -46,17 +66,42 @@ class SignInActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateFcmToken() {
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result
+                val uid = firebaseAuth.currentUser?.uid ?: return@addOnCompleteListener
+                val db = FirebaseFirestore.getInstance()
+                db.collection("users").document(uid).update("fcmToken", token)
+                db.collection("stylists").document(uid).update("fcmToken", token)
+            }
+        }
+    }
+
+    private fun checkUserRoleAndNavigate() {
+        RoleBasedNavigationManager.getUserRole { role ->
+            if (!isFinishing) {
+                if (role == UserRole.UNKNOWN) {
+                    startActivity(Intent(this, RoleSelectActivity::class.java))
+                } else {
+                    RoleBasedNavigationManager.navigateToDashboard(this, role)
+                }
+                finish()
+            }
+        }
+    }
+
     private fun signInUser() {
         val email = binding.emailEditText.text.toString()
         val password = binding.passwordEditText.text.toString()
 
         if (email.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Please fill in all fields.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.error_fill_all_fields), Toast.LENGTH_SHORT).show()
             return
         }
 
         if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            binding.emailLayout.error = "Invalid email format"
+            binding.emailLayout.error = getString(R.string.error_invalid_email_format)
             return
         } else {
             binding.emailLayout.error = null
@@ -67,17 +112,16 @@ class SignInActivity : AppCompatActivity() {
 
         firebaseAuth.signInWithEmailAndPassword(email, password).addOnCompleteListener { task ->
             if (task.isSuccessful) {
-                // **FIXED**: ALWAYS go to MainActivity. It will handle the role routing.
-                startActivity(MainActivity.newIntent(this))
-                finish()
+                updateFcmToken()
+                checkUserRoleAndNavigate()
             } else {
                 binding.progressBar.visibility = View.GONE
                 binding.signInButton.isEnabled = true
                 val exception = task.exception
                 val errorMessage = when (exception) {
-                    is FirebaseAuthInvalidUserException -> "No account found with this email."
-                    is FirebaseAuthInvalidCredentialsException -> "Invalid password. Please try again."
-                    else -> "Authentication failed. Please try again later."
+                    is FirebaseAuthInvalidUserException -> getString(R.string.error_no_account_found)
+                    is FirebaseAuthInvalidCredentialsException -> getString(R.string.error_invalid_password)
+                    else -> getString(R.string.error_auth_failed)
                 }
                 Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
             }
@@ -87,10 +131,10 @@ class SignInActivity : AppCompatActivity() {
     private fun showForgotPasswordDialog() {
         val dialogBinding = DialogForgotPasswordBinding.inflate(layoutInflater)
         val dialog = AlertDialog.Builder(this)
-            .setTitle("Forgot Password")
+            .setTitle(getString(R.string.forgot_password_title))
             .setView(dialogBinding.root)
-            .setPositiveButton("Send", null)
-            .setNegativeButton("Cancel") { dialog, _ ->
+            .setPositiveButton(getString(R.string.send_button), null)
+            .setNegativeButton(getString(R.string.cancel)) { dialog, _ ->
                 dialog.dismiss()
             }
             .create()
@@ -102,14 +146,14 @@ class SignInActivity : AppCompatActivity() {
                     firebaseAuth.sendPasswordResetEmail(email)
                         .addOnCompleteListener { task ->
                             if (task.isSuccessful) {
-                                Toast.makeText(this, "Password reset email sent.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, getString(R.string.password_reset_sent), Toast.LENGTH_SHORT).show()
                                 dialog.dismiss()
                             } else {
-                                Toast.makeText(this, "Failed to send reset email.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, getString(R.string.error_send_reset_failed), Toast.LENGTH_SHORT).show()
                             }
                         }
                 } else {
-                    Toast.makeText(this, "Please enter a valid email.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.error_enter_valid_email), Toast.LENGTH_SHORT).show()
                 }
             }
         }

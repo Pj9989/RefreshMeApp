@@ -19,24 +19,38 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = Gold,
+    secondary = LightGray,
+    tertiary = GreenAccent,
+    background = Black,
+    surface = SurfaceDark,
+    onPrimary = Black,
+    onSecondary = Black,
+    onBackground = White,
+    onSurface = White,
+    surfaceVariant = StylistCardBackground,
+    onSurfaceVariant = LightGray
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
-    background = Color.White,
-    surface = Color.White
+    primary = Gold,
+    secondary = StylistCardBackground,
+    tertiary = GreenAccent,
+    background = White,
+    surface = White,
+    onPrimary = White,
+    onSecondary = White,
+    onBackground = Black,
+    onSurface = Black,
+    surfaceVariant = Color(0xFFF5F5F5),
+    onSurfaceVariant = Gray
 
     /* Other default colors to override
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
+    onPrimary \u003d Color.White,
+    onSecondary \u003d Color.White,
+    onTertiary \u003d Color.White,
+    onBackground \u003d Color(0xFF1C1B1F),
+    onSurface \u003d Color(0xFF1C1B1F),
     */
 )
 
@@ -44,7 +58,8 @@ private val LightColorScheme = lightColorScheme(
 fun RefreshMeTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    // Disabled by default to maintain strict brand luxury identity
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

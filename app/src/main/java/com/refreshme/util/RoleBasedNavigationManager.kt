@@ -4,10 +4,12 @@ import android.content.Context
 import android.content.Intent
 import android.view.Menu
 import android.view.View
+import androidx.appcompat.app.AppCompatActivity // ADDED: Required for getDashboardActivity return type
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.refreshme.CustomerDashboardActivity
 import com.refreshme.stylist.StylistDashboardActivity
+import kotlin.reflect.KClass
 
 /**
  * Manages role-based navigation and feature visibility
@@ -26,6 +28,18 @@ object RoleBasedNavigationManager {
         STYLIST,
         UNKNOWN
     }
+    
+    /**
+     * Returns the Class object for the main dashboard activity of a given role.
+     */
+    fun getDashboardActivity(role: UserRole): Class<out AppCompatActivity> {
+        return when (role) {
+            UserRole.STYLIST -> StylistDashboardActivity::class.java
+            UserRole.CUSTOMER -> CustomerDashboardActivity::class.java
+            UserRole.UNKNOWN -> CustomerDashboardActivity::class.java // Fallback to customer dashboard
+        }
+    }
+
 
     /**
      * Get the current user's role from Firestore
