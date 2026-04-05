@@ -30,3 +30,7 @@ keystore.properties
 
 # Secrets — never commit API keys
 gradle.properties
+
+# local.properties backups (may contain API keys)
+local.properties.backup*
+*.backup*

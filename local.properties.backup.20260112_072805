@@ -1,7 +1,0 @@
-﻿properties
-sdk.dir=C\:/Users/Phill/AppData/Local/Android/Sdk
-MAPS_API_KEY=AIzaSyAbqKbnrQ3-ghiXnQSbbxnFR03QNbHX3Zo
-
-# Stripe API Keys
-STRIPE_PUBLISHABLE_KEY=param(
-STRIPE_PRICE_ID=-ForegroundColor Green
