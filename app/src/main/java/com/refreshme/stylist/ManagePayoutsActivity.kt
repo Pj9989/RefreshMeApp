@@ -16,8 +16,7 @@ import com.refreshme.R
 
 /**
  * Activity for stylists to set up and manage their Stripe Connect Express payout account.
- * Calls the createConnectAccount or getConnectAccountStatus Cloud Function
- * and opens the returned URL so stylists can complete onboarding or manage their dashboard.
+ * Calls the createConnectAccount Cloud Function and opens the returned onboarding URL.
  */
 class ManagePayoutsActivity : AppCompatActivity() {
 
@@ -57,16 +56,15 @@ class ManagePayoutsActivity : AppCompatActivity() {
             .addOnSuccessListener { doc ->
                 setLoading(false)
                 val stripeAccountId = doc.getString("stripeAccountId")
-                val stripeStatus = doc.getString("stripeAccountStatus")
+                val onboardingComplete = doc.getBoolean("stripeOnboardingComplete") ?: false
+                val chargesEnabled = doc.getBoolean("stripeChargesEnabled") ?: false
 
                 if (!stripeAccountId.isNullOrBlank()) {
-                    // Already has an account
                     btnSetupStripe.text = getString(R.string.manage_stripe_account)
                     tvStripeStatus.visibility = View.VISIBLE
-                    tvStripeStatus.text = when (stripeStatus) {
-                        "active" -> "✅ Stripe account connected — payouts enabled"
-                        "pending" -> "⏳ Stripe account pending — finish onboarding to receive payouts"
-                        else -> "⚠️ Stripe account setup incomplete"
+                    tvStripeStatus.text = when {
+                        chargesEnabled && onboardingComplete -> "✅ Stripe account connected — payouts enabled"
+                        else -> "⏳ Stripe account pending — tap to finish onboarding"
                     }
                 } else {
                     btnSetupStripe.text = getString(R.string.setup_stripe_account)
@@ -85,13 +83,29 @@ class ManagePayoutsActivity : AppCompatActivity() {
             return
         }
 
-        // Open the generic Stripe registration link to match the home screen behavior
-        try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://dashboard.stripe.com/register"))
-            startActivity(intent)
-        } catch (e: Exception) {
-            Toast.makeText(this, "No browser available to open link.", Toast.LENGTH_SHORT).show()
-        }
+        setLoading(true)
+
+        // Call the createConnectAccount Firebase function to get the Stripe onboarding URL
+        functions.getHttpsCallable("createConnectAccount")
+            .call()
+            .addOnSuccessListener { result ->
+                setLoading(false)
+                @Suppress("UNCHECKED_CAST")
+                val data = result.getData() as? Map<String, Any>
+                val url = data?.get("url") as? String
+                if (!url.isNullOrBlank()) {
+                    openUrl(url)
+                    // Refresh status when user returns from Stripe
+                    loadStripeStatus()
+                } else {
+                    Toast.makeText(this, "Could not get Stripe onboarding link. Try again.", Toast.LENGTH_LONG).show()
+                }
+            }
+            .addOnFailureListener { e ->
+                setLoading(false)
+                val msg = e.message ?: "Unknown error"
+                Toast.makeText(this, "Error: $msg", Toast.LENGTH_LONG).show()
+            }
     }
 
     private fun openUrl(url: String) {
@@ -111,5 +125,11 @@ class ManagePayoutsActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean {
         finish()
         return true
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh status every time user returns to this screen (e.g. after Stripe onboarding)
+        loadStripeStatus()
     }
 }

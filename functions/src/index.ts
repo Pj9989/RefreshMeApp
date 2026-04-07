@@ -3,15 +3,15 @@ import * as legacyFunctions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { onRequest } from "firebase-functions/v2/https";
 import { onCall } from "firebase-functions/v2/https";
-import { defineString } from "firebase-functions/params";
+import { defineSecret } from "firebase-functions/params";
 import Stripe from "stripe";
 import { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } from "firebase-functions/v2/firestore";
 import { VertexAI } from "@google-cloud/vertexai";
 
 admin.initializeApp();
 
-const stripeSecretKey = defineString("STRIPE_SECRET_KEY");
-const stripeWebhookSecret = defineString("STRIPE_WEBHOOK_SECRET");
+const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
+const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 
 // Deposit rate constant (20%)
 const DEPOSIT_RATE = 0.20;

@@ -23,6 +23,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.functions.FirebaseFunctions
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.util.*
 
 // Data model for transactions
@@ -42,6 +45,8 @@ fun PayoutsEarningsScreen(
 ) {
     val stats by viewModel.stats.collectAsState()
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var isStripeLoading by remember { mutableStateOf(false) }
     
     // In a real app, these would come from the ViewModel based on Firestore data
     val weeklyData = listOf(150f, 320f, 450f, 280f, 600f, 890f, 420f)
@@ -82,9 +87,35 @@ fun PayoutsEarningsScreen(
             item {
                 BalanceHeroCard(
                     amount = stats.totalEarnings,
+                    isLoading = isStripeLoading,
                     onSetupAccount = {
-                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://dashboard.stripe.com/register"))
-                        context.startActivity(intent)
+                        coroutineScope.launch {
+                            isStripeLoading = true
+                            try {
+                                val result = FirebaseFunctions.getInstance()
+                                    .getHttpsCallable("createConnectAccount")
+                                    .call()
+                                    .await()
+
+                                @Suppress("UNCHECKED_CAST")
+                                val data = result.getData() as? Map<String, Any>
+                                val url = data?.get("url") as? String
+
+                                if (!url.isNullOrBlank()) {
+                                    val intent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse(url)
+                                    )
+                                    context.startActivity(intent)
+                                } else {
+                                    Toast.makeText(context, "Could not get Stripe onboarding link. Try again.", Toast.LENGTH_LONG).show()
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            } finally {
+                                isStripeLoading = false
+                            }
+                        }
                     }
                 )
             }
@@ -138,7 +169,7 @@ fun PayoutsEarningsScreen(
 }
 
 @Composable
-fun BalanceHeroCard(amount: Double, onSetupAccount: () -> Unit) {
+fun BalanceHeroCard(amount: Double, isLoading: Boolean = false, onSetupAccount: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -172,6 +203,7 @@ fun BalanceHeroCard(amount: Double, onSetupAccount: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Button(
                 onClick = onSetupAccount,
+                enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.White, 
                     contentColor = MaterialTheme.colorScheme.primary
@@ -179,9 +211,19 @@ fun BalanceHeroCard(amount: Double, onSetupAccount: () -> Unit) {
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Set up Stripe Account", fontWeight = FontWeight.Bold)
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Connecting...", fontWeight = FontWeight.Bold)
+                } else {
+                    Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Connect Bank Account", fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
