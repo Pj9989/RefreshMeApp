@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -369,9 +368,9 @@ fun NearbyStylistItem(stylist: Stylist, onClick: () -> Unit) {
 
             // Tertiary CTA: "Virtual Hair Try-On" — AI-powered feature
             Button(
-                onClick = onVirtualTryOn,
+                onClick = { /* onVirtualTryOn */ },
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = accentButtonColor),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
@@ -379,7 +378,7 @@ fun NearbyStylistItem(stylist: Stylist, onClick: () -> Unit) {
                 Text(
                     text = "\u2728  Virtual Hair Try-On",
                     fontSize = 16.sp,
-                    color = textColor
+                    color = MaterialTheme.colorScheme.onSecondary
                 )
             }
         }

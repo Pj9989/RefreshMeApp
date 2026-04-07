@@ -153,7 +153,7 @@ class VirtualTryOnViewModel(application: Application) : AndroidViewModel(applica
         val apiUrl = URL("https://api.replicate.com/v1/predictions")
         val connection = apiUrl.openConnection() as HttpURLConnection
         connection.requestMethod = "POST"
-        connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.REPLICATE_API_KEY}")
+        connection.setRequestProperty("Authorization", "Bearer ${com.refreshme.BuildConfig.REPLICATE_API_KEY}")
         connection.setRequestProperty("Content-Type", "application/json")
         connection.setRequestProperty("Prefer", "wait")
         connection.doOutput = true
@@ -190,7 +190,7 @@ class VirtualTryOnViewModel(application: Application) : AndroidViewModel(applica
             while (status != "succeeded" && status != "failed" && status != "canceled") {
                 delay(2000)
                 val pollConn = URL(getUrl).openConnection() as HttpURLConnection
-                pollConn.setRequestProperty("Authorization", "Bearer ${BuildConfig.REPLICATE_API_KEY}")
+                pollConn.setRequestProperty("Authorization", "Bearer ${com.refreshme.BuildConfig.REPLICATE_API_KEY}")
                 
                 val pollRespCode = pollConn.responseCode
                 if (pollRespCode !in 200..299) {

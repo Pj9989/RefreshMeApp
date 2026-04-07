@@ -84,6 +84,9 @@
             android:name=".stylist.ManagePortfolioActivity"
             android:exported="false" />
         <activity
+            android:name=".stylist.ManageBeforeAfterActivity"
+            android:exported="false" />
+        <activity
             android:name=".stylist.ManagePayoutsActivity"
             android:exported="false" />
 

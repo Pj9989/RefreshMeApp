@@ -43,11 +43,11 @@ class StylistPreviewAdapter(
         fun bind(stylist: Stylist) {
             stylistImage.transitionName = "stylist_image_${stylist.id}"
             
-            if (stylist.profileImageUrl.isNullOrEmpty()) {
+            if (stylist.displayImageUrl.isNullOrEmpty()) {
                 stylistImage.setImageResource(R.drawable.ic_profile)
             } else {
                 Glide.with(itemView.context)
-                    .load(stylist.profileImageUrl)
+                    .load(stylist.displayImageUrl)
                     .placeholder(R.drawable.ic_profile)
                     .error(R.drawable.ic_profile)
                     .into(stylistImage)

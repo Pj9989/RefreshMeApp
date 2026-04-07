@@ -82,9 +82,9 @@ fun PayoutsEarningsScreen(
             item {
                 BalanceHeroCard(
                     amount = stats.totalEarnings,
-                    onRequestPayout = {
-                        viewModel.requestPayout()
-                        Toast.makeText(context, "Payout request submitted to processing queue!", Toast.LENGTH_LONG).show()
+                    onSetupAccount = {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://dashboard.stripe.com/register"))
+                        context.startActivity(intent)
                     }
                 )
             }
@@ -138,7 +138,7 @@ fun PayoutsEarningsScreen(
 }
 
 @Composable
-fun BalanceHeroCard(amount: Double, onRequestPayout: () -> Unit) {
+fun BalanceHeroCard(amount: Double, onSetupAccount: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -171,7 +171,7 @@ fun BalanceHeroCard(amount: Double, onRequestPayout: () -> Unit) {
             )
             Spacer(Modifier.height(24.dp))
             Button(
-                onClick = onRequestPayout,
+                onClick = onSetupAccount,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.White, 
                     contentColor = MaterialTheme.colorScheme.primary
@@ -179,9 +179,9 @@ fun BalanceHeroCard(amount: Double, onRequestPayout: () -> Unit) {
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Request Payout", fontWeight = FontWeight.Bold)
+                Text("Set up Stripe Account", fontWeight = FontWeight.Bold)
             }
         }
     }

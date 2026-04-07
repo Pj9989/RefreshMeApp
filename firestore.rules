@@ -18,7 +18,15 @@ service cloud.firestore {
     // â”€â”€â”€ User Profile Rules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow delete: if isOwner(userId);
+      allow update: if isOwner(userId) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isVerified', 'verified']) &&
+        (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['verificationStatus']) ||
+          request.resource.data.verificationStatus in ['PENDING', 'UNVERIFIED', 'FAILED', 'REQUIRES_INPUT']
+        )
+      );
 
       match /favorites/{favoriteId} {
         allow read, write: if isOwner(userId);
@@ -33,7 +41,17 @@ service cloud.firestore {
     match /stylists/{stylistId} {
       allow read: if true;
       allow create: if isAuthenticated() && request.auth.uid == stylistId;
-      allow update, delete: if isStylist(stylistId);
+      allow delete: if isStylist(stylistId);
+      allow update: if isStylist(stylistId) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'isVerified', 'verified', 'stripeAccountId', 'subscriptionTier',
+          'stripeChargesEnabled', 'stripePayoutsEnabled'
+        ]) &&
+        (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['verificationStatus']) ||
+          request.resource.data.verificationStatus in ['PENDING', 'UNVERIFIED', 'FAILED', 'REQUIRES_INPUT']
+        )
+      );
 
       match /services/{serviceId} {
         allow read: if true;

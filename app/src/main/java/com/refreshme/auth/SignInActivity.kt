@@ -100,7 +100,7 @@ class SignInActivity : AppCompatActivity() {
         firebaseAuth.signInWithEmailAndPassword(DEMO_EMAIL, DEMO_PASSWORD)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    startActivity(MainActivity.newIntent(this))
+                    startActivity(Intent(this, com.refreshme.MainActivity::class.java))
                     finish()
                 } else {
                     binding.progressBar.visibility = View.GONE

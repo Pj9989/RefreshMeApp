@@ -41,16 +41,14 @@ class ManageServicesViewModel @Inject constructor(
         
         servicesListener?.remove()
         servicesListener = firestore.collection("stylists").document(uid)
-            .collection("services")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     _uiState.value = ServicesUiState.Error(error.message ?: "Unknown error")
                     return@addSnapshotListener
                 }
                 
-                val services = snapshot?.documents?.mapNotNull { doc ->
-                    doc.toObject(Service::class.java)?.apply { id = doc.id }
-                } ?: emptyList()
+                val stylist = snapshot?.toObject(com.refreshme.data.Stylist::class.java)
+                val services = stylist?.services ?: emptyList()
                 
                 _uiState.value = ServicesUiState.Success(services)
             }
@@ -60,10 +58,11 @@ class ManageServicesViewModel @Inject constructor(
         val uid = auth.currentUser?.uid ?: return
         viewModelScope.launch {
             try {
+                val newService = service.copy(id = java.util.UUID.randomUUID().toString())
                 firestore.collection("stylists").document(uid)
-                    .collection("services").add(service).await()
+                    .update("services", com.google.firebase.firestore.FieldValue.arrayUnion(newService)).await()
             } catch (e: Exception) {
-                // Handle error (could add an error flow for UI feedback)
+                // Handle error
             }
         }
     }
@@ -74,10 +73,16 @@ class ManageServicesViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                // Using set with merge to be safer
-                firestore.collection("stylists").document(uid)
-                    .collection("services").document(service.id)
-                    .set(service, SetOptions.merge()).await()
+                val doc = firestore.collection("stylists").document(uid).get().await()
+                val stylist = doc.toObject(com.refreshme.data.Stylist::class.java)
+                val currentServices = stylist?.services?.toMutableList() ?: mutableListOf()
+                
+                val index = currentServices.indexOfFirst { it.id == service.id }
+                if (index != -1) {
+                    currentServices[index] = service
+                    firestore.collection("stylists").document(uid)
+                        .update("services", currentServices).await()
+                }
             } catch (e: Exception) {
                 // Handle error
             }
@@ -88,8 +93,15 @@ class ManageServicesViewModel @Inject constructor(
         val uid = auth.currentUser?.uid ?: return
         viewModelScope.launch {
             try {
-                firestore.collection("stylists").document(uid)
-                    .collection("services").document(serviceId).delete().await()
+                val doc = firestore.collection("stylists").document(uid).get().await()
+                val stylist = doc.toObject(com.refreshme.data.Stylist::class.java)
+                val currentServices = stylist?.services?.toMutableList() ?: mutableListOf()
+                
+                val serviceToRemove = currentServices.find { it.id == serviceId }
+                if (serviceToRemove != null) {
+                    firestore.collection("stylists").document(uid)
+                        .update("services", com.google.firebase.firestore.FieldValue.arrayRemove(serviceToRemove)).await()
+                }
             } catch (e: Exception) {
                 // Handle error
             }

@@ -74,11 +74,14 @@ class StylistDetailViewModel @Inject constructor(
                 val document = firestore.collection("stylists").document(id).get().await()
                 
                 // 2. Fetch services from sub-collection (where bundles are saved)
-                val servicesSnapshot = firestore.collection("stylists").document(id)
-                    .collection("services").get().await()
-                
-                val fetchedServices = servicesSnapshot.documents.mapNotNull { doc ->
-                    doc.toObject(Service::class.java)?.apply { this.id = doc.id }
+                val fetchedServices = try {
+                    val servicesSnapshot = firestore.collection("stylists").document(id)
+                        .collection("services").get().await()
+                    servicesSnapshot.documents.mapNotNull { doc ->
+                        doc.toObject(Service::class.java)?.apply { this.id = doc.id }
+                    }
+                } catch (e: Exception) {
+                    emptyList()
                 }
 
                 val baseStylist = document.toObject(Stylist::class.java)
@@ -102,9 +105,13 @@ class StylistDetailViewModel @Inject constructor(
                     
                     val currentUserId = auth.currentUser?.uid
                     if (currentUserId != null) {
-                        val favDoc = firestore.collection("users").document(currentUserId)
-                            .collection("favorites").document(id).get().await()
-                        _isFavorite.value = favDoc.exists()
+                        try {
+                            val favDoc = firestore.collection("users").document(currentUserId)
+                                .collection("favorites").document(id).get().await()
+                            _isFavorite.value = favDoc.exists()
+                        } catch (e: Exception) {
+                            _isFavorite.value = false
+                        }
                         checkRatingEligibility(id, currentUserId)
                     }
 

@@ -1,4 +1,4 @@
-﻿{
+{
     "hosting":  {
                     "site":  "refreshme-74f79",
                     "public":  "public",
@@ -8,22 +8,15 @@
                                    "**/node_modules/**"
                                ],
                     "rewrites":  [
-                                     {
-                                         "source":  "/safety-center",
-                                         "destination":  "/safety-center.html"
-                                     },
-                                     {
-                                         "source":  "/help",
-                                         "destination":  "/help.html"
-                                     },
-                                     {
-                                         "source":  "/privacy",
-                                         "destination":  "/privacy.html"
-                                     },
-                                     {
-                                         "source":  "/terms",
-                                         "destination":  "/terms.html"
-                                     }
+                                     { "source": "/safety-center",   "destination": "/safety-center.html" },
+                                     { "source": "/help",            "destination": "/help.html" },
+                                     { "source": "/privacy",         "destination": "/privacy.html" },
+                                     { "source": "/terms",           "destination": "/terms.html" },
+                                     { "source": "/stripe-connect",  "destination": "/stripe-connect.html" },
+                                     { "source": "/invite",          "destination": "/invite.html" },
+                                     { "source": "/connect-return",  "destination": "/connect-return.html" },
+                                     { "source": "/connect-refresh", "destination": "/connect-refresh.html" },
+                                     { "source": "/stylist/**",      "destination": "/stylist-profile.html" }
                                  ]
                 },
     "firestore":  {

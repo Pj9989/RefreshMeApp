@@ -221,8 +221,14 @@ class EditProfileActivity : AppCompatActivity() {
         )
         identityVerificationSheet = IdentityVerificationSheet.create(this, configuration) { result ->
             when (result) {
-                is IdentityVerificationSheet.VerificationFlowResult.Completed -> updateVerificationStatusInFirestore(VerificationStatus.VERIFIED)
-                is IdentityVerificationSheet.VerificationFlowResult.Failed -> updateVerificationStatusInFirestore(VerificationStatus.FAILED)
+                is IdentityVerificationSheet.VerificationFlowResult.Completed -> {
+                    Toast.makeText(this, "Verification submitted. Please wait for confirmation.", Toast.LENGTH_LONG).show()
+                    loadUserProfile() // Reload status after completion
+                }
+                is IdentityVerificationSheet.VerificationFlowResult.Failed -> {
+                    Toast.makeText(this, "Verification failed. Please try again.", Toast.LENGTH_LONG).show()
+                    loadUserProfile()
+                }
                 else -> {}
             }
         }
@@ -243,15 +249,7 @@ class EditProfileActivity : AppCompatActivity() {
             .addOnFailureListener { stripeVerifyButton.isEnabled = true }
     }
 
-    private fun updateVerificationStatusInFirestore(status: VerificationStatus) {
-        val uid = auth.currentUser?.uid ?: return
-        val updates = mapOf("verificationStatus" to status.name, "verified" to (status == VerificationStatus.VERIFIED))
-        lifecycleScope.launch {
-            firestore.collection("users").document(uid).set(updates, SetOptions.merge()).await()
-            if (isStylist) firestore.collection("stylists").document(uid).set(updates, SetOptions.merge()).await()
-            stripeVerificationStatus.text = "Status: ${status.name.lowercase().capitalize()}"
-        }
-    }
+    // Removed updateVerificationStatusInFirestore as it should be handled via Stripe webhook on backend
 
     private fun setupCustomerChipGroups() {
         val groups = listOf(
@@ -377,7 +375,8 @@ class EditProfileActivity : AppCompatActivity() {
         val mainScrollView = findViewById<View>(R.id.main_scroll_view)
         
         if (isStylist) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            // Remove FLAG_SECURE to prevent the screen from turning black in screenshots
+            // window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
             supportActionBar?.title = "Professional Profile"
             stylistFieldsContainer.visibility = View.VISIBLE
             customerFieldsContainer.visibility = View.GONE
@@ -403,6 +402,8 @@ class EditProfileActivity : AppCompatActivity() {
 
     @Suppress("UNCHECKED_CAST")
     private fun loadStylistData(uid: String) {
+        // Update Stripe status logic to correctly show/hide UI elements
+        val uid = auth.currentUser?.uid ?: return
         firestore.collection("stylists").document(uid).get().addOnSuccessListener { snapshot ->
             editStylistBio.setText(snapshot.getString("bio"))
             val socialLinks = snapshot.get("socialLinks") as? Map<String, String>
@@ -423,10 +424,31 @@ class EditProfileActivity : AppCompatActivity() {
                 editServiceRadius.setText(rangeMiles.roundToInt().toString())
                 editServiceRadius.visibility = View.VISIBLE
             }
+            
             val licenseImageUrl = snapshot.getString("licenseImageUrl")
-            if (!licenseImageUrl.isNullOrEmpty()) {
+            if (licenseImageUrl.isNullOrEmpty()) {
+                licenseImagePreview.visibility = View.GONE
+            } else {
                 Glide.with(this).load(licenseImageUrl).into(licenseImagePreview)
                 licenseImagePreview.visibility = View.VISIBLE
+            }
+            
+            // Show verification status
+            val status = snapshot.getString("verificationStatus") ?: "UNVERIFIED"
+            val isVerified = snapshot.getBoolean("verified") == true || snapshot.getBoolean("isVerified") == true
+            
+            if (isVerified || status == "VERIFIED") {
+                verificationStatusText.text = "Status: Verified Stylist"
+                verificationStatusText.setTextColor(ContextCompat.getColor(this, R.color.green))
+                verificationStatusText.visibility = View.VISIBLE
+                identityVerificationContainer.visibility = View.GONE
+            } else {
+                verificationStatusText.text = "Status: ${status.lowercase().replaceFirstChar { it.titlecase() }}"
+                verificationStatusText.setTextColor(ContextCompat.getColor(this, R.color.red))
+                verificationStatusText.visibility = View.VISIBLE
+                
+                // For pending/unverified state, also show the Stripe verification container
+                identityVerificationContainer.visibility = View.VISIBLE
             }
         }
     }

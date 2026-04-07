@@ -122,31 +122,8 @@ class StylistDashboardActivity : AppCompatActivity() {
     }
 
     private fun calculateAndDisplayTrialStatus() {
-        val uid = auth.currentUser?.uid ?: return
-        
-        firestore.collection("stylists").document(uid).get()
-            .addOnSuccessListener { document ->
-                val isSubActive = document.getBoolean("subscriptionActive") == true
-                if (isSubActive) return@addOnSuccessListener
-
-                val snapshot = document.get("trialStartTime")
-                val trialStartTimeMillis = when (snapshot) {
-                    is Timestamp -> snapshot.toDate().time
-                    is Long -> snapshot
-                    is java.util.Date -> snapshot.time
-                    else -> 0L
-                }
-
-                if (trialStartTimeMillis > 0) {
-                    val timeElapsed = System.currentTimeMillis() - trialStartTimeMillis
-                    val timeLeft = TRIAL_DURATION_MS - timeElapsed
-                    
-                    if (timeLeft > 0) {
-                        val daysLeft = TimeUnit.MILLISECONDS.toDays(timeLeft)
-                        Toast.makeText(this, getString(R.string.trial_active_message, daysLeft.toInt()), Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
+        // Disabled logic related to displaying trial status
+        // as trial subscriptions are no longer used.
     }
 
 
@@ -180,63 +157,18 @@ class StylistDashboardActivity : AppCompatActivity() {
 
         firestore.collection("stylists").document(uid).get(Source.SERVER)
             .addOnSuccessListener { documentSnapshot ->
-                if (documentSnapshot.exists()) {
-                    if (!isSubscriptionOrTrialActive(documentSnapshot)) {
-                        if (!isFinishing && !isDestroyed) {
-                            startActivity(StylistSubscriptionActivity.newIntent(this))
-                            finish()
-                        }
-                    }
-                    calculateAndDisplayTrialStatus() 
-                } else {
-                    grantTrialIfNecessary(uid) 
+                if (!documentSnapshot.exists()) {
+                    val initialData = hashMapOf<String, Any>(
+                        "name" to (auth.currentUser?.displayName ?: getString(R.string.default_stylist_name))
+                    )
+            
+                    firestore.collection("stylists").document(uid)
+                        .set(initialData, SetOptions.merge())
                 }
             }
             .addOnFailureListener { e ->
-                if (!isFinishing && !isDestroyed) {
-                    startActivity(StylistSubscriptionActivity.newIntent(this))
-                    finish()
-                }
+                Log.e(TAG, "Error fetching stylist data", e)
             }
-    }
-    
-    private fun grantTrialIfNecessary(uid: String) {
-        val initialData = hashMapOf<String, Any>(
-            "trialStartTime" to FieldValue.serverTimestamp(),
-            "subscriptionActive" to false,
-            "name" to (auth.currentUser?.displayName ?: getString(R.string.default_stylist_name))
-        )
-
-        firestore.collection("stylists").document(uid)
-            .set(initialData, SetOptions.merge())
-            .addOnSuccessListener {
-                calculateAndDisplayTrialStatus()
-                Toast.makeText(this, getString(R.string.welcome_trial_started), Toast.LENGTH_LONG).show()
-            }
-            .addOnFailureListener { e ->
-                if (!isFinishing && !isDestroyed) {
-                    startActivity(StylistSubscriptionActivity.newIntent(this))
-                    finish()
-                }
-            }
-    }
-
-    private fun isSubscriptionOrTrialActive(snapshot: DocumentSnapshot): Boolean {
-        val isSubActive = snapshot.getBoolean("subscriptionActive") == true
-        val trialStartTime = when (val time = snapshot.get("trialStartTime")) {
-             is Timestamp -> time.toDate().time
-             is Long -> time
-             is java.util.Date -> time.time
-             else -> 0L
-        }
-        
-        val isTrialActive = if (trialStartTime > 0) {
-            val trialEndMillis = trialStartTime + TRIAL_DURATION_MS
-            System.currentTimeMillis() < trialEndMillis
-        } else {
-            false
-        }
-        return isSubActive || isTrialActive
     }
 
     private val requestPermissionLauncher = registerForActivityResult(

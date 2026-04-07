@@ -85,28 +85,13 @@ class ManagePayoutsActivity : AppCompatActivity() {
             return
         }
 
-        setLoading(true)
-        btnSetupStripe.isEnabled = false
-
-        functions.getHttpsCallable("createConnectAccount")
-            .call(mapOf("userId" to uid))
-            .addOnSuccessListener { result ->
-                setLoading(false)
-                btnSetupStripe.isEnabled = true
-
-                val data = result.data as? Map<*, *>
-                val url = data?.get("url") as? String
-                if (!url.isNullOrBlank()) {
-                    openUrl(url)
-                } else {
-                    Toast.makeText(this, "Could not get Stripe onboarding link. Try again.", Toast.LENGTH_LONG).show()
-                }
-            }
-            .addOnFailureListener { e ->
-                setLoading(false)
-                btnSetupStripe.isEnabled = true
-                Toast.makeText(this, "Error: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
-            }
+        // Open the generic Stripe registration link to match the home screen behavior
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://dashboard.stripe.com/register"))
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "No browser available to open link.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun openUrl(url: String) {

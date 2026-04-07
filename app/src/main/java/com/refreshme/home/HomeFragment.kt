@@ -226,14 +226,18 @@ class HomeFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnMarkerClickList
 
     private fun updateLocationText(location: Location) {
         val geocoder = Geocoder(requireContext(), Locale.getDefault())
-        try {
-            val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
-            if (addresses != null && addresses.isNotEmpty()) {
-                val address = addresses[0]
-                val locationString = address.locality ?: address.subAdminArea ?: address.adminArea ?: "Current Location"
-                binding.locationText.text = locationString
+        viewLifecycleOwner.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                if (addresses != null && addresses.isNotEmpty()) {
+                    val address = addresses[0]
+                    val locationString = address.locality ?: address.subAdminArea ?: address.adminArea ?: "Current Location"
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        binding.locationText.text = locationString
+                    }
+                }
+            } catch (_: IOException) {
             }
-        } catch (_: IOException) {
         }
     }
 
