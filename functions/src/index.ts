@@ -257,12 +257,12 @@ export const onFlashDealCreated = onDocumentUpdated("stylists/{stylistId}", asyn
 const PLATFORM_FEE_PERCENT = 0.10; // RefreshMe takes 10% of every booking
 
 export const stripeWebhook = onRequest(async (req, res) => {
-  const stripe = new Stripe(stripeSecretKey.value(), {});
+  const stripe = new Stripe(stripeSecretKey.value().trim(), {});
   const sig = req.headers["stripe-signature"] as string;
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(req.rawBody, sig, stripeWebhookSecret.value());
+    event = stripe.webhooks.constructEvent(req.rawBody, sig, stripeWebhookSecret.value().trim());
   } catch (err: any) {
     res.status(400).send(`Webhook Error: ${err.message}`);
     return;
@@ -319,7 +319,7 @@ export const stripeWebhook = onRequest(async (req, res) => {
 
 export const createIdentityVerificationSession = onCall(async (request) => {
     if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
-    const stripe = new Stripe(stripeSecretKey.value(), {});
+    const stripe = new Stripe(stripeSecretKey.value().trim(), {});
 
     try {
       const session = await stripe.identity.verificationSessions.create({
@@ -349,7 +349,7 @@ export const createIdentityVerificationSession = onCall(async (request) => {
 
 export const createBookingPaymentIntent = onCall(async (request) => {
   if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
-  const stripe = new Stripe(stripeSecretKey.value(), {});
+  const stripe = new Stripe(stripeSecretKey.value().trim(), {});
 
   const {
       stylistId,
@@ -412,7 +412,7 @@ export const createBookingPaymentIntent = onCall(async (request) => {
 
 export const createConnectAccount = onCall(async (request) => {
   if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
-  const stripe = new Stripe(stripeSecretKey.value(), {});
+  const stripe = new Stripe(stripeSecretKey.value().trim(), {});
   const userId = request.auth.uid;
 
   try {
@@ -448,7 +448,7 @@ export const createConnectAccount = onCall(async (request) => {
 
 export const getConnectAccountStatus = onCall(async (request) => {
   if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
-  const stripe = new Stripe(stripeSecretKey.value(), {});
+  const stripe = new Stripe(stripeSecretKey.value().trim(), {});
   const userId = request.auth.uid;
 
   try {
