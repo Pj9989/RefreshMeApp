@@ -35,6 +35,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
 import com.refreshme.details.ReviewItem
+import com.refreshme.identity.IdentityVerificationActivity
 import java.util.Locale
 
 enum class StylistDashboardEvent {
@@ -65,6 +66,14 @@ fun StylistDashboardScreen(
     
     val scrollState = rememberScrollState()
     val context = LocalContext.current
+
+    // Navigate to IdentityVerificationActivity when the ViewModel signals that
+    // the stylist must be verified before going online.
+    LaunchedEffect(Unit) {
+        viewModel.verificationRequired.collect {
+            context.startActivity(IdentityVerificationActivity.newIntent(context))
+        }
+    }
 
     var showFlashDealDialog by remember { mutableStateOf(false) }
     var showReviewsDialog by remember { mutableStateOf(false) }

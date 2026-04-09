@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.functions.FirebaseFunctions
 import com.refreshme.R
 import com.stripe.android.identity.IdentityVerificationSheet
@@ -22,15 +23,20 @@ import kotlinx.coroutines.tasks.await
 /**
  * Activity that manages the full Stripe Identity verification flow.
  *
- * Flow:
- * 1. Load current verification status from Firestore.
- * 2. If not yet verified, call the `createIdentityVerificationSession` Firebase Function.
- * 3. Launch the [IdentityVerificationSheet] with the returned ephemeral key secret.
- * 4. Handle the result and update the UI accordingly.
+ * Production Flow:
+ * 1. Load current verification status from Firestore (one-time read on open).
+ * 2. If not yet verified, call the `createIdentityVerificationSession` Firebase Function
+ *    to obtain a Stripe ephemeral key and session ID.
+ * 3. Launch the [IdentityVerificationSheet] with those credentials.
+ * 4. On [IdentityVerificationSheet.VerificationFlowResult.Completed], show a "Pending" state
+ *    and start a **real-time Firestore listener** on `users/{uid}`.
+ * 5. When the Stripe webhook fires (`identity.verification_session.verified`) and the
+ *    Firebase Cloud Function writes `verificationStatus = "VERIFIED"` to Firestore,
+ *    the listener automatically advances the UI to the "Verified ✓" state — no manual
+ *    polling or bypass required.
  *
- * The actual Firestore `verified` flag is written by the Firebase Function webhook
- * (`identity.verification_session.verified`) — this Activity only initiates the flow
- * and reflects the current status to the user.
+ * Security: The `verified` flag is ONLY ever written by the server-side Firebase Function
+ * that processes the authenticated Stripe webhook. The Android app never writes this field.
  */
 class IdentityVerificationActivity : AppCompatActivity() {
 
@@ -44,6 +50,9 @@ class IdentityVerificationActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
 
     private lateinit var identityVerificationSheet: IdentityVerificationSheet
+
+    /** Holds the real-time Firestore listener so it can be removed on destroy. */
+    private var verificationListener: ListenerRegistration? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,8 +80,15 @@ class IdentityVerificationActivity : AppCompatActivity() {
         loadVerificationStatus()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        // Always clean up the real-time listener to avoid memory leaks.
+        verificationListener?.remove()
+        verificationListener = null
+    }
+
     // -------------------------------------------------------------------------
-    // Load current status from Firestore
+    // Load current status from Firestore (one-time read on Activity open)
     // -------------------------------------------------------------------------
 
     private fun loadVerificationStatus() {
@@ -85,6 +101,12 @@ class IdentityVerificationActivity : AppCompatActivity() {
                 val rawStatus = doc.getString("verificationStatus")
                 val status = VerificationStatus.fromFirestore(rawStatus)
                 updateUiForStatus(status)
+
+                // If already pending (user submitted but webhook hasn't fired yet),
+                // immediately attach the real-time listener so the UI auto-updates.
+                if (status == VerificationStatus.PENDING) {
+                    attachVerificationListener(uid)
+                }
             }
             .addOnFailureListener {
                 showLoading(false)
@@ -156,14 +178,19 @@ class IdentityVerificationActivity : AppCompatActivity() {
     private fun onVerificationSheetResult(result: IdentityVerificationSheet.VerificationFlowResult) {
         when (result) {
             is IdentityVerificationSheet.VerificationFlowResult.Completed -> {
-                // The user completed the flow. The actual verified status will be
-                // set by the Stripe webhook → Firebase Function. Show a pending state.
+                // The user completed the scan. The actual VERIFIED status will be written
+                // by the Stripe webhook → Firebase Cloud Function. Show "Pending" and
+                // attach a real-time listener so the UI flips automatically when the
+                // webhook fires — no polling, no manual refresh needed.
                 updateUiForStatus(VerificationStatus.PENDING)
                 Toast.makeText(
                     this,
                     "Verification submitted! We will notify you once it is confirmed.",
                     Toast.LENGTH_LONG
                 ).show()
+
+                val uid = auth.currentUser?.uid ?: return
+                attachVerificationListener(uid)
             }
             is IdentityVerificationSheet.VerificationFlowResult.Canceled -> {
                 verifyButton.isEnabled = true
@@ -183,10 +210,52 @@ class IdentityVerificationActivity : AppCompatActivity() {
     }
 
     // -------------------------------------------------------------------------
+    // Real-time Firestore listener — fires automatically when the webhook writes
+    // -------------------------------------------------------------------------
+
+    /**
+     * Attaches a real-time snapshot listener to `users/{uid}`.
+     *
+     * When the Stripe webhook fires and the Firebase Cloud Function writes
+     * `verificationStatus = "VERIFIED"` (or any other terminal state) to Firestore,
+     * this listener receives the update instantly and advances the UI without any
+     * user action or manual polling.
+     *
+     * The listener is removed when the Activity is destroyed ([onDestroy]).
+     */
+    private fun attachVerificationListener(uid: String) {
+        // Avoid duplicate listeners
+        verificationListener?.remove()
+
+        verificationListener = firestore.collection("users").document(uid)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
+
+                val rawStatus = snapshot.getString("verificationStatus")
+                val status = VerificationStatus.fromFirestore(rawStatus)
+
+                updateUiForStatus(status)
+
+                // Once we reach a terminal state, stop listening to save bandwidth.
+                if (status == VerificationStatus.VERIFIED || status == VerificationStatus.FAILED) {
+                    verificationListener?.remove()
+                    verificationListener = null
+
+                    if (status == VerificationStatus.VERIFIED) {
+                        Toast.makeText(
+                            this,
+                            "Identity Verified! You can now go online.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+    }
+
+    // -------------------------------------------------------------------------
     // UI helpers
     // -------------------------------------------------------------------------
 
-    
     private fun updateUiForStatus(status: VerificationStatus) {
         when (status) {
             VerificationStatus.NOT_STARTED -> {
@@ -200,7 +269,7 @@ class IdentityVerificationActivity : AppCompatActivity() {
             VerificationStatus.PENDING -> {
                 statusTextView.text = "Pending"
                 descriptionTextView.text =
-                    "Your verification is being reviewed. This usually takes a few minutes."
+                    "Your verification is being reviewed. This usually takes a few minutes. This screen will update automatically."
                 verifyButton.visibility = View.GONE
             }
             VerificationStatus.VERIFIED -> {
@@ -235,7 +304,6 @@ class IdentityVerificationActivity : AppCompatActivity() {
             }
         }
     }
-    
 
     private fun showLoading(loading: Boolean) {
         progressBar.visibility = if (loading) View.VISIBLE else View.GONE

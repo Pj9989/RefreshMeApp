@@ -304,15 +304,41 @@ export const stripeWebhook = onRequest({ secrets: [stripeSecretKey, stripeWebhoo
       }
       break;
 
-    case "identity.verification_session.requires_input":
+    case "identity.verification_session.canceled": {
+      const sessionCanceled = event.data.object as Stripe.Identity.VerificationSession;
+      const uidCanceled = sessionCanceled.metadata?.userId;
+      if (uidCanceled) {
+        await db.collection("users").doc(uidCanceled).set({
+          verificationStatus: "CANCELED",
+          verified: false,
+        }, { merge: true });
+        console.log(`User ${uidCanceled} identity verification session canceled.`);
+      }
+      break;
+    }
+
+    case "identity.verification_session.requires_input": {
       const sessionInput = event.data.object as Stripe.Identity.VerificationSession;
       const uidInput = sessionInput.metadata?.userId;
       if (uidInput) {
-        await db.collection("users").doc(uidInput).set({
-            verificationStatus: "REQUIRES_INPUT"
-        }, { merge: true });
+        // "requires_input" means Stripe needs more info or the document was rejected.
+        // We map this to "FAILED" so the Android VerificationStatus enum recognises it
+        // and shows the "Try Again" button. We also store the raw Stripe status for
+        // debugging purposes.
+        const requiresInputUpdates = {
+          verificationStatus: "FAILED",
+          verificationStatusRaw: "requires_input",
+          verified: false,
+        };
+        await db.collection("users").doc(uidInput).set(requiresInputUpdates, { merge: true });
+        const stylistDocInput = await db.collection("stylists").doc(uidInput).get();
+        if (stylistDocInput.exists) {
+          await db.collection("stylists").doc(uidInput).set(requiresInputUpdates, { merge: true });
+        }
+        console.log(`User ${uidInput} identity verification requires input (mapped to FAILED).`);
       }
       break;
+    }
   }
   res.json({ received: true });
 });

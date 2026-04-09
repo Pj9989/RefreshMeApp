@@ -9,8 +9,11 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import com.refreshme.data.Review
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -67,6 +70,21 @@ class StylistDashboardViewModel : ViewModel() {
     private val _reviews = MutableStateFlow<List<Review>>(emptyList())
     val reviews: StateFlow<List<Review>> = _reviews
 
+    /**
+     * Whether the current stylist has passed Stripe Identity verification.
+     * This is ONLY written by the server-side Firebase Cloud Function that
+     * processes the Stripe webhook — never by the Android app directly.
+     */
+    private val _isVerified = MutableStateFlow(false)
+    val isVerified: StateFlow<Boolean> = _isVerified.asStateFlow()
+
+    /**
+     * One-shot event emitted when the user tries to go online without being verified.
+     * The UI should observe this and navigate to IdentityVerificationActivity.
+     */
+    private val _verificationRequired = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val verificationRequired: SharedFlow<Unit> = _verificationRequired.asSharedFlow()
+
     init {
         auth.addAuthStateListener { firebaseAuth ->
             val user = firebaseAuth.currentUser
@@ -115,6 +133,13 @@ class StylistDashboardViewModel : ViewModel() {
                     
                     _rating.value = (map["rating"] as? Number)?.toDouble() ?: 0.0
                     _reviewCount.value = (map["reviewCount"] as? Number)?.toInt() ?: 0
+
+                    // Read the verification status written by the Stripe webhook.
+                    // We check both the boolean `verified` flag and the string
+                    // `verificationStatus` field for maximum compatibility.
+                    val verifiedBool = map["verified"] as? Boolean ?: false
+                    val verificationStatus = (map["verificationStatus"] as? String)?.uppercase()
+                    _isVerified.value = verifiedBool || verificationStatus == "VERIFIED"
 
                     val hasFlashDeal = map["hasActiveFlashDeal"] as? Boolean ?: false
                     if (hasFlashDeal) {
@@ -216,8 +241,25 @@ class StylistDashboardViewModel : ViewModel() {
             }
     }
 
+    /**
+     * Toggles the stylist's online/offline status in Firestore.
+     *
+     * Security gate: A stylist may only go online if their identity has been
+     * verified by the Stripe webhook. If [_isVerified] is false, this function
+     * emits a [verificationRequired] event instead of updating Firestore, allowing
+     * the UI to navigate the user to IdentityVerificationActivity.
+     */
     fun toggleOnlineStatus(online: Boolean) {
         val uid = auth.currentUser?.uid ?: return
+
+        // Enforce verification before allowing the stylist to go online.
+        if (online && !_isVerified.value) {
+            viewModelScope.launch {
+                _verificationRequired.emit(Unit)
+            }
+            return
+        }
+
         _isOnline.value = online
         
         val updates = mapOf(
