@@ -97,8 +97,8 @@ class IdentityVerificationActivity : AppCompatActivity() {
     // -------------------------------------------------------------------------
 
     private fun startVerificationSession() {
-        val uid = auth.currentUser?.uid
-        if (uid == null) {
+        val user = auth.currentUser
+        if (user == null) {
             Toast.makeText(this, "You must be signed in to verify your identity.", Toast.LENGTH_SHORT).show()
             return
         }
@@ -108,6 +108,10 @@ class IdentityVerificationActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
+                // Force a token refresh so the callable function always receives a valid Firebase Auth
+                // token. Stale or missing tokens are the most common cause of UNAUTHENTICATED errors.
+                user.getIdToken(true).await() // forceRefresh = true
+
                 val result = functions
                     .getHttpsCallable("createIdentityVerificationSession")
                     .call()

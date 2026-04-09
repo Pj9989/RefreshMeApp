@@ -235,18 +235,40 @@ class EditProfileActivity : AppCompatActivity() {
     }
 
     private fun startStripeVerification() {
+        val user = auth.currentUser
+        if (user == null) {
+            Toast.makeText(this, "You must be signed in to verify your identity.", Toast.LENGTH_SHORT).show()
+            return
+        }
         stripeVerifyButton.isEnabled = false
-        functions.getHttpsCallable("createIdentityVerificationSession").call()
-            .addOnSuccessListener { result ->
-                val data = result.data as? Map<*, *>
-                val verificationSessionId = data?.get("id") as? String
-                val ephemeralKeySecret = data?.get("client_secret") as? String
-                if (verificationSessionId != null && ephemeralKeySecret != null) {
-                    identityVerificationSheet.present(verificationSessionId, ephemeralKeySecret)
-                }
+        // Force a token refresh so the callable function always receives a valid Firebase Auth token.
+        // Stale or missing tokens are the most common cause of UNAUTHENTICATED errors on callable functions.
+        lifecycleScope.launch {
+            try {
+                user.getIdToken(true).await() // forceRefresh = true
+                functions.getHttpsCallable("createIdentityVerificationSession").call()
+                    .addOnSuccessListener { result ->
+                        val data = result.data as? Map<*, *>
+                        val verificationSessionId = data?.get("id") as? String
+                        val ephemeralKeySecret = data?.get("client_secret") as? String
+                        if (verificationSessionId != null && ephemeralKeySecret != null) {
+                            identityVerificationSheet.present(verificationSessionId, ephemeralKeySecret)
+                        } else {
+                            Toast.makeText(this@EditProfileActivity, "Failed to start verification. Please try again.", Toast.LENGTH_LONG).show()
+                        }
+                        stripeVerifyButton.isEnabled = true
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e(TAG, "Cloud function failed", e)
+                        Toast.makeText(this@EditProfileActivity, "Verification error: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                        stripeVerifyButton.isEnabled = true
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Token refresh failed", e)
+                Toast.makeText(this@EditProfileActivity, "Authentication error. Please sign in again.", Toast.LENGTH_LONG).show()
                 stripeVerifyButton.isEnabled = true
             }
-            .addOnFailureListener { stripeVerifyButton.isEnabled = true }
+        }
     }
 
     // Removed updateVerificationStatusInFirestore as it should be handled via Stripe webhook on backend
