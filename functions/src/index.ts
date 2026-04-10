@@ -256,7 +256,7 @@ export const onFlashDealCreated = onDocumentUpdated("stylists/{stylistId}", asyn
 
 const PLATFORM_FEE_PERCENT = 0.10; // RefreshMe takes 10% of every booking
 
-export const stripeWebhook = onRequest({ secrets: [stripeSecretKey, stripeWebhookSecret] }, async (req, res) => {
+export const stripeWebhook = onRequest({ secrets: [stripeSecretKey, stripeWebhookSecret], invoker: "public" }, async (req, res) => {
   const stripe = new Stripe(stripeSecretKey.value().trim(), {});
   const sig = req.headers["stripe-signature"] as string;
   let event: Stripe.Event;
