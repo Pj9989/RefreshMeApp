@@ -62,6 +62,19 @@ service cloud.firestore {
         allow read: if true;
         allow write: if false; // Admin/Cloud Functions only
       }
+
+      // Reviews nested under a stylist — publicly readable, written by reviewer only
+      match /reviews/{reviewId} {
+        allow read: if true;
+        allow create: if isAuthenticated() && (
+          request.auth.uid == request.resource.data.userId ||
+          request.auth.uid == request.resource.data.customerId
+        );
+        allow update, delete: if isAuthenticated() && (
+          (resource.data.keys().hasAll(['userId']) && request.auth.uid == resource.data.userId) ||
+          (resource.data.keys().hasAll(['customerId']) && request.auth.uid == resource.data.customerId)
+        );
+      }
     }
 
     // â”€â”€â”€ Stylist Profiles Collection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -150,7 +163,31 @@ service cloud.firestore {
       );
     }
 
-    // â”€â”€â”€ Default: Deny All â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Legal Acceptances (audit trail) ─────────────────────────────────
+    // Tracks click-wrap / e-sign acceptances of ToS, Privacy Policy,
+    // Stylist Contractor Agreement, FCRA Consent, At-Home Waiver, etc.
+    // Records are owner-scoped and IMMUTABLE once written (no delete).
+    match /legalAcceptances/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false; // only subcollection docs are written
+
+      match /acceptances/{docKey} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          request.resource.data.userId == userId &&
+          request.resource.data.docKey == docKey &&
+          request.resource.data.docVersion is string &&
+          request.resource.data.docVersion.size() > 0;
+        // Allow re-acceptance (new version) to overwrite prior record
+        allow update: if isOwner(userId) &&
+          request.resource.data.userId == userId &&
+          request.resource.data.docKey == docKey;
+        // Audit records must never be deletable
+        allow delete: if false;
+      }
+    }
+
+    // ─── Default: Deny All ───────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }
