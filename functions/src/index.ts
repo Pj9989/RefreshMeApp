@@ -376,10 +376,10 @@ export const onFlashDealCreated = onDocumentUpdated("stylists/{stylistId}", asyn
 // --- STRIPE CONNECT & PAYMENTS ---
 
 const PLATFORM_FEE_PERCENT = 0.10; // RefreshMe takes 10% of every booking
-// App Check soft-enforcement: validate tokens when present, allow requests
-// through when missing. Hard enforcement re-enabled once Play Integrity is
-// fully enrolled in Firebase Console for com.refreshmeapp.stylist.
-const CALLABLE_APP_CHECK_OPTIONS = { enforceAppCheck: false };
+// App Check hard-enforcement enabled: Play Integrity is fully enrolled and
+// Registered in Firebase Console for com.refreshmeapp.stylist. All callable
+// function requests without a valid App Check token will be rejected.
+const CALLABLE_APP_CHECK_OPTIONS = { enforceAppCheck: true };
 
 type ServiceCatalogItem = {
   id?: string;
