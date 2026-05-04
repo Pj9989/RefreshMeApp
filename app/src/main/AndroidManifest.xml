@@ -10,7 +10,6 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="com.android.vending.BILLING" />
     <!-- Camera and photo picker permissions for Virtual Try-On feature -->
-    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <!-- For Android 12 and below -->
     <uses-permission
@@ -61,6 +60,9 @@
             android:name=".MainActivity"
             android:exported="false" />
         <activity
+            android:name=".legal.LegalGateActivity"
+            android:exported="false" />
+        <activity
             android:name=".auth.SignInActivity"
             android:exported="false" />
         <activity
@@ -70,10 +72,32 @@
         <!-- New, dedicated dashboard activities -->
         <activity
             android:name=".CustomerDashboardActivity"
-            android:exported="false" />
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="refreshme" android:host="payment-success" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="refreshme" android:host="payment-cancelled" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".stylist.StylistDashboardActivity"
-            android:exported="false" />
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="refreshme" android:host="dashboard" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".stylist.ManageServicesActivity"
             android:exported="false" />
@@ -100,10 +124,6 @@
             android:name=".profile.EditProfileActivity"
             android:exported="false" />
         <activity
-            android:name=".app.MapsActivity"
-            android:exported="false"
-            android:label="@string/activity_maps" />
-        <activity
             android:name=".PhotoViewerActivity"
             android:exported="false" />
         <activity
@@ -113,6 +133,34 @@
             android:name=".identity.IdentityVerificationActivity"
             android:exported="false"
             android:label="Identity Verification" />
+
+        <!-- HOTFIX 3.0.8: Activities previously missing from manifest.
+             Their absence caused ActivityNotFoundException when startActivity() fired
+             for these classes, surfaced as the generic consent-screen error
+             "Could not record your acceptance" (exception was thrown inside
+             onAccepted() and caught by legacy try/catch) and as the
+             `wk.a` Crashlytics crash (obfuscated SalonOwnerDashboardActivity). -->
+        <activity
+            android:name=".auth.CustomerOnboardingActivity"
+            android:exported="false" />
+        <activity
+            android:name=".auth.StylistOnboardingActivity"
+            android:exported="false" />
+        <activity
+            android:name=".salon.SalonOwnerDashboardActivity"
+            android:exported="false" />
+        <activity
+            android:name=".SubscriptionActivity"
+            android:exported="false" />
+        <activity
+            android:name=".stylist.NfcWriterActivity"
+            android:exported="false" />
+        <activity
+            android:name=".stylist.StylistMainActivity"
+            android:exported="false" />
+        <activity
+            android:name=".stylist.SubscriptionActivity"
+            android:exported="false" />
 
         <!-- FileProvider for sharing camera-captured image URIs with the camera app.
              Required by VirtualTryOnFragment to create a content:// URI for TakePicture. -->

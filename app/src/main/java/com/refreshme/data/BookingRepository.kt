@@ -94,7 +94,7 @@ class BookingRepository @Inject constructor(
                     "PENDING_PAYMENT", "PENDING" -> BookingStatus.PENDING.name
                     "DEPOSIT_PAID", "PAID" -> BookingStatus.DEPOSIT_PAID.name
                     "PAID_IN_FULL", "COMPLETED" -> BookingStatus.COMPLETED.name
-                    "REFUNDED", "CANCELLED" -> BookingStatus.CANCELLED.name
+                    "REFUNDED", "CANCELLED", "PAYMENT_CANCELLED", "PAYMENT_FAILED" -> BookingStatus.CANCELLED.name
                     "DECLINED" -> BookingStatus.DECLINED.name
                     else -> BookingStatus.REQUESTED.name
                 }
@@ -131,6 +131,8 @@ class BookingRepository @Inject constructor(
                 isCustomerRated = doc.getBoolean("isCustomerRated") ?: false,
                 scheduledStart = doc.getTimestamp("startTime") ?: bookingDate,
                 isMobile = doc.getBoolean("isMobile") ?: false,
+                travelFeeApplied = (doc.get("travelFeeApplied") as? Number)?.toDouble(),
+                emergencyFeeApplied = (doc.get("emergencyFeeApplied") as? Number)?.toDouble(),
                 customerAddress = doc.getString("customerAddress"),
                 customerLat = doc.getDouble("customerLat"),
                 customerLng = doc.getDouble("customerLng"),
@@ -169,11 +171,13 @@ class BookingRepository @Inject constructor(
 
     suspend fun updateBookingStatus(bookingId: String, status: BookingStatus): Result<Unit> {
         return try {
+            val bookingRef = firestore.collection("bookings").document(bookingId)
             val updates = mapOf(
                 "status" to status.name,
                 "updatedAt" to FieldValue.serverTimestamp()
             )
-            firestore.collection("bookings").document(bookingId).update(updates).await()
+            bookingRef.update(updates).await()
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

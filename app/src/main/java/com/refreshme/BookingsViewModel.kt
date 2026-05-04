@@ -6,7 +6,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.refreshme.data.Booking
 import com.refreshme.data.BookingRepository
-import com.refreshme.data.BookingStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -80,7 +79,7 @@ class BookingsViewModel @Inject constructor(
                     .call(data)
                     .await()
             } catch (e: Exception) {
-                repository.updateBookingStatus(bookingId, BookingStatus.CANCELLED)
+                _uiState.value = BookingsUiState.Error("Could not cancel booking: ${e.localizedMessage}")
             }
         }
     }
@@ -88,9 +87,15 @@ class BookingsViewModel @Inject constructor(
     fun rescheduleBooking(bookingId: String, newDate: java.util.Date) {
         viewModelScope.launch {
             try {
-                repository.rescheduleBooking(bookingId, com.google.firebase.Timestamp(newDate))
+                val data = hashMapOf(
+                    "bookingId" to bookingId,
+                    "startTime" to newDate.time
+                )
+                functions.getHttpsCallable("rescheduleBooking")
+                    .call(data)
+                    .await()
             } catch (e: Exception) {
-                // Ignore for now
+                _uiState.value = BookingsUiState.Error("Could not reschedule booking: ${e.localizedMessage}")
             }
         }
     }

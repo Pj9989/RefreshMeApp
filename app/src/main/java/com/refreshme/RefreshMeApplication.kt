@@ -28,7 +28,7 @@ class RefreshMeApplication : Application() {
         FirebaseApp.initializeApp(this)
         
         // App Check initialization
-        if (!BuildConfig.DEBUG && !BuildConfig.IS_INTERNAL_TESTING) {
+        if (!BuildConfig.DEBUG) {
             FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
                 PlayIntegrityAppCheckProviderFactory.getInstance()
             )
@@ -43,6 +43,11 @@ class RefreshMeApplication : Application() {
             .setLocalCacheSettings(PersistentCacheSettings.newBuilder().build())
             .build()
         FirebaseFirestore.getInstance().firestoreSettings = settings
+
+        // Stylists are seeded via the Admin SDK script (seed_stylists.js).
+        // DatabaseSeeder.seedData() removed — it used fake document IDs that
+        // don't match any auth UID, so Firestore security rules always deny it.
+        // com.refreshme.DatabaseSeeder.seedData()
 
         // Initialize Crashlytics
         CrashlyticsInitializer.initialize(this)
