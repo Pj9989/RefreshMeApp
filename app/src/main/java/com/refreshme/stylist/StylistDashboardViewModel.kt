@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import java.util.Date
 
 data class DashboardStats(
     val totalEarnings: Double = 0.0,
@@ -32,6 +33,14 @@ data class FlashDeal(
     val expiresAtMillis: Long = 0
 )
 
+data class DashboardEarning(
+    val id: String,
+    val customerName: String,
+    val serviceName: String,
+    val amount: Double,
+    val timestampMillis: Long
+)
+
 class StylistDashboardViewModel : ViewModel() {
 
     private val firestore = FirebaseFirestore.getInstance()
@@ -42,6 +51,9 @@ class StylistDashboardViewModel : ViewModel() {
 
     private val _stats = MutableStateFlow(DashboardStats())
     val stats: StateFlow<DashboardStats> = _stats
+
+    private val _earnings = MutableStateFlow<List<DashboardEarning>>(emptyList())
+    val earnings: StateFlow<List<DashboardEarning>> = _earnings.asStateFlow()
 
     private val _isOnline = MutableStateFlow(false)
     val isOnline: StateFlow<Boolean> = _isOnline
@@ -162,10 +174,11 @@ class StylistDashboardViewModel : ViewModel() {
     private fun listenToBookings(uid: String) {
         bookingsListener?.remove()
         
-        // Listen to all bookings for this stylist to calculate stats
+        // Listen to all bookings for this stylist to calculate stats. Do not
+        // order by timestampMillis because newer booking flows write date or
+        // bookingDate instead, and Firestore excludes docs missing ordered fields.
         bookingsListener = firestore.collection("bookings")
             .whereEqualTo("stylistId", uid)
-            .orderBy("timestampMillis", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, e ->
                 if (e != null) {
                     Log.e("StylistDashboardViewModel", "Error listening to bookings", e)
@@ -185,21 +198,27 @@ class StylistDashboardViewModel : ViewModel() {
                     
                     // Simple logic for weekly distribution
                     val weeklyEarnings = mutableListOf(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+                    val completedEarnings = mutableListOf<DashboardEarning>()
 
                     for (doc in snapshot.documents) {
-                        val status = doc.getString("status") ?: ""
-                        val price = (doc.getDouble("price")) 
-                            ?: (doc.getLong("priceCents")?.toDouble()?.div(100))
-                            ?: 0.0
-                        val timestamp = doc.getLong("timestampMillis") ?: 0L
+                        val status = (doc.getString("status") ?: "").uppercase()
+                        val price = bookingAmount(doc)
+                        val timestamp = bookingTimestampMillis(doc)
                         
                         when (status) {
                             "PENDING", "REQUESTED" -> pending++
-                            "ACCEPTED", "CONFIRMED" -> {
+                            "ACCEPTED", "CONFIRMED", "DEPOSIT_PAID", "PAID" -> {
                                 if (timestamp > now) upcoming++
                             }
-                            "COMPLETED" -> {
+                            "COMPLETED", "PAID_IN_FULL" -> {
                                 earnings += price
+                                completedEarnings += DashboardEarning(
+                                    id = doc.id,
+                                    customerName = doc.getString("customerName") ?: "Client",
+                                    serviceName = doc.getString("serviceName") ?: doc.getString("service") ?: "Service",
+                                    amount = price,
+                                    timestampMillis = timestamp
+                                )
                                 
                                 cal.timeInMillis = timestamp
                                 if (cal.get(Calendar.MONTH) == currentMonth && cal.get(Calendar.YEAR) == currentYear) {
@@ -222,8 +241,29 @@ class StylistDashboardViewModel : ViewModel() {
                         completedThisMonth = completedMonth,
                         weeklyEarnings = weeklyEarnings
                     )
+                    _earnings.value = completedEarnings.sortedByDescending { it.timestampMillis }
                 }
             }
+    }
+
+    private fun bookingAmount(doc: com.google.firebase.firestore.DocumentSnapshot): Double {
+        return (doc.get("servicePrice") as? Number)?.toDouble()
+            ?: (doc.get("price") as? Number)?.toDouble()
+            ?: (doc.getLong("priceCents")?.toDouble()?.div(100))
+            ?: 0.0
+    }
+
+    private fun bookingTimestampMillis(doc: com.google.firebase.firestore.DocumentSnapshot): Long {
+        return doc.getLong("timestampMillis")
+            ?: doc.getTimestamp("completedAt")?.toDate()?.time
+            ?: doc.getTimestamp("startTime")?.toDate()?.time
+            ?: doc.getTimestamp("date")?.toDate()?.time
+            ?: doc.getTimestamp("bookingDate")?.toDate()?.time
+            ?: doc.getTimestamp("requestedAt")?.toDate()?.time
+            ?: doc.getLong("date")
+            ?: doc.getLong("bookingDate")
+            ?: doc.getLong("requestedAt")
+            ?: Date().time
     }
 
     private fun listenToReviews(uid: String) {

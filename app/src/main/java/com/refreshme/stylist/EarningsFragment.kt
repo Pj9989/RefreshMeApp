@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.refreshme.ui.theme.RefreshMeTheme
 
@@ -63,20 +64,22 @@ fun EarningsScreen() {
         val registration = if (uid != null) {
             firestore.collection("bookings")
                 .whereEqualTo("stylistId", uid)
-                .whereEqualTo("status", "COMPLETED")
                 .addSnapshotListener { snapshot, _ ->
                     isLoading = false
                     val entries = snapshot?.documents?.mapNotNull { doc ->
                         try {
-                            val ts = doc.getTimestamp("startTime")
-                            val dateStr = ts?.toDate()?.let {
-                                java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.US).format(it)
+                            val status = (doc.getString("status") ?: "").uppercase()
+                            if (status != "COMPLETED" && status != "PAID_IN_FULL") return@mapNotNull null
+
+                            val dateMillis = bookingDateMillis(doc)
+                            val dateStr = dateMillis?.let {
+                                java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.US).format(java.util.Date(it))
                             } ?: ""
                             EarningEntry(
                                 id = doc.id,
-                                customerName = doc.getString("customerName") ?: "Unknown",
-                                serviceName = doc.getString("serviceName") ?: "",
-                                amount = doc.getDouble("price") ?: 0.0,
+                                customerName = doc.getString("customerName") ?: "Client",
+                                serviceName = doc.getString("serviceName") ?: doc.getString("service") ?: "Service",
+                                amount = bookingAmount(doc),
                                 date = dateStr
                             )
                         } catch (e: Exception) { null }
@@ -194,4 +197,23 @@ fun EarningsScreen() {
             }
         }
     }
+}
+
+private fun bookingAmount(doc: DocumentSnapshot): Double {
+    return (doc.get("servicePrice") as? Number)?.toDouble()
+        ?: (doc.get("price") as? Number)?.toDouble()
+        ?: (doc.getLong("priceCents")?.toDouble()?.div(100))
+        ?: 0.0
+}
+
+private fun bookingDateMillis(doc: DocumentSnapshot): Long? {
+    return doc.getLong("timestampMillis")
+        ?: doc.getTimestamp("completedAt")?.toDate()?.time
+        ?: doc.getTimestamp("startTime")?.toDate()?.time
+        ?: doc.getTimestamp("date")?.toDate()?.time
+        ?: doc.getTimestamp("bookingDate")?.toDate()?.time
+        ?: doc.getTimestamp("requestedAt")?.toDate()?.time
+        ?: doc.getLong("date")
+        ?: doc.getLong("bookingDate")
+        ?: doc.getLong("requestedAt")
 }

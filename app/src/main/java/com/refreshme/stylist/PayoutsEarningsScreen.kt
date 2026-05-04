@@ -26,6 +26,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
 import java.util.*
 
 // Data model for transactions
@@ -44,19 +45,41 @@ fun PayoutsEarningsScreen(
     viewModel: StylistDashboardViewModel = viewModel()
 ) {
     val stats by viewModel.stats.collectAsState()
+    val earnings by viewModel.earnings.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var isStripeLoading by remember { mutableStateOf(false) }
-    
-    // In a real app, these would come from the ViewModel based on Firestore data
-    val weeklyData = listOf(150f, 320f, 450f, 280f, 600f, 890f, 420f)
-    val transactions = listOf(
-        TransactionItem("1", "Payout to Bank", -450.00, "Feb 12", true),
-        TransactionItem("2", "Booking - Marcus J.", 55.00, "Feb 11", false),
-        TransactionItem("3", "Booking - Sarah L.", 120.00, "Feb 11", false),
-        TransactionItem("4", "Booking - David K.", 35.00, "Feb 10", false),
-        TransactionItem("5", "Booking - Emily R.", 85.00, "Feb 09", false)
-    )
+    // "not_connected", "pending", or "active"
+    var stripeStatus by remember { mutableStateOf("loading") }
+    var stripeAccountId by remember { mutableStateOf<String?>(null) }
+
+    // On mount, fetch the real Stripe status and sync it to Firestore
+    LaunchedEffect(Unit) {
+        try {
+            val result = FirebaseFunctions.getInstance()
+                .getHttpsCallable("getConnectAccountStatus")
+                .call()
+                .await()
+            @Suppress("UNCHECKED_CAST")
+            val data = result.getData() as? Map<String, Any>
+            stripeStatus = data?.get("status") as? String ?: "not_connected"
+            stripeAccountId = data?.get("accountId") as? String
+        } catch (e: Exception) {
+            stripeStatus = "not_connected"
+        }
+    }
+
+    val dateFormatter = remember { SimpleDateFormat("MMM d", Locale.US) }
+    val weeklyData = stats.weeklyEarnings.map { it.toFloat() }.ifEmpty { List(7) { 0f } }
+    val transactions = earnings.take(10).map { earning ->
+        TransactionItem(
+            id = earning.id,
+            title = "Booking - ${earning.customerName}",
+            amount = earning.amount,
+            date = dateFormatter.format(Date(earning.timestampMillis)),
+            isPayout = false
+        )
+    }
     
     Scaffold(
         topBar = {
@@ -87,6 +110,7 @@ fun PayoutsEarningsScreen(
             item {
                 BalanceHeroCard(
                     amount = stats.totalEarnings,
+                    stripeStatus = stripeStatus,
                     isLoading = isStripeLoading,
                     onSetupAccount = {
                         coroutineScope.launch {
@@ -159,8 +183,24 @@ fun PayoutsEarningsScreen(
                 Spacer(Modifier.height(8.dp))
             }
 
-            items(transactions) { transaction ->
-                TransactionRow(transaction)
+            if (transactions.isEmpty()) {
+                item {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "No completed bookings yet",
+                            modifier = Modifier.padding(16.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                items(transactions) { transaction ->
+                    TransactionRow(transaction)
+                }
             }
             
             item { Spacer(Modifier.height(40.dp)) }
@@ -169,7 +209,12 @@ fun PayoutsEarningsScreen(
 }
 
 @Composable
-fun BalanceHeroCard(amount: Double, isLoading: Boolean = false, onSetupAccount: () -> Unit) {
+fun BalanceHeroCard(
+    amount: Double,
+    stripeStatus: String = "not_connected",
+    isLoading: Boolean = false,
+    onSetupAccount: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -189,7 +234,7 @@ fun BalanceHeroCard(amount: Double, isLoading: Boolean = false, onSetupAccount: 
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "Total Earnings", 
+                "Total Earnings",
                 style = MaterialTheme.typography.labelLarge,
                 color = Color.White.copy(alpha = 0.9f)
             )
@@ -201,28 +246,86 @@ fun BalanceHeroCard(amount: Double, isLoading: Boolean = false, onSetupAccount: 
                 color = Color.White
             )
             Spacer(Modifier.height(24.dp))
-            Button(
-                onClick = onSetupAccount,
-                enabled = !isLoading,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White, 
-                    contentColor = MaterialTheme.colorScheme.primary
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (isLoading) {
+
+            when {
+                stripeStatus == "loading" -> {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.primary
+                        color = Color.White
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Connecting...", fontWeight = FontWeight.Bold)
-                } else {
-                    Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Connect Bank Account", fontWeight = FontWeight.Bold)
+                }
+                stripeStatus == "active" -> {
+                    // Account connected — show status badge only
+                    Surface(
+                        color = Color(0xFF4CAF50).copy(alpha = 0.25f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Bank Account Connected",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+                stripeStatus == "pending" -> {
+                    Button(
+                        onClick = onSetupAccount,
+                        enabled = !isLoading,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFFA000),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Loading...", fontWeight = FontWeight.Bold)
+                        } else {
+                            Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Finish Stripe Onboarding", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                else -> {
+                    // not_connected
+                    Button(
+                        onClick = onSetupAccount,
+                        enabled = !isLoading,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = MaterialTheme.colorScheme.primary
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Connecting...", fontWeight = FontWeight.Bold)
+                        } else {
+                            Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Connect Bank Account", fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }
