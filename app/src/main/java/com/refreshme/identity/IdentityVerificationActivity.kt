@@ -269,8 +269,10 @@ class IdentityVerificationActivity : AppCompatActivity() {
             VerificationStatus.PENDING -> {
                 statusTextView.text = "Pending"
                 descriptionTextView.text =
-                    "Your verification is being reviewed. This usually takes a few minutes. This screen will update automatically."
-                verifyButton.visibility = View.GONE
+                    "Your verification is being reviewed, or you have a session in progress. You can try again if you haven't completed it."
+                verifyButton.visibility = View.VISIBLE
+                verifyButton.isEnabled = true
+                verifyButton.text = "Continue / Retry Verification"
             }
             VerificationStatus.VERIFIED -> {
                 statusTextView.text = "Verified ✓"

@@ -1184,11 +1184,13 @@ export const createConnectAccount = onCall({ ...CALLABLE_APP_CHECK_OPTIONS, invo
   if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
   const stripe = new Stripe(stripeSecretKey.value().trim(), {});
   const userId = request.auth.uid;
+  console.log("createConnectAccount: invoked", { userId, email: request.auth.token.email });
 
   try {
     const stylistRef = admin.firestore().collection("stylists").doc(userId);
     const stylistDoc = await stylistRef.get();
     let accountId = stylistDoc.data()?.stripeAccountId as string | undefined;
+    console.log("createConnectAccount: stylistDoc loaded", { userId, hadExistingAccount: !!accountId, accountId });
 
     if (!accountId) {
       const userEmail = request.auth.token.email;
@@ -1199,6 +1201,7 @@ export const createConnectAccount = onCall({ ...CALLABLE_APP_CHECK_OPTIONS, invo
         capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
       });
       accountId = account.id;
+      console.log("createConnectAccount: created new Stripe account", { userId, accountId });
       await stylistRef.set({
         stripeAccountId: accountId,
         stripeAccountStatus: "pending",
@@ -1214,10 +1217,23 @@ export const createConnectAccount = onCall({ ...CALLABLE_APP_CHECK_OPTIONS, invo
       type: "account_onboarding",
     });
 
-    return { url: accountLink.url, accountId };
+    const url = accountLink?.url ?? "";
+    if (!url) {
+      console.error("createConnectAccount: Stripe returned empty url", { userId, accountId, accountLink });
+      throw new functions.https.HttpsError("internal", "Stripe returned empty onboarding URL");
+    }
+    console.log("createConnectAccount: returning onboarding link", { userId, accountId, urlLength: url.length });
+    return { url, accountId };
   } catch (error: any) {
-    console.error("createConnectAccount error:", error);
-    throw new functions.https.HttpsError("internal", error.message);
+    console.error("createConnectAccount error:", {
+      userId,
+      message: error?.message,
+      type: error?.type,
+      code: error?.code,
+      statusCode: error?.statusCode,
+      raw: error?.raw,
+    });
+    throw new functions.https.HttpsError("internal", error?.message ?? "Unknown error in createConnectAccount");
   }
 });
 
