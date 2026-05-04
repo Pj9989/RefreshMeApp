@@ -26,10 +26,9 @@ val localProperties = Properties()
 if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
-
-// Provided Sandbox/Test Credentials - Ensure these are correct for your Stripe account
-val DEFAULT_STRIPE_PUB_KEY = "pk_live_51SPX9JQgZH4F30tQK5oSYs2lkbu5JnPQjGGZJwVYyFash0HKLGCmgzPoJ1HMnhofVIL7vFqr658VjKIp2uQe9YxF007oV37c7C"
-val DEFAULT_STRIPE_PRICE_ID = "price_1TIUxyQgZH4F30tQGebx5z7J"
+fun requiredLocalProperty(name: String): String =
+    localProperties.getProperty(name)?.takeIf { it.isNotBlank() }
+        ?: throw GradleException("Missing required local.properties value for release build: $name")
 
 android {
     namespace = "com.refreshme"
@@ -44,17 +43,14 @@ android {
                 keyPassword = keystoreProperties.getProperty("keyPassword")
             }
         }
-        getByName("debug") {
-            // Using default debug keystore explicitly
-        }
     }
 
     defaultConfig {
         applicationId = "com.refreshmeapp.stylist"
         minSdk = 24
         targetSdk = 35
-        versionCode = 52
-        versionName = "3.0.1"
+        versionCode = 67
+        versionName = "3.0.13"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -72,13 +68,12 @@ android {
             )
             signingConfig = signingConfigs.getByName("release")
             
-            val stripeKey = localProperties.getProperty("STRIPE_PUBLISHABLE_KEY") ?: DEFAULT_STRIPE_PUB_KEY
-            val priceId = localProperties.getProperty("STRIPE_PRICE_ID") ?: DEFAULT_STRIPE_PRICE_ID
+            val stripeKey = requiredLocalProperty("STRIPE_PUBLISHABLE_KEY")
+            val priceId = requiredLocalProperty("STRIPE_PRICE_ID")
             
             buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
             buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"$stripeKey\"")
             buildConfigField("String", "STRIPE_PRICE_ID", "\"$priceId\"")
-            buildConfigField("String", "REPLICATE_API_KEY", "\"${localProperties.getProperty("REPLICATE_API_KEY", "")}\"")
             ndk {
                 debugSymbolLevel = "FULL"
             }
@@ -89,25 +84,23 @@ android {
             buildConfigField("boolean", "IS_INTERNAL_TESTING", "true")
             signingConfig = signingConfigs.getByName("release")
             
-            val stripeKey = localProperties.getProperty("STRIPE_PUBLISHABLE_KEY") ?: DEFAULT_STRIPE_PUB_KEY
-            val priceId = localProperties.getProperty("STRIPE_PRICE_ID") ?: DEFAULT_STRIPE_PRICE_ID
+            val stripeKey = requiredLocalProperty("STRIPE_PUBLISHABLE_KEY")
+            val priceId = requiredLocalProperty("STRIPE_PRICE_ID")
             
             buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
             buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"$stripeKey\"")
             buildConfigField("String", "STRIPE_PRICE_ID", "\"$priceId\"")
-            buildConfigField("String", "REPLICATE_API_KEY", "\"${localProperties.getProperty("REPLICATE_API_KEY", "")}\"")
         }
         debug {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("debug")
             
-            val stripeKey = localProperties.getProperty("STRIPE_PUBLISHABLE_KEY") ?: DEFAULT_STRIPE_PUB_KEY
-            val priceId = localProperties.getProperty("STRIPE_PRICE_ID") ?: DEFAULT_STRIPE_PRICE_ID
+            val stripeKey = localProperties.getProperty("STRIPE_PUBLISHABLE_KEY") ?: ""
+            val priceId = localProperties.getProperty("STRIPE_PRICE_ID") ?: ""
             
             buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
             buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"$stripeKey\"")
             buildConfigField("String", "STRIPE_PRICE_ID", "\"$priceId\"")
-            buildConfigField("String", "REPLICATE_API_KEY", "\"${localProperties.getProperty("REPLICATE_API_KEY", "")}\"")
         }
     }
     compileOptions {
