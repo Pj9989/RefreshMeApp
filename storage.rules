@@ -2,17 +2,71 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Secure government IDs/Licenses (PII). Only the specific user can read or write their own ID.
-    match /license_images/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    match /license_images/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // ─── Helper functions ─────────────────────────────────────────────────
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
     }
 
-    // Generic fallback for other assets
+    // ─── Government IDs / Licenses (PII) ─────────────────────────────────
+    // Only the specific user can read or write their own licence image.
+    match /license_images/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /license_images/{userId}/{allPaths=**} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ─── Profile Photos ───────────────────────────────────────────────────
+    // Max 5 MB, JPEG or PNG only.
+    match /profile_photos/{userId}.jpg {
+      allow read: if true;
+      allow write: if isOwner(userId)
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png)');
+    }
+
+    // ─── Profile Images (edit-profile path) ──────────────────────────────
+    // Max 5 MB, JPEG or PNG only.
+    match /profile_images/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(userId)
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png)');
+    }
+
+    // ─── Portfolio Images ─────────────────────────────────────────────────
+    // Max 10 MB, JPEG or PNG only.
+    match /portfolio_images/{stylistId}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(stylistId)
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png)');
+      allow delete: if isOwner(stylistId);
+    }
+
+    // ─── Portfolio Videos ─────────────────────────────────────────────────
+    // Max 100 MB, MP4 or QuickTime only.
+    match /portfolio_videos/{stylistId}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(stylistId)
+        && request.resource.size <= 100 * 1024 * 1024
+        && request.resource.contentType.matches('video/(mp4|quicktime)');
+      allow delete: if isOwner(stylistId);
+    }
+
+    // ─── Before / After Photos ────────────────────────────────────────────
+    // Max 10 MB, JPEG or PNG only.
+    match /before_after/{stylistId}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(stylistId)
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png)');
+      allow delete: if isOwner(stylistId);
+    }
+
+    // ─── Default: Deny All ────────────────────────────────────────────────
     match /{allPaths=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }

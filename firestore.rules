@@ -178,10 +178,8 @@ service cloud.firestore {
           request.resource.data.docKey == docKey &&
           request.resource.data.docVersion is string &&
           request.resource.data.docVersion.size() > 0;
-        // Allow re-acceptance (new version) to overwrite prior record
-        allow update: if isOwner(userId) &&
-          request.resource.data.userId == userId &&
-          request.resource.data.docKey == docKey;
+        // Audit records are append-only: no update or delete ever allowed
+        allow update: if false;
         // Audit records must never be deletable
         allow delete: if false;
       }
