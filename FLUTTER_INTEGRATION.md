@@ -301,3 +301,70 @@ Claude will have full context about all the Cloud Functions, data models, and pa
 | Region | `us-central1` |
 | Auth domain | `refreshme-74f79.firebaseapp.com` |
 | Storage bucket | `refreshme-74f79.appspot.com` |
+
+---
+
+## Firebase App Check (iOS)
+
+App Check is required on all callable Cloud Functions. `enforceAppCheck` is currently **soft** (tokens validated when present, but missing tokens are not rejected). This will be switched back to **hard enforcement** once iOS is confirmed working end-to-end.
+
+### iOS App Registration
+
+| App | Bundle ID | Provider | Status |
+|-----|-----------|----------|--------|
+| refreshme (ios) | `com.refreshmeapp.refreshme` | App Attest | Registered |
+
+### Debug Tokens (registered in Firebase Console)
+
+| Name | UUID | Purpose |
+|------|------|---------|
+| PJ iPhone real | `901BCBA6-CF7A-4114-BEB0-4967956873F3` | PJ's physical iPhone (printed by SDK on first launch) |
+| PJ iPhone debug | `11915533-315D-43CF-A6D6-51959728DAC8` | Pre-generated fallback |
+| Phill iPhone 17 simulator | (registered) | iOS Simulator |
+
+### Required `pubspec.yaml` dependency
+
+```yaml
+dependencies:
+  firebase_app_check: ^0.4.4
+```
+
+Install with:
+```bash
+flutter pub add firebase_app_check
+```
+
+### `lib/main.dart` — App Check activation
+
+Add this **after** `Firebase.initializeApp()` and **before** `runApp()`:
+
+```dart
+import 'package:flutter/foundation.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // App Check — debug provider in dev, App Attest in production
+  await FirebaseAppCheck.instance.activate(
+    appleProvider: kDebugMode
+        ? AppleProvider.debug
+        : AppleProvider.appAttest,
+  );
+
+  runApp(const RefreshMeApp());
+}
+```
+
+> **Note:** `AppleProvider.appAttest` is the correct production provider (not `deviceCheck`). The iOS app is registered in Firebase Console with App Attest.
+
+### Re-enabling hard enforcement
+
+Once iOS App Check is confirmed working in production:
+1. In `functions/src/index.ts`, change `enforceAppCheck: false` → `enforceAppCheck: true`
+2. Run `firebase deploy --only functions`
+3. Verify both Android and iOS can call Cloud Functions without errors
