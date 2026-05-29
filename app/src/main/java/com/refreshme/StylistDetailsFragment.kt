@@ -2,11 +2,9 @@ package com.refreshme
 
 import android.os.Bundle
 import android.transition.TransitionInflater
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -16,17 +14,12 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.google.firebase.auth.FirebaseAuth
-import com.refreshme.data.BookingRepository
-import com.refreshme.data.Service
-import com.refreshme.details.StylistDetailScreen
 import com.refreshme.details.StylistDetailViewModel
 import com.refreshme.ui.theme.RefreshMeTheme
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class StylistDetailsFragment : Fragment() {
@@ -35,6 +28,10 @@ class StylistDetailsFragment : Fragment() {
     private val viewModel: StylistDetailViewModel by viewModels() 
     
     private val auth by lazy { FirebaseAuth.getInstance() }
+    
+    private val stylistId: String by lazy { 
+        args.stylistId.ifBlank { auth.currentUser?.uid ?: "" }
+    }
 
     private var composeView: ComposeView? = null
 
@@ -49,12 +46,6 @@ class StylistDetailsFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        val stylistId = if (args.stylistId.isBlank()) {
-            auth.currentUser?.uid ?: ""
-        } else {
-            args.stylistId
-        }
-
         return ComposeView(requireContext()).also { view ->
             composeView = view 
             
@@ -70,7 +61,7 @@ class StylistDetailsFragment : Fragment() {
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
-                        StylistDetailScreen(
+                        EnhancedStylistProfileScreen(
                             stylistId = stylistId,
                             viewModel = viewModel,
                             onBack = { findNavController().popBackStack() },
@@ -108,13 +99,6 @@ class StylistDetailsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
-        val stylistId = if (args.stylistId.isBlank()) {
-            auth.currentUser?.uid ?: ""
-        } else {
-            args.stylistId
-        }
-        
         viewModel.getStylist(stylistId)
     }
 

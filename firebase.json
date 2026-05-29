@@ -7,15 +7,29 @@
                                    "**/.*",
                                    "**/node_modules/**"
                                ],
+                    "redirects":  [
+                                       { "source": "/help-center",  "destination": "/help",  "type": 301 },
+                                       { "source": "/helpcenter",   "destination": "/help",  "type": 301 },
+                                       { "source": "/support",      "destination": "/help",  "type": 301 },
+                                       { "source": "/faq",          "destination": "/help",  "type": 301 },
+                                       { "source": "/faqs",         "destination": "/help",  "type": 301 },
+                                       { "source": "/contact",      "destination": "/help",  "type": 301 }
+                                   ],
                     "rewrites":  [
+                                     { "source": "/fn/createCheckoutSession",  "function": "createCheckoutSession",  "region": "us-central1" },
+                                     { "source": "/fn/createConnectAccount",   "function": "createConnectAccount",   "region": "us-central1" },
+                                     { "source": "/fn/getConnectAccountStatus","function": "getConnectAccountStatus","region": "us-central1" },
                                      { "source": "/safety-center",   "destination": "/safety-center.html" },
                                      { "source": "/help",            "destination": "/help.html" },
                                      { "source": "/privacy",         "destination": "/privacy.html" },
                                      { "source": "/terms",           "destination": "/terms.html" },
+                                     { "source": "/about",           "destination": "/about.html" },
                                      { "source": "/stripe-connect",  "destination": "/stripe-connect.html" },
                                      { "source": "/invite",          "destination": "/invite.html" },
                                      { "source": "/connect-return",  "destination": "/connect-return.html" },
                                      { "source": "/connect-refresh", "destination": "/connect-refresh.html" },
+                                     { "source": "/stylists",        "destination": "/stylists/index.html" },
+                                     { "source": "/admin",           "destination": "/admin/index.html" },
                                      { "source": "/stylist/**",      "destination": "/stylist-profile.html" }
                                  ]
                 },
@@ -23,6 +37,9 @@
                       "rules":  "firestore.rules",
                       "indexes":  "firestore.indexes.json"
                   },
+    "storage":  {
+                    "rules":  "storage.rules"
+                },
     "functions":  [
                       {
                           "source":  "functions",

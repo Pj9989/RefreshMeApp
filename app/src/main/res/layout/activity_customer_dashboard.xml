@@ -4,7 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/customer_dashboard_bg">
 
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/nav_host_fragment_activity_main"
@@ -22,6 +23,16 @@
         android:id="@+id/bottomNavView"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:background="@drawable/customer_bottom_nav_background"
+        app:elevation="0dp"
+        app:itemBackground="@color/customer_bottom_nav_bg"
+        app:itemIconTint="@color/bottom_nav_item_color_state"
+        app:itemIconSize="22dp"
+        app:itemRippleColor="@color/transparent"
+        app:itemTextAppearanceActive="@style/TextAppearance.RefreshMe.BottomNav.Active"
+        app:itemTextAppearanceInactive="@style/TextAppearance.RefreshMe.BottomNav.Inactive"
+        app:itemTextColor="@color/bottom_nav_item_color_state"
+        app:labelVisibilityMode="labeled"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

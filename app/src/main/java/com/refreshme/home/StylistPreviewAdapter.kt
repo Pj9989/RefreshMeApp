@@ -91,9 +91,10 @@ class StylistPreviewAdapter(
             }
 
             // Vibe Badge
-            if (stylist.vibes?.isNotEmpty() == true) {
+            val vibes = stylist.vibes
+            if (!vibes.isNullOrEmpty()) {
                 tvVibeBadge.visibility = View.VISIBLE
-                tvVibeBadge.text = stylist.vibes[0]
+                tvVibeBadge.text = vibes[0]
             } else {
                 tvVibeBadge.visibility = View.GONE
             }

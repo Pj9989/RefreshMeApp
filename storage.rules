@@ -2,13 +2,27 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // ─── Helper functions ─────────────────────────────────────────────────
-    function isOwner(uid) {
-      return request.auth != null && request.auth.uid == uid;
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
     }
 
-    // ─── Government IDs / Licenses (PII) ─────────────────────────────────
-    // Only the specific user can read or write their own licence image.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isImage(maxBytes) {
+      return request.resource != null &&
+        request.resource.size <= maxBytes &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    function isVideo(maxBytes) {
+      return request.resource != null &&
+        request.resource.size <= maxBytes &&
+        request.resource.contentType.matches('video/.*');
+    }
+
+    // Secure government IDs/Licenses (PII). Only the specific user can read or write their own ID.
     match /license_images/{userId} {
       allow read, write: if isOwner(userId);
     }
@@ -16,55 +30,33 @@ service firebase.storage {
       allow read, write: if isOwner(userId);
     }
 
-    // ─── Profile Photos ───────────────────────────────────────────────────
-    // Max 5 MB, JPEG or PNG only.
-    match /profile_photos/{userId}.jpg {
+    match /profile_images/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isOwner(userId)
-        && request.resource.size <= 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|png)');
+      allow write: if isOwner(userId) && isImage(5 * 1024 * 1024);
     }
 
-    // ─── Profile Images (edit-profile path) ──────────────────────────────
-    // Max 5 MB, JPEG or PNG only.
-    match /profile_images/{userId}/{fileName} {
+    match /profile_photos/{fileName} {
       allow read: if true;
-      allow write: if isOwner(userId)
-        && request.resource.size <= 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|png)');
+      allow write: if isSignedIn() &&
+        fileName == request.auth.uid + ".jpg" &&
+        isImage(5 * 1024 * 1024);
     }
 
-    // ─── Portfolio Images ─────────────────────────────────────────────────
-    // Max 10 MB, JPEG or PNG only.
-    match /portfolio_images/{stylistId}/{fileName} {
+    match /portfolio_images/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isOwner(stylistId)
-        && request.resource.size <= 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|png)');
-      allow delete: if isOwner(stylistId);
+      allow write: if isOwner(userId) && isImage(10 * 1024 * 1024);
     }
 
-    // ─── Portfolio Videos ─────────────────────────────────────────────────
-    // Max 100 MB, MP4 or QuickTime only.
-    match /portfolio_videos/{stylistId}/{fileName} {
+    match /portfolio_videos/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isOwner(stylistId)
-        && request.resource.size <= 100 * 1024 * 1024
-        && request.resource.contentType.matches('video/(mp4|quicktime)');
-      allow delete: if isOwner(stylistId);
+      allow write: if isOwner(userId) && isVideo(100 * 1024 * 1024);
     }
 
-    // ─── Before / After Photos ────────────────────────────────────────────
-    // Max 10 MB, JPEG or PNG only.
-    match /before_after/{stylistId}/{fileName} {
+    match /before_after/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isOwner(stylistId)
-        && request.resource.size <= 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|png)');
-      allow delete: if isOwner(stylistId);
+      allow write: if isOwner(userId) && isImage(10 * 1024 * 1024);
     }
 
-    // ─── Default: Deny All ────────────────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;
     }

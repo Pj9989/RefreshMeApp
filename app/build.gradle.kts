@@ -30,17 +30,27 @@ fun requiredLocalProperty(name: String): String =
     localProperties.getProperty(name)?.takeIf { it.isNotBlank() }
         ?: throw GradleException("Missing required local.properties value for release build: $name")
 
+fun releaseSigningProperty(name: String): String? =
+    providers.gradleProperty(name).orNull
+        ?: System.getenv(name)
+        ?: keystoreProperties.getProperty(name)
+
 android {
     namespace = "com.refreshme"
     compileSdk = 35
 
     signingConfigs {
         create("release") {
-            if (keystorePropertiesFile.exists()) {
-                storeFile = file("new-upload-keystore.jks")
-                storePassword = keystoreProperties.getProperty("storePassword")
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
+            val keystorePath = releaseSigningProperty("RELEASE_STORE_FILE")
+                ?: releaseSigningProperty("storeFile")
+            if (!keystorePath.isNullOrBlank()) {
+                storeFile = file(keystorePath)
+                storePassword = releaseSigningProperty("RELEASE_STORE_PASSWORD")
+                    ?: releaseSigningProperty("storePassword")
+                keyAlias = releaseSigningProperty("RELEASE_KEY_ALIAS")
+                    ?: releaseSigningProperty("keyAlias")
+                keyPassword = releaseSigningProperty("RELEASE_KEY_PASSWORD")
+                    ?: releaseSigningProperty("keyPassword")
             }
         }
     }
@@ -49,8 +59,8 @@ android {
         applicationId = "com.refreshmeapp.stylist"
         minSdk = 24
         targetSdk = 35
-        versionCode = 67
-        versionName = "3.0.13"
+        versionCode = 77
+        versionName = "3.0.22"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -69,11 +79,9 @@ android {
             signingConfig = signingConfigs.getByName("release")
             
             val stripeKey = requiredLocalProperty("STRIPE_PUBLISHABLE_KEY")
-            val priceId = requiredLocalProperty("STRIPE_PRICE_ID")
             
             buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
             buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"$stripeKey\"")
-            buildConfigField("String", "STRIPE_PRICE_ID", "\"$priceId\"")
             ndk {
                 debugSymbolLevel = "FULL"
             }
@@ -85,22 +93,18 @@ android {
             signingConfig = signingConfigs.getByName("release")
             
             val stripeKey = requiredLocalProperty("STRIPE_PUBLISHABLE_KEY")
-            val priceId = requiredLocalProperty("STRIPE_PRICE_ID")
             
             buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
             buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"$stripeKey\"")
-            buildConfigField("String", "STRIPE_PRICE_ID", "\"$priceId\"")
         }
         debug {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("debug")
             
             val stripeKey = localProperties.getProperty("STRIPE_PUBLISHABLE_KEY") ?: ""
-            val priceId = localProperties.getProperty("STRIPE_PRICE_ID") ?: ""
             
             buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
             buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"$stripeKey\"")
-            buildConfigField("String", "STRIPE_PRICE_ID", "\"$priceId\"")
         }
     }
     compileOptions {

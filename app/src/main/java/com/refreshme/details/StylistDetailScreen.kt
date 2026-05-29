@@ -46,6 +46,7 @@ import com.refreshme.data.ServiceType
 import com.refreshme.data.Stylist
 import com.refreshme.data.Booking
 import com.refreshme.ui.components.BeforeAfterImageSlider
+import com.refreshme.ui.components.rememberFirebaseImageModel
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -167,17 +168,16 @@ fun StylistDetailScreen(
                             }
                             Button(
                                 onClick = { onBookClick(stylistId) },
-                                enabled = stylist.isOnline == true,
                                 modifier = Modifier
                                     .weight(0.6f)
                                     .height(56.dp),
                                 shape = RoundedCornerShape(16.dp),
                                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
                             ) {
-                                Icon(if (stylist.isOnline == true) Icons.Default.CalendarToday else Icons.Default.Block, contentDescription = null)
+                                Icon(Icons.Default.CalendarToday, contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
                                 Text(
-                                    text = if (stylist.isOnline == true) "Book Now" else "Offline",
+                                    text = if (stylist.isOnline == true) "Book Now" else "Schedule",
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -243,7 +243,7 @@ fun StylistDetailScreen(
                                 }
                             } else {
                                 Image(
-                                    painter = rememberAsyncImagePainter(s.displayImageUrl),
+                                    painter = rememberAsyncImagePainter(rememberFirebaseImageModel(s.displayImageUrl)),
                                     contentDescription = null,
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop
@@ -496,7 +496,7 @@ fun StylistDetailScreen(
                             
                             if (offersMobile) {
                                 Spacer(Modifier.height(12.dp))
-                                MobileServiceStatus(fee = s.atHomeServiceFee ?: 0.0, range = s.maxTravelRangeKm ?: 15)
+                                MobileServiceStatus(fee = s.effectiveAtHomeServiceFee, range = s.maxTravelRangeKm ?: 15)
                             }
                             
                             if (s.offersEventBooking == true) {
@@ -569,7 +569,8 @@ fun StylistDetailScreen(
                     }
 
                     // Social Media Links Section
-                    if (s.socialLinks != null && (!s.socialLinks.instagram.isNullOrBlank() || !s.socialLinks.tiktok.isNullOrBlank() || !s.socialLinks.website.isNullOrBlank())) {
+                    val links = s.socialLinks
+                    if (links != null && (!links.instagram.isNullOrBlank() || !links.tiktok.isNullOrBlank() || !links.website.isNullOrBlank())) {
                         item {
                             Row(
                                 modifier = Modifier
@@ -577,10 +578,11 @@ fun StylistDetailScreen(
                                     .padding(horizontal = 20.dp, vertical = 8.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                if (!s.socialLinks.instagram.isNullOrBlank()) {
+                                if (!links.instagram.isNullOrBlank()) {
                                     OutlinedButton(
                                         onClick = {
-                                            val url = s.socialLinks.instagram.let { if (it.startsWith("http")) it else "https://instagram.com/${it.removePrefix("@")}" }
+                                            val ig = links.instagram!!
+                                            val url = if (ig.startsWith("http")) ig else "https://instagram.com/${ig.removePrefix("@")}"
                                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                                         },
                                         modifier = Modifier.weight(1f),
@@ -589,10 +591,11 @@ fun StylistDetailScreen(
                                         Text("Instagram", fontWeight = FontWeight.Bold)
                                     }
                                 }
-                                if (!s.socialLinks.tiktok.isNullOrBlank()) {
+                                if (!links.tiktok.isNullOrBlank()) {
                                     OutlinedButton(
                                         onClick = {
-                                            val url = s.socialLinks.tiktok.let { if (it.startsWith("http")) it else "https://tiktok.com/${it.takeIf { t -> t.startsWith("@") } ?: "@$it"}" }
+                                            val tt = links.tiktok!!
+                                            val url = if (tt.startsWith("http")) tt else "https://tiktok.com/${if (tt.startsWith("@")) tt else "@$tt"}"
                                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                                         },
                                         modifier = Modifier.weight(1f),
@@ -601,10 +604,11 @@ fun StylistDetailScreen(
                                         Text("TikTok", fontWeight = FontWeight.Bold)
                                     }
                                 }
-                                if (!s.socialLinks.website.isNullOrBlank()) {
+                                if (!links.website.isNullOrBlank()) {
                                     OutlinedButton(
                                         onClick = {
-                                            val url = s.socialLinks.website.let { if (!it.startsWith("http")) "https://$it" else it }
+                                            val web = links.website!!
+                                            val url = if (!web.startsWith("http")) "https://$web" else web
                                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                                         },
                                         modifier = Modifier.weight(1f),
@@ -708,18 +712,20 @@ fun StylistDetailScreen(
                     }
 
                     // Map Section
-                    if (s.location != null && s.location.latitude != 0.0) {
+                    val loc = s.location
+                    val mapAddress = s.displayAddress
+                    if (loc != null && s.hasFixedPublicLocation) {
                         item {
                             Column(modifier = Modifier.padding(20.dp)) {
                                 Text("Location", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-                                Text(s.address ?: "In-shop appointments", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(mapAddress ?: "In-shop appointments", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(Modifier.height(12.dp))
-                                
-                                val latLng = LatLng(s.location.latitude, s.location.longitude)
+
+                                val latLng = LatLng(loc.latitude, loc.longitude)
                                 val cameraPositionState = rememberCameraPositionState {
                                     position = CameraPosition.fromLatLngZoom(latLng, 15f)
                                 }
-                                
+
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -731,20 +737,20 @@ fun StylistDetailScreen(
                                         cameraPositionState = cameraPositionState,
                                         uiSettings = MapUiSettings(zoomControlsEnabled = false, scrollGesturesEnabled = false, mapToolbarEnabled = false),
                                         onMapClick = {
-                                            val gmmIntentUri = Uri.parse("google.navigation:q=${s.location.latitude},${s.location.longitude}")
+                                            val gmmIntentUri = Uri.parse("google.navigation:q=${loc.latitude},${loc.longitude}")
                                             val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
                                             mapIntent.setPackage("com.google.android.apps.maps")
                                             if (mapIntent.resolveActivity(context.packageManager) != null) {
                                                 context.startActivity(mapIntent)
                                             } else {
-                                                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${s.location.latitude},${s.location.longitude}"))
+                                                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}"))
                                                 context.startActivity(browserIntent)
                                             }
                                         }
                                     ) {
-                                        Marker(state = MarkerState(position = latLng), title = s.name)
+                                        Marker(state = rememberMarkerState(position = latLng), title = s.name)
                                     }
-                                    
+
                                     // Get Directions Overlay
                                     Surface(
                                         modifier = Modifier
@@ -754,13 +760,13 @@ fun StylistDetailScreen(
                                         color = MaterialTheme.colorScheme.primaryContainer,
                                         shadowElevation = 4.dp,
                                         onClick = {
-                                            val gmmIntentUri = Uri.parse("google.navigation:q=${s.location.latitude},${s.location.longitude}")
+                                            val gmmIntentUri = Uri.parse("google.navigation:q=${loc.latitude},${loc.longitude}")
                                             val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
                                             mapIntent.setPackage("com.google.android.apps.maps")
                                             if (mapIntent.resolveActivity(context.packageManager) != null) {
                                                 context.startActivity(mapIntent)
                                             } else {
-                                                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${s.location.latitude},${s.location.longitude}"))
+                                                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}"))
                                                 context.startActivity(browserIntent)
                                             }
                                         }
@@ -1080,7 +1086,7 @@ fun TransformationCard(imageUrl: String) {
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Image(
-                painter = rememberAsyncImagePainter(imageUrl),
+                painter = rememberAsyncImagePainter(rememberFirebaseImageModel(imageUrl)),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop

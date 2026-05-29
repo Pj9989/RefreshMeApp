@@ -50,11 +50,13 @@ class _PayoutAccountScreenState extends State<PayoutAccountScreen>
     setState(() => _isLoading = true);
     try {
       final status = await StripeService().getPayoutAccountStatus();
+      if (!mounted) return;
       setState(() {
         _status = status;
         _isLoading = false;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }
@@ -67,8 +69,12 @@ class _PayoutAccountScreenState extends State<PayoutAccountScreen>
     try {
       await StripeService().startPayoutOnboarding();
     } catch (e) {
-      setState(() => _errorMessage = 'Could not open Stripe. Please try again.');
+      if (!mounted) return;
+      setState(
+        () => _errorMessage = 'Could not open Stripe. Please try again.',
+      );
     } finally {
+      if (!mounted) return;
       setState(() => _isActioning = false);
     }
   }
@@ -102,8 +108,7 @@ class _PayoutAccountScreenState extends State<PayoutAccountScreen>
                     if (_errorMessage != null) ...[
                       Text(
                         _errorMessage!,
-                        style:
-                            const TextStyle(color: Colors.red, fontSize: 14),
+                        style: const TextStyle(color: Colors.red, fontSize: 14),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
@@ -140,7 +145,7 @@ class _StatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = status?.isFullyActive ?? false;
-    final isPending = status != null && status!.detailsSubmitted && !isActive;
+    final isPending = status?.isPending == true && !isActive;
 
     Color bgColor;
     Color iconColor;
@@ -198,8 +203,10 @@ class _StatusCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   subtitle,
-                  style:
-                      const TextStyle(fontSize: 14, color: Color(0xFF444444)),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF444444),
+                  ),
                 ),
               ],
             ),
@@ -217,18 +224,18 @@ class _HowItWorks extends StatelessWidget {
       (
         icon: Icons.person_outline,
         title: 'Client books you',
-        desc: 'They pay a 20% deposit to confirm the appointment.'
+        desc: 'They pay a 20% deposit to confirm the appointment.',
       ),
       (
         icon: Icons.payment,
         title: 'Stripe splits the payment',
         desc:
-            '90% goes to your bank. 10% is RefreshMe\'s platform fee — automatically.'
+            '90% goes to your bank. 10% is RefreshMe\'s platform fee — automatically.',
       ),
       (
         icon: Icons.schedule,
         title: 'Payouts hit your bank',
-        desc: 'Stripe pays out on your schedule — daily, weekly, or monthly.'
+        desc: 'Stripe pays out on your schedule — daily, weekly, or monthly.',
       ),
     ];
 
@@ -240,39 +247,52 @@ class _HowItWorks extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
         ),
         const SizedBox(height: 16),
-        ...steps.map((step) => Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF5F0FF),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(step.icon,
-                        color: const Color(0xFF6B3FA0), size: 20),
+        ...steps.map(
+          (step) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF5F0FF),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(step.title,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600, fontSize: 14)),
-                        const SizedBox(height: 2),
-                        Text(step.desc,
-                            style: const TextStyle(
-                                fontSize: 13, color: Colors.grey)),
-                      ],
-                    ),
+                  child: Icon(
+                    step.icon,
+                    color: const Color(0xFF6B3FA0),
+                    size: 20,
                   ),
-                ],
-              ),
-            )),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        step.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        step.desc,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -295,8 +315,8 @@ class _ActionButton extends StatelessWidget {
     final label = isActive
         ? 'Manage Payout Account'
         : status?.detailsSubmitted == true
-            ? 'Complete Verification'
-            : 'Set Up Payout Account';
+        ? 'Complete Verification'
+        : 'Set Up Payout Account';
 
     return SizedBox(
       width: double.infinity,
@@ -305,8 +325,9 @@ class _ActionButton extends StatelessWidget {
         onPressed: isLoading ? null : onTap,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF6B3FA0),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
         child: isLoading
             ? const CircularProgressIndicator(color: Colors.white)

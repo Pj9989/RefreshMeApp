@@ -35,6 +35,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,18 +52,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.fragment.findNavController
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
+import com.google.firebase.functions.FirebaseFunctions
 import com.refreshme.ui.theme.RefreshMeTheme
-import org.json.JSONObject
 import java.io.ByteArrayOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
 class VirtualTryOnFragment : Fragment() {
@@ -91,6 +94,7 @@ data class VirtualTryOnState(
 class VirtualTryOnViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(VirtualTryOnState())
     val uiState: StateFlow<VirtualTryOnState> = _uiState.asStateFlow()
+    private val functions = FirebaseFunctions.getInstance()
 
     fun updateSelectedImage(uri: Uri?) {
         _uiState.value = _uiState.value.copy(selectedImageUri = uri, generatedImageUrl = null)
@@ -121,13 +125,14 @@ class VirtualTryOnViewModel(application: Application) : AndroidViewModel(applica
                     uriToBase64(imageUri)
                 }
                 
-                // 2. Build the AI Prompt based on user selections
-                val prompt = "A photo of a ${currentState.selectedRace} ${currentState.selectedGender} with a ${currentState.selectedHairstyle} haircut. Exact same face, identical unedited facial features, same casual expression, same lighting, same background."
-                val negativePrompt = "different face, altered facial features, smile, changed expression, professional, studio lighting, painting, illustration, fake, 3d render, morphed, changed background, changed clothing, blur, oversaturated"
-                
-                // 3. Call Replicate API to generate the image
+                // 2. Build the AI Prompt for FLUX.1 Kontext (prompt-driven local edit).
+                val prompt = "Change the hairstyle of this ${currentState.selectedRace} ${currentState.selectedGender} to a realistic ${currentState.selectedHairstyle}. " +
+                    "Keep the exact same face, identity, skin tone, eyes, expression, head pose, lighting, background, and clothing unchanged. " +
+                    "Photorealistic. Natural hair texture."
+
+                // 3. Call the Cloud Function (which proxies to flux-kontext-pro).
                 val resultUrl = withContext(Dispatchers.IO) {
-                    callReplicateApi(base64Image, prompt, negativePrompt)
+                    callReplicateApi(base64Image, prompt)
                 }
 
                 if (resultUrl != null) {
@@ -147,73 +152,19 @@ class VirtualTryOnViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    private suspend fun callReplicateApi(base64Image: String?, prompt: String, negativePrompt: String): String? {
+    private suspend fun callReplicateApi(base64Image: String?, prompt: String): String? {
         if (base64Image == null) return null
-        
-        val apiUrl = URL("https://api.replicate.com/v1/predictions")
-        val connection = apiUrl.openConnection() as HttpURLConnection
-        connection.requestMethod = "POST"
-        connection.setRequestProperty("Authorization", "Bearer ${com.refreshme.BuildConfig.REPLICATE_API_KEY}")
-        connection.setRequestProperty("Content-Type", "application/json")
-        connection.setRequestProperty("Prefer", "wait")
-        connection.doOutput = true
-
-        val jsonInput = JSONObject().apply {
-            put("version", "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b")
-            put("input", JSONObject().apply {
-                put("image", "data:image/jpeg;base64,$base64Image")
-                put("prompt", prompt)
-                put("negative_prompt", negativePrompt)
-                put("prompt_strength", 0.55)
-            })
-        }
-
-        connection.outputStream.use { os ->
-            val inputBytes = jsonInput.toString().toByteArray(Charsets.UTF_8)
-            os.write(inputBytes, 0, inputBytes.size)
-        }
-
-        val responseCode = connection.responseCode
-        if (responseCode !in 200..299) {
-            val errorStream = connection.errorStream?.bufferedReader()?.use { it.readText() }
-            Log.e("VirtualTryOn", "API Error: HTTP $responseCode - $errorStream")
-            return null
-        }
-
-        var responseStr = connection.inputStream.bufferedReader().use { it.readText() }
-        var jsonResponse = JSONObject(responseStr)
-        var status = jsonResponse.optString("status")
-
-        if (status != "succeeded" && status != "failed" && status != "canceled") {
-            val getUrl = jsonResponse.optJSONObject("urls")?.optString("get") ?: return null
-            
-            while (status != "succeeded" && status != "failed" && status != "canceled") {
-                delay(2000)
-                val pollConn = URL(getUrl).openConnection() as HttpURLConnection
-                pollConn.setRequestProperty("Authorization", "Bearer ${com.refreshme.BuildConfig.REPLICATE_API_KEY}")
-                
-                val pollRespCode = pollConn.responseCode
-                if (pollRespCode !in 200..299) {
-                    Log.e("VirtualTryOn", "Poll Error: HTTP $pollRespCode")
-                    return null
-                }
-                
-                responseStr = pollConn.inputStream.bufferedReader().use { it.readText() }
-                jsonResponse = JSONObject(responseStr)
-                status = jsonResponse.optString("status")
-            }
-        }
-
-        if (status == "succeeded") {
-            val outputArray = jsonResponse.optJSONArray("output")
-            if (outputArray != null) {
-                return outputArray.optString(0)
-            }
-            // fallback: some APIs return 'output' as string URL instead of an array
-            return if (jsonResponse.has("output")) jsonResponse.optString("output") else null
-        }
-        
-        return null
+        val result = functions
+            .getHttpsCallable("runVirtualTryOn")
+            .call(
+                mapOf(
+                    "base64Image" to base64Image,
+                    "prompt" to prompt
+                )
+            )
+            .await()
+        val data = result.data as? Map<*, *>
+        return (data?.get("outputUrl") as? String) ?: (data?.get("url") as? String)
     }
 
     /**
@@ -225,7 +176,7 @@ class VirtualTryOnViewModel(application: Application) : AndroidViewModel(applica
             val inputStream = getApplication<Application>().contentResolver.openInputStream(uri)
             val bitmap = BitmapFactory.decodeStream(inputStream) ?: return null
             val outputStream = ByteArrayOutputStream()
-            val maxImageSize = 1024f
+            val maxImageSize = 1536f
             val ratio = Math.min(
                 maxImageSize / bitmap.width,
                 maxImageSize / bitmap.height
@@ -235,7 +186,7 @@ class VirtualTryOnViewModel(application: Application) : AndroidViewModel(applica
             } else {
                 bitmap
             }
-            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream)
+            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 92, outputStream)
             val byteArray = outputStream.toByteArray()
             Base64.encodeToString(byteArray, Base64.NO_WRAP)
         } catch (e: Exception) {
@@ -302,6 +253,20 @@ fun VirtualTryOnScreen(
                     .size(240.dp)
                     .clip(RoundedCornerShape(32.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = if (uiState.selectedImageUri == null && uiState.generatedImageUrl == null) {
+                            "Upload selfie"
+                        } else {
+                            "Upload or replace selfie"
+                        }
+                        stateDescription = when {
+                            uiState.isGenerating -> "Generating try-on"
+                            uiState.generatedImageUrl != null -> "Generated image shown"
+                            uiState.selectedImageUri != null -> "Selfie selected"
+                            else -> "No selfie selected"
+                        }
+                    }
                     .clickable { 
                         if (!uiState.isGenerating) {
                             photoPickerLauncher.launch(

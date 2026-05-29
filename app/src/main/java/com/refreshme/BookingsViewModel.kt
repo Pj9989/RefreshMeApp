@@ -71,6 +71,31 @@ class BookingsViewModel @Inject constructor(
         }
     }
 
+    fun confirmCompletion(bookingId: String) {
+        viewModelScope.launch {
+            val result = repository.confirmBookingCompletion(bookingId)
+            if (result.isFailure) {
+                _uiState.value = BookingsUiState.Error(
+                    "Could not confirm completion: ${result.exceptionOrNull()?.localizedMessage}"
+                )
+            }
+        }
+    }
+
+    fun disputeCompletion(bookingId: String) {
+        viewModelScope.launch {
+            val result = repository.disputeBookingCompletion(
+                bookingId,
+                "Customer reported an issue after stylist marked the session complete"
+            )
+            if (result.isFailure) {
+                _uiState.value = BookingsUiState.Error(
+                    "Could not report issue: ${result.exceptionOrNull()?.localizedMessage}"
+                )
+            }
+        }
+    }
+
     fun cancelBooking(bookingId: String) {
         viewModelScope.launch {
             try {

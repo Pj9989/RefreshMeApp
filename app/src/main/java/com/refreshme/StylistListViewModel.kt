@@ -219,8 +219,9 @@ class StylistListViewModel @Inject constructor(
                 if (stylist.offersAtHomeService != true) return@filter false
                 
                 // If we have user location, only show if within travel range
-                if (userLoc != null && stylist.location != null) {
-                    val distanceKm = calculateDistanceKm(userLoc, LatLng(stylist.location.latitude, stylist.location.longitude))
+                val stylistLoc = stylist.location
+                if (userLoc != null && stylistLoc != null) {
+                    val distanceKm = calculateDistanceKm(userLoc, LatLng(stylistLoc.latitude, stylistLoc.longitude))
                     distanceKm <= (stylist.maxTravelRangeKm ?: 15)
                 } else {
                     true // Show anyway if location unknown

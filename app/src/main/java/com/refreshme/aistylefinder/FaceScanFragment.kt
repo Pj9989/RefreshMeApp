@@ -63,6 +63,7 @@ class FaceScanFragment : Fragment() {
         binding.btnCapture.setOnClickListener { takePhoto() }
     }
 
+    @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     private fun takePhoto() {
         val imageCapture = imageCapture ?: return
 

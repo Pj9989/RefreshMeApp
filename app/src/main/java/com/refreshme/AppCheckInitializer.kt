@@ -7,6 +7,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
+import com.refreshme.BuildConfig
 
 /**
  * Initializes Firebase App Check for security.
@@ -21,7 +22,7 @@ object AppCheckInitializer {
         
         val isDebuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
-        if (isDebuggable) {
+        if (isDebuggable && BuildConfig.DEBUG) {
             Log.d("AppCheck", "Using DebugAppCheckProviderFactory for local testing.")
             firebaseAppCheck.installAppCheckProviderFactory(DebugAppCheckProviderFactory.getInstance())
             // Print this to logcat explicitly to grab the secret for the Firebase Console

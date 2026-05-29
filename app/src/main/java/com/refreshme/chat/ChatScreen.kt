@@ -2,8 +2,6 @@ package com.refreshme.chat
 
 import android.text.format.DateUtils
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,12 +24,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.refreshme.Role
+import com.refreshme.ui.components.rememberFirebaseImageModel
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,7 +45,7 @@ fun ChatScreen(
     val messages by viewModel.messages.collectAsState()
     val otherUserName by viewModel.otherUserName.collectAsState()
     val otherUserProfileImageUrl by viewModel.otherUserProfileImageUrl.collectAsState()
-    val isUploading by viewModel.isUploading.collectAsState()
+    val otherUserPresence by viewModel.otherUserPresence.collectAsState()
     val reportSuccess by viewModel.reportSuccess.collectAsState()
     val userRole by viewModel.currentUserRole.collectAsState()
     var newMessage by remember { mutableStateOf("") }
@@ -54,12 +54,6 @@ fun ChatScreen(
     
     var showMenu by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
-
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let { viewModel.sendImageMessage(otherUserId, it) }
-    }
 
     LaunchedEffect(Unit) {
         viewModel.toastMessage.collect { message ->
@@ -105,7 +99,7 @@ fun ChatScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
-                                .data(otherUserProfileImageUrl)
+                                .data(rememberFirebaseImageModel(otherUserProfileImageUrl))
                                 .crossfade(true)
                                 .build(),
                             contentDescription = "Profile Avatar",
@@ -116,9 +110,25 @@ fun ChatScreen(
                                 .background(Color.Gray)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(otherUserName, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            Text("Online", fontSize = 12.sp, color = Color(0xFF4CAF50))
+                        Column(modifier = Modifier.weight(1f, fill = false)) {
+                            Text(
+                                otherUserName,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                otherUserPresence,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = if (otherUserPresence == "Online now") {
+                                    Color(0xFF4CAF50)
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
                         }
                     }
                 },
@@ -153,13 +163,6 @@ fun ChatScreen(
         },
         bottomBar = {
             Column {
-                if (isUploading) {
-                    LinearProgressIndicator(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                
                 QuickReplyRow(
                     role = userRole,
                     onReplyClick = { viewModel.sendMessage(otherUserId, it) }
@@ -171,9 +174,6 @@ fun ChatScreen(
                         .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { launcher.launch("image/*") }) {
-                        Icon(Icons.Default.Image, contentDescription = "Send Image", tint = MaterialTheme.colorScheme.primary)
-                    }
                     OutlinedTextField(
                         value = newMessage,
                         onValueChange = { newMessage = it },
@@ -263,12 +263,14 @@ fun MessageBubble(
     val textColor = if (isFromMe) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
     val alignment = if (isFromMe) Alignment.CenterEnd else Alignment.CenterStart
 
-    val timeString = DateUtils.getRelativeTimeSpanString(
-        message.timestamp?.time ?: 0L,
-        System.currentTimeMillis(),
-        DateUtils.MINUTE_IN_MILLIS,
-        DateUtils.FORMAT_ABBREV_RELATIVE
-    ).toString()
+    val timeString = message.timestamp?.let {
+        DateUtils.getRelativeTimeSpanString(
+            it.time,
+            System.currentTimeMillis(),
+            DateUtils.MINUTE_IN_MILLIS,
+            DateUtils.FORMAT_ABBREV_RELATIVE
+        ).toString()
+    }
 
     Box(
         modifier = Modifier.fillMaxWidth(),
@@ -287,7 +289,7 @@ fun MessageBubble(
                 color = backgroundColor,
                 tonalElevation = 1.dp
             ) {
-                if (message.text == "[Image]" || message.text.startsWith("https://")) {
+                if (message.text.startsWith("https://")) {
                     AsyncImage(
                         model = message.text,
                         contentDescription = "Shared Image",
@@ -305,12 +307,14 @@ fun MessageBubble(
                     )
                 }
             }
-            Text(
-                text = timeString,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.padding(top = 2.dp, start = 4.dp, end = 4.dp)
-            )
+            if (timeString != null) {
+                Text(
+                    text = timeString,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(top = 2.dp, start = 4.dp, end = 4.dp)
+                )
+            }
         }
     }
 }

@@ -39,20 +39,60 @@ fun ManageServicesScreen(
     var serviceToEdit by remember { mutableStateOf<Service?>(null) }
     var isCreatingBundle by remember { mutableStateOf(false) }
 
-    val suggestedServices = listOf(
-        Service(name = "Classic Fade", price = 35.0, durationMinutes = 45),
-        Service(name = "Beard Sculpting", price = 20.0, durationMinutes = 20),
-        Service(name = "Royal Shave", price = 40.0, durationMinutes = 30),
-        Service(name = "Hair Coloring", price = 85.0, durationMinutes = 90)
+    // Categorised suggestions so the screen caters to all stylists
+    data class SuggestionGroup(val label: String, val services: List<Service>)
+    val suggestionGroups = listOf(
+        SuggestionGroup("Men's", listOf(
+            Service(name = "Classic Fade", price = 35.0, durationMinutes = 45),
+            Service(name = "Beard Sculpting", price = 20.0, durationMinutes = 20),
+            Service(name = "Line-Up / Edge", price = 20.0, durationMinutes = 20),
+            Service(name = "Taper Cut", price = 40.0, durationMinutes = 45),
+        )),
+        SuggestionGroup("Women's", listOf(
+            Service(name = "Blow Out", price = 50.0, durationMinutes = 60),
+            Service(name = "Silk Press", price = 65.0, durationMinutes = 75),
+            Service(name = "Color & Highlights", price = 85.0, durationMinutes = 90),
+            Service(name = "Natural Hair Style", price = 70.0, durationMinutes = 75),
+        )),
+        SuggestionGroup("All Hair", listOf(
+            Service(name = "Full Cut & Style", price = 55.0, durationMinutes = 60),
+            Service(name = "Kids Cut", price = 25.0, durationMinutes = 30),
+            Service(name = "Braids", price = 80.0, durationMinutes = 90),
+            Service(name = "Deep Condition", price = 35.0, durationMinutes = 45),
+            Service(name = "Twist Locs", price = 90.0, durationMinutes = 120),
+        )),
+        // Added in 3.0.5 alongside the Makeup category for multi-discipline pros.
+        SuggestionGroup("Makeup", listOf(
+            Service(name = "Natural / Day Makeup", price = 60.0, durationMinutes = 45),
+            Service(name = "Full Glam Makeup", price = 85.0, durationMinutes = 75),
+            Service(name = "Bridal Makeup", price = 150.0, durationMinutes = 90),
+            Service(name = "Special Event Makeup", price = 100.0, durationMinutes = 60),
+            Service(name = "Lashes Application", price = 30.0, durationMinutes = 20),
+        )),
+        // Added in 3.0.5 alongside the Nails category for multi-discipline pros.
+        SuggestionGroup("Nails", listOf(
+            Service(name = "Classic Manicure", price = 25.0, durationMinutes = 30),
+            Service(name = "Gel Manicure", price = 40.0, durationMinutes = 45),
+            Service(name = "Classic Pedicure", price = 35.0, durationMinutes = 45),
+            Service(name = "Gel Pedicure", price = 50.0, durationMinutes = 60),
+            Service(name = "Acrylic Full Set", price = 65.0, durationMinutes = 90),
+            Service(name = "Nail Art (Add-on)", price = 15.0, durationMinutes = 20),
+        )),
+        SuggestionGroup("Special / Add-ons", listOf(
+            Service(name = "Travel Prep Add-on", price = 15.0, durationMinutes = 15),
+            Service(name = "Extra Length / Density", price = 25.0, durationMinutes = 30),
+            Service(name = "After-Hours Appointment", price = 30.0, durationMinutes = 0),
+            Service(name = "Color Correction Consult", price = 40.0, durationMinutes = 30),
+            Service(name = "Bridal Trial Add-on", price = 75.0, durationMinutes = 60),
+        )),
     )
-
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { 
                     Column {
                         Text("Manage Menu", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("Set your services & packages", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Set services, add-ons & packages", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -75,7 +115,7 @@ fun ManageServicesScreen(
                             showEditDialog = true 
                         },
                         icon = { Icon(Icons.Default.ContentCut, "Service") },
-                        text = { Text("Single Service") },
+                        text = { Text("Service/Add-on") },
                         modifier = Modifier.padding(bottom = 8.dp),
                         containerColor = MaterialTheme.colorScheme.secondaryContainer
                     )
@@ -108,85 +148,138 @@ fun ManageServicesScreen(
                 }
             }
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0)
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            
-            Text(
-                "Quick Add Suggestions", 
-                color = MaterialTheme.colorScheme.onSurfaceVariant, 
-                fontSize = 12.sp, 
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
-            )
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(suggestedServices) { service ->
-                    SuggestionChip(service) { viewModel.addService(service) }
+        // Everything lives inside ONE scrollable LazyColumn so the whole
+        // page can scroll as a single unit. Quick-Add suggestion groups
+        // are item rows at the top; services follow underneath.
+        when (val state = uiState) {
+            is ServicesUiState.Loading -> {
+                Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
             }
+            is ServicesUiState.Error -> {
+                Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+                    Text(state.message, color = MaterialTheme.colorScheme.error, modifier = Modifier.align(Alignment.Center))
+                }
+            }
+            is ServicesUiState.Success -> {
+                val singleServices = state.services.filter { !it.isBundle }
+                val bundles = state.services.filter { it.isBundle }
+                val distinctServices = singleServices.distinctBy { "${it.name}_${it.price}_${it.durationMinutes}" }
 
-            Spacer(Modifier.height(20.dp))
+                LazyColumn(
+                    modifier = Modifier.padding(padding).fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 160.dp), // leave room for the FAB
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    // ---- Quick Add header ----
+                    item {
+                        Text(
+                            "Quick Add Suggestions",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+                        )
+                    }
 
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                when (val state = uiState) {
-                    is ServicesUiState.Loading -> {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                    }
-                    is ServicesUiState.Error -> {
-                        Text(state.message, color = MaterialTheme.colorScheme.error, modifier = Modifier.align(Alignment.Center))
-                    }
-                    is ServicesUiState.Success -> {
-                        if (state.services.isEmpty()) {
-                            EmptyServicesView()
-                        } else {
-                            val singleServices = state.services.filter { !it.isBundle }
-                            val bundles = state.services.filter { it.isBundle }
-                            
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 120.dp), // Extra padding for FAB
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    // ---- One row per suggestion category ----
+                    items(suggestionGroups) { group ->
+                        Column {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(start = 20.dp, top = 4.dp, bottom = 4.dp)
                             ) {
-                                if (bundles.isNotEmpty()) {
-                                    item {
-                                        Text("Service Bundles & Packages", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(top = 8.dp))
-                                    }
-                                    items(bundles) { bundle ->
-                                        ServiceManagementItem(
-                                            service = bundle,
-                                            onEdit = {
-                                                serviceToEdit = bundle
-                                                isCreatingBundle = true
-                                                showEditDialog = true
-                                            },
-                                            onDelete = { viewModel.deleteService(bundle.id) }
-                                        )
-                                    }
+                                val groupIcon = when (group.label) {
+                                    "Men's"   -> Icons.Default.Man
+                                    "Women's" -> Icons.Default.Woman
+                                    "Makeup"  -> Icons.Default.Brush
+                                    "Nails"   -> Icons.Default.Spa
+                                    "Special / Add-ons" -> Icons.Default.Star
+                                    else      -> Icons.Default.People
                                 }
-                                
-                                if (singleServices.isNotEmpty()) {
-                                    item {
-                                        Text("A La Carte Services", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(top = 8.dp))
-                                    }
-                                    // Make sure we filter out true duplicates from the UI side in case db has dupes
-                                    val distinctServices = singleServices.distinctBy { "${it.name}_${it.price}_${it.durationMinutes}" }
-                                    
-                                    items(distinctServices) { service ->
-                                        ServiceManagementItem(
-                                            service = service,
-                                            onEdit = {
-                                                serviceToEdit = service
-                                                isCreatingBundle = false
-                                                showEditDialog = true
-                                            },
-                                            onDelete = { 
-                                                viewModel.deleteService(service.id) 
-                                            }
-                                        )
-                                    }
+                                Icon(groupIcon, contentDescription = group.label,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(group.label,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 20.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.padding(bottom = 10.dp)
+                            ) {
+                                items(group.services) { service ->
+                                    SuggestionChip(service) { viewModel.addService(service) }
+                                }
+                            }
+                        }
+                    }
+
+                    // ---- Your menu section ----
+                    item { Spacer(Modifier.height(12.dp)) }
+
+                    if (state.services.isEmpty()) {
+                        item {
+                            Box(modifier = Modifier.fillMaxWidth().height(260.dp)) {
+                                EmptyServicesView()
+                            }
+                        }
+                    } else {
+                        if (bundles.isNotEmpty()) {
+                            item {
+                                Text(
+                                    "Service Bundles & Packages",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 8.dp)
+                                )
+                            }
+                            items(bundles) { bundle ->
+                                Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
+                                    ServiceManagementItem(
+                                        service = bundle,
+                                        onEdit = {
+                                            serviceToEdit = bundle
+                                            isCreatingBundle = true
+                                            showEditDialog = true
+                                        },
+                                        onDelete = { viewModel.deleteService(bundle.id) }
+                                    )
+                                }
+                            }
+                        }
+
+                        if (distinctServices.isNotEmpty()) {
+                            item {
+                                Text(
+                                    "A La Carte Services",
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 8.dp)
+                                )
+                            }
+                            items(distinctServices) { service ->
+                                Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
+                                    ServiceManagementItem(
+                                        service = service,
+                                        onEdit = {
+                                            serviceToEdit = service
+                                            isCreatingBundle = false
+                                            showEditDialog = true
+                                        },
+                                        onDelete = {
+                                            viewModel.deleteService(service.id)
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -348,7 +441,7 @@ fun ServiceEditDialog(
                 OutlinedTextField(
                     value = name, 
                     onValueChange = { name = it }, 
-                    label = { Text(if (isBundle) "Package Name (e.g. The Ultimate Refresh)" else "Service Name") },
+                    label = { Text(if (isBundle) "Package Name (e.g. The Ultimate Refresh)" else "Service or Add-on Name") },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = MaterialTheme.colorScheme.onSurface,
                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface

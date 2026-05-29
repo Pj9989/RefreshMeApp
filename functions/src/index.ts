@@ -6,6 +6,7 @@ import { onCall } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import Stripe from "stripe";
 import { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } from "firebase-functions/v2/firestore";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { VertexAI } from "@google-cloud/vertexai";
 
 admin.initializeApp();
@@ -13,6 +14,8 @@ admin.initializeApp();
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const replicateApiToken = defineSecret("REPLICATE_API_TOKEN");
+const DEFAULT_VIRTUAL_TRY_ON_MODEL_VERSION =
+  "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b";
 
 // Deposit rate constant (20%)
 const DEPOSIT_RATE = 0.20;
@@ -73,23 +76,46 @@ function notificationChannelForType(type: unknown): string {
   return "default_channel";
 }
 
+function publicProfileFrom(data: Record<string, any>, role: "CUSTOMER" | "STYLIST") {
+  const name = stringValue(data.name) || stringValue(data.displayName);
+  const profileImageUrl = stringValue(data.profileImageUrl) || stringValue(data.imageUrl);
+  return {
+    name,
+    displayName: name,
+    profileImageUrl,
+    imageUrl: profileImageUrl,
+    role,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+}
+
+function publicUserRoleFrom(data: Record<string, any>): "CUSTOMER" | "STYLIST" {
+  const role = stringValue(data.role) || stringValue(data.userRoleValue);
+  return role.toUpperCase() === "STYLIST" ? "STYLIST" : "CUSTOMER";
+}
+
 function isCompletedStatus(status: unknown): boolean {
   return typeof status === "string" && status.toUpperCase() === "COMPLETED";
 }
 
+function normalizedStatus(status: unknown): string {
+  return typeof status === "string" ? status.trim().toUpperCase() : "";
+}
+
 function isCancelledStatus(status: unknown): boolean {
-  return typeof status === "string" && ["CANCELLED", "CANCELED"].includes(status.toUpperCase());
+  return ["CANCELLED", "CANCELED"].includes(normalizedStatus(status));
 }
 
 function isTerminalStatus(status: unknown): boolean {
-  return typeof status === "string" && [
+  return [
     "CANCELLED",
     "CANCELED",
     "DECLINED",
     "COMPLETED",
+    "COMPLETION_DISPUTED",
     "PAYMENT_CANCELLED",
     "PAYMENT_FAILED",
-  ].includes(status.toUpperCase());
+  ].includes(normalizedStatus(status));
 }
 
 async function awardLoyaltyPointsForCompletedBooking(bookingId: string): Promise<void> {
@@ -166,6 +192,7 @@ export const onUserDeleted = legacyFunctions.auth.user().onDelete(async (user) =
 
     // 2. Delete stylist profile if it exists
     batch.delete(db.collection("stylists").doc(uid));
+    batch.delete(db.collection("publicUserProfiles").doc(uid));
 
     // 3. Mark their bookings as 'cancelled' or anonymize them
     const bookingsSnapshot = await db.collection("bookings").where("userId", "==", uid).get();
@@ -182,6 +209,42 @@ export const onUserDeleted = legacyFunctions.auth.user().onDelete(async (user) =
 });
 
 // --- FIRESTORE TRIGGERS ---
+
+export const syncPublicUserProfileOnCreate = onDocumentCreated("users/{userId}", async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+    await admin.firestore()
+        .collection("publicUserProfiles")
+        .doc(event.params.userId)
+        .set(publicProfileFrom(snapshot.data(), publicUserRoleFrom(snapshot.data())), { merge: true });
+});
+
+export const syncPublicUserProfileOnUpdate = onDocumentUpdated("users/{userId}", async (event) => {
+    const snapshot = event.data?.after;
+    if (!snapshot) return;
+    await admin.firestore()
+        .collection("publicUserProfiles")
+        .doc(event.params.userId)
+        .set(publicProfileFrom(snapshot.data(), publicUserRoleFrom(snapshot.data())), { merge: true });
+});
+
+export const syncPublicStylistProfileOnCreate = onDocumentCreated("stylists/{stylistId}", async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+    await admin.firestore()
+        .collection("publicUserProfiles")
+        .doc(event.params.stylistId)
+        .set(publicProfileFrom(snapshot.data(), "STYLIST"), { merge: true });
+});
+
+export const syncPublicStylistProfileOnUpdate = onDocumentUpdated("stylists/{stylistId}", async (event) => {
+    const snapshot = event.data?.after;
+    if (!snapshot) return;
+    await admin.firestore()
+        .collection("publicUserProfiles")
+        .doc(event.params.stylistId)
+        .set(publicProfileFrom(snapshot.data(), "STYLIST"), { merge: true });
+});
 
 // 1. STYLE RECOMMENDATIONS
 export const generateStyleRecommendations = onDocumentCreated("aiStyleRequests/{requestId}", async (event) => {
@@ -258,6 +321,20 @@ export const onBookingUpdated = onDocumentUpdated("bookings/{bookingId}", async 
         } else if (newData.status === "DECLINED" || newData.status === "declined") {
             title = "Booking Declined ?";
             body = `Unfortunately, ${stylistName} could not accept your request at this time.`;
+        } else if (newData.status === "AWAITING_CUSTOMER_CONFIRMATION") {
+            title = "Confirm your session";
+            body = `${stylistName} marked your session complete. Please confirm or report an issue within 24 hours.`;
+        } else if (newData.status === "COMPLETED") {
+            title = "Session completed";
+            body = "Thanks for booking with RefreshMe. You can now leave a rating.";
+        } else if (newData.status === "COMPLETION_DISPUTED") {
+            await sendPushNotification(
+                newData.stylistId,
+                "Completion disputed",
+                `${newData.customerName || "Your client"} reported an issue. Payout is paused for review.`,
+                { type: "booking", targetId: event.params.bookingId }
+            );
+            return;
         } else if (newData.status === "DEPOSIT_PAID" || newData.status === "paid") {
             // Stylist might want to know
             await sendPushNotification(
@@ -286,6 +363,7 @@ export const onConversationMessageCreated = onDocumentCreated("conversations/{ch
     if (!snapshot) return;
     const message = snapshot.data();
     const chatId = event.params.chatId;
+    const messageId = event.params.messageId;
     const senderId = message.senderId as string;
     if (!senderId) return;
 
@@ -297,6 +375,61 @@ export const onConversationMessageCreated = onDocumentCreated("conversations/{ch
     } catch (e) {
         console.warn("Could not fetch conversation doc");
         return;
+    }
+
+    if (!participants.includes(senderId)) {
+        console.warn(`Sender ${senderId} is not a participant in conversation ${chatId}`);
+        return;
+    }
+
+    // Android still reads from chats/{sortedUserIds}/messages and its inbox reads
+    // users/{uid}/conversations. Mirror the iOS/Flutter conversation write so both
+    // clients see the same message instead of only receiving a push notification.
+    if (participants.length === 2) {
+        const recipientId = participants.find((p) => p !== senderId);
+        if (recipientId) {
+            const androidChatId = [...participants].sort().join("_");
+            const chatRef = admin.firestore().collection("chats").doc(androidChatId);
+            const mirroredMessageRef = chatRef.collection("messages").doc(messageId);
+            await admin.firestore().runTransaction(async (transaction) => {
+                transaction.set(chatRef, {
+                    participants: [...participants].sort(),
+                    lastMessage: message.text || "Sent a message",
+                    lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+                    lastMessageTimestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    lastSenderId: senderId,
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    sourceConversationId: chatId,
+                }, { merge: true });
+
+                transaction.set(mirroredMessageRef, {
+                    ...message,
+                    senderId,
+                    receiverId: recipientId,
+                    timestamp: message.timestamp || admin.firestore.FieldValue.serverTimestamp(),
+                    mirroredFrom: "conversations",
+                    sourceConversationId: chatId,
+                }, { merge: true });
+
+                for (const participantId of participants) {
+                    const otherUserId = participantId === senderId ? recipientId : senderId;
+                    transaction.set(
+                        admin.firestore()
+                            .collection("users")
+                            .doc(participantId)
+                            .collection("conversations")
+                            .doc(otherUserId),
+                        {
+                            otherUserId,
+                            lastMessage: message.text || "Sent a message",
+                            lastMessageTime: admin.firestore.FieldValue.serverTimestamp(),
+                            lastSenderId: senderId,
+                        },
+                        { merge: true }
+                    );
+                }
+            });
+        }
     }
 
     // Resolve sender display name
@@ -320,7 +453,7 @@ export const onConversationMessageCreated = onDocumentCreated("conversations/{ch
             recipientId,
             `New Message from ${senderName}`,
             message.text || "Sent a message",
-            { type: "chat", targetId: chatId }
+            { type: "chat", targetId: chatId, chatId, senderId }
         );
     }
 });
@@ -330,6 +463,7 @@ export const onMessageCreated = onDocumentCreated("chats/{chatId}/messages/{mess
     const snapshot = event.data;
     if (!snapshot) return;
     const message = snapshot.data();
+    if (message.mirroredFrom === "conversations") return;
     const receiverId = message.receiverId;
     const senderId = message.senderId;
     if (!receiverId) return;
@@ -376,12 +510,10 @@ export const onFlashDealCreated = onDocumentUpdated("stylists/{stylistId}", asyn
 // --- STRIPE CONNECT & PAYMENTS ---
 
 const PLATFORM_FEE_PERCENT = 0.10; // RefreshMe takes 10% of every booking
-// App Check soft-enforcement: tokens are validated when present but missing/invalid
-// tokens are NOT rejected. This unblocks iOS (com.refreshmeapp.refreshme) while the
-// App Attest debug token (901BCBA6-CF7A-4114-BEB0-4967956873F3) propagates and is
-// confirmed working end-to-end. Re-enable hard enforcement (enforceAppCheck: true)
-// once iOS App Check is verified in production builds.
-const CALLABLE_APP_CHECK_OPTIONS = { enforceAppCheck: false };
+// Production callables require App Check. Keep Firebase Console enrollment in
+// sync with every shipped bundle/package before deploying changes here.
+const CALLABLE_APP_CHECK_OPTIONS = { enforceAppCheck: true };
+const VIRTUAL_TRY_ON_APP_CHECK_OPTIONS = { enforceAppCheck: false };
 
 type ServiceCatalogItem = {
   id?: string;
@@ -419,11 +551,78 @@ function connectStatusUpdate(account: Stripe.Account) {
 }
 
 function requirePayoutReady(account: Stripe.Account) {
-  if (!account.charges_enabled || !account.details_submitted) {
+  if (!account.charges_enabled || !account.details_submitted || !account.payouts_enabled) {
     throw new functions.https.HttpsError(
       "failed-precondition",
       "This stylist has not finished payout setup yet. Please choose another stylist or try again after they complete Stripe onboarding.",
     );
+  }
+}
+
+function isHttpsError(error: any): boolean {
+  return Boolean(error?.code && error?.message && error?.httpErrorCode);
+}
+
+function friendlyStripeBookingError(error: any): functions.https.HttpsError {
+  const code = stringValue(error?.code);
+  const message = stringValue(error?.message);
+  const type = stringValue(error?.type);
+  const declineCode = stringValue(error?.decline_code);
+
+  console.error("Stripe booking setup error:", {
+    code,
+    type,
+    declineCode,
+    message,
+    requestId: error?.requestId,
+  });
+
+  if (
+    code === "account_invalid" ||
+    code === "resource_missing" ||
+    code === "parameter_invalid_empty" ||
+    message.toLowerCase().includes("no such account") ||
+    message.toLowerCase().includes("destination")
+  ) {
+    return new functions.https.HttpsError(
+      "failed-precondition",
+      "This stylist's payout account is not ready for in-app payments yet. Please ask the stylist to finish Stripe payout setup and try again.",
+    );
+  }
+
+  if (
+    code === "amount_too_small" ||
+    code === "amount_too_large" ||
+    message.toLowerCase().includes("amount")
+  ) {
+    return new functions.https.HttpsError(
+      "failed-precondition",
+      "This service price cannot be charged right now. Please choose another service or ask the stylist to update pricing.",
+    );
+  }
+
+  return new functions.https.HttpsError(
+    "internal",
+    "Payment setup failed. Please try again in a moment.",
+  );
+}
+
+async function retrieveReadyConnectAccount(
+  stripe: Stripe,
+  accountId: string,
+  stylistId: string,
+): Promise<Stripe.Account> {
+  try {
+    const connectedAccount = await stripe.accounts.retrieve(accountId);
+    requirePayoutReady(connectedAccount);
+    await admin.firestore().collection("stylists").doc(stylistId).set(
+      connectStatusUpdate(connectedAccount),
+      { merge: true },
+    );
+    return connectedAccount;
+  } catch (error: any) {
+    if (isHttpsError(error)) throw error;
+    throw friendlyStripeBookingError(error);
   }
 }
 
@@ -849,11 +1048,12 @@ export const createIdentityVerificationSession = onCall({ ...CALLABLE_APP_CHECK_
 
       const ephemeralKey = await stripe.ephemeralKeys.create(
         { verification_session: session.id },
-        { apiVersion: "2023-10-16" } as any
+        { apiVersion: "2020-08-27;identity_client_api=v7" } as any
       );
 
       return {
         id: session.id,
+        ephemeral_key_secret: ephemeralKey.secret,
         client_secret: ephemeralKey.secret,
         url: session.url ?? null,
       };
@@ -880,11 +1080,10 @@ export const createBookingPaymentIntent = onCall({ ...CALLABLE_APP_CHECK_OPTIONS
       );
     }
 
-    const connectedAccount = await stripe.accounts.retrieve(prepared.stylistStripeAccountId);
-    requirePayoutReady(connectedAccount);
-    await admin.firestore().collection("stylists").doc(prepared.bookingData.stylistId).set(
-      connectStatusUpdate(connectedAccount),
-      { merge: true },
+    await retrieveReadyConnectAccount(
+      stripe,
+      prepared.stylistStripeAccountId,
+      prepared.bookingData.stylistId,
     );
 
     let customer: Stripe.Customer;
@@ -914,7 +1113,12 @@ export const createBookingPaymentIntent = onCall({ ...CALLABLE_APP_CHECK_OPTIONS
     paymentIntentParams.application_fee_amount = Math.round(prepared.depositAmountCents * PLATFORM_FEE_PERCENT);
     paymentIntentParams.transfer_data = { destination: prepared.stylistStripeAccountId };
 
-    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
+    let paymentIntent: Stripe.PaymentIntent;
+    try {
+      paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
+    } catch (error: any) {
+      throw friendlyStripeBookingError(error);
+    }
 
     const bookingData = {
       ...prepared.bookingData,
@@ -930,8 +1134,9 @@ export const createBookingPaymentIntent = onCall({ ...CALLABLE_APP_CHECK_OPTIONS
       servicePrice: prepared.servicePrice,
     };
   } catch (error: any) {
-    if (error instanceof functions.https.HttpsError) throw error;
-    throw new functions.https.HttpsError("internal", error.message);
+    console.error("createBookingPaymentIntent error:", error);
+    if (isHttpsError(error)) throw error;
+    throw friendlyStripeBookingError(error);
   }
 });
 
@@ -1033,6 +1238,160 @@ export const rescheduleBooking = onCall(CALLABLE_APP_CHECK_OPTIONS, async (reque
   return { status: "REQUESTED" };
 });
 
+export const requestBookingCompletion = onCall(CALLABLE_APP_CHECK_OPTIONS, async (request) => {
+  if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+
+  const bookingId = stringValue(request.data?.bookingId);
+  if (!bookingId) {
+    throw new functions.https.HttpsError("invalid-argument", "bookingId is required");
+  }
+
+  const db = admin.firestore();
+  const bookingRef = db.collection("bookings").doc(bookingId);
+  const completionAutoConfirmAt = admin.firestore.Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000);
+
+  await db.runTransaction(async (txn) => {
+    const bookingSnap = await txn.get(bookingRef);
+    if (!bookingSnap.exists) {
+      throw new functions.https.HttpsError("not-found", "Booking not found");
+    }
+
+    const booking = bookingSnap.data() || {};
+    if (request.auth?.uid !== booking.stylistId) {
+      throw new functions.https.HttpsError("permission-denied", "Only the stylist can finish this session");
+    }
+
+    const status = normalizedStatus(booking.status);
+    if (status === "COMPLETED" || status === "AWAITING_CUSTOMER_CONFIRMATION") return;
+    if (!["IN_PROGRESS", "ON_THE_WAY", "DEPOSIT_PAID", "ACCEPTED", "CONFIRMED"].includes(status)) {
+      throw new functions.https.HttpsError("failed-precondition", "This booking is not ready to finish");
+    }
+
+    txn.update(bookingRef, {
+      status: "AWAITING_CUSTOMER_CONFIRMATION",
+      completionRequestedAt: admin.firestore.FieldValue.serverTimestamp(),
+      completionRequestedBy: request.auth?.uid,
+      completionAutoConfirmAt,
+      payoutStatus: "pending_customer_confirmation",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  return { status: "AWAITING_CUSTOMER_CONFIRMATION", autoConfirmAt: completionAutoConfirmAt.toMillis() };
+});
+
+export const confirmBookingCompletion = onCall(CALLABLE_APP_CHECK_OPTIONS, async (request) => {
+  if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+
+  const bookingId = stringValue(request.data?.bookingId);
+  if (!bookingId) {
+    throw new functions.https.HttpsError("invalid-argument", "bookingId is required");
+  }
+
+  const db = admin.firestore();
+  const bookingRef = db.collection("bookings").doc(bookingId);
+
+  await db.runTransaction(async (txn) => {
+    const bookingSnap = await txn.get(bookingRef);
+    if (!bookingSnap.exists) {
+      throw new functions.https.HttpsError("not-found", "Booking not found");
+    }
+
+    const booking = bookingSnap.data() || {};
+    const uid = request.auth?.uid;
+    if (uid !== booking.customerId && uid !== booking.userId) {
+      throw new functions.https.HttpsError("permission-denied", "Only the customer can confirm completion");
+    }
+
+    const status = normalizedStatus(booking.status);
+    if (status === "COMPLETED") return;
+    if (status !== "AWAITING_CUSTOMER_CONFIRMATION") {
+      throw new functions.https.HttpsError("failed-precondition", "This booking is not awaiting customer confirmation");
+    }
+
+    txn.update(bookingRef, {
+      status: "COMPLETED",
+      customerConfirmedAt: admin.firestore.FieldValue.serverTimestamp(),
+      customerConfirmedBy: uid,
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      payoutStatus: "eligible",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  await awardLoyaltyPointsForCompletedBooking(bookingId);
+  return { status: "COMPLETED" };
+});
+
+export const disputeBookingCompletion = onCall(CALLABLE_APP_CHECK_OPTIONS, async (request) => {
+  if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+
+  const bookingId = stringValue(request.data?.bookingId);
+  if (!bookingId) {
+    throw new functions.https.HttpsError("invalid-argument", "bookingId is required");
+  }
+
+  const reason = stringValue(request.data?.reason) || "Customer disputed session completion";
+  const db = admin.firestore();
+  const bookingRef = db.collection("bookings").doc(bookingId);
+
+  await db.runTransaction(async (txn) => {
+    const bookingSnap = await txn.get(bookingRef);
+    if (!bookingSnap.exists) {
+      throw new functions.https.HttpsError("not-found", "Booking not found");
+    }
+
+    const booking = bookingSnap.data() || {};
+    const uid = request.auth?.uid;
+    if (uid !== booking.customerId && uid !== booking.userId) {
+      throw new functions.https.HttpsError("permission-denied", "Only the customer can dispute completion");
+    }
+
+    if (normalizedStatus(booking.status) !== "AWAITING_CUSTOMER_CONFIRMATION") {
+      throw new functions.https.HttpsError("failed-precondition", "This booking is not awaiting customer confirmation");
+    }
+
+    txn.update(bookingRef, {
+      status: "COMPLETION_DISPUTED",
+      disputeReason: reason.slice(0, 500),
+      disputedAt: admin.firestore.FieldValue.serverTimestamp(),
+      disputedBy: uid,
+      payoutStatus: "paused_dispute",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  return { status: "COMPLETION_DISPUTED" };
+});
+
+export const autoConfirmPendingBookingCompletions = onSchedule("every 30 minutes", async () => {
+  const db = admin.firestore();
+  const now = admin.firestore.Timestamp.now();
+  const snapshot = await db.collection("bookings")
+    .where("status", "==", "AWAITING_CUSTOMER_CONFIRMATION")
+    .where("completionAutoConfirmAt", "<=", now)
+    .limit(100)
+    .get();
+
+  const batch = db.batch();
+  snapshot.docs.forEach((doc) => {
+    batch.update(doc.ref, {
+      status: "COMPLETED",
+      autoConfirmedAt: admin.firestore.FieldValue.serverTimestamp(),
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      payoutStatus: "eligible",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  if (!snapshot.empty) {
+    await batch.commit();
+    await Promise.all(snapshot.docs.map((doc) => awardLoyaltyPointsForCompletedBooking(doc.id)));
+  }
+
+  console.log(`Auto-confirmed ${snapshot.size} pending booking completions.`);
+});
+
 
 // --- STRIPE CHECKOUT (SAFARI / WEB) ---
 
@@ -1051,11 +1410,10 @@ export const createCheckoutSession = onCall({ ...CALLABLE_APP_CHECK_OPTIONS, inv
       );
     }
 
-    const connectedAccount = await stripe.accounts.retrieve(prepared.stylistStripeAccountId);
-    requirePayoutReady(connectedAccount);
-    await admin.firestore().collection("stylists").doc(prepared.bookingData.stylistId).set(
-      connectStatusUpdate(connectedAccount),
-      { merge: true },
+    await retrieveReadyConnectAccount(
+      stripe,
+      prepared.stylistStripeAccountId,
+      prepared.bookingData.stylistId,
     );
 
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
@@ -1082,7 +1440,12 @@ export const createCheckoutSession = onCall({ ...CALLABLE_APP_CHECK_OPTIONS, inv
       transfer_data: { destination: prepared.stylistStripeAccountId },
     };
 
-    const session = await stripe.checkout.sessions.create(sessionParams);
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams);
+    } catch (error: any) {
+      throw friendlyStripeBookingError(error);
+    }
 
     const bookingData = {
       ...prepared.bookingData,
@@ -1100,8 +1463,8 @@ export const createCheckoutSession = onCall({ ...CALLABLE_APP_CHECK_OPTIONS, inv
     };
   } catch (error: any) {
     console.error("createCheckoutSession error:", error);
-    if (error instanceof functions.https.HttpsError) throw error;
-    throw new functions.https.HttpsError("internal", error.message);
+    if (isHttpsError(error)) throw error;
+    throw friendlyStripeBookingError(error);
   }
 });
 
@@ -1279,21 +1642,46 @@ export const getConnectAccountStatus = onCall({ ...CALLABLE_APP_CHECK_OPTIONS, i
   }
 });
 
+function buildVirtualTryOnPrompt(prompt: string): string {
+  return [
+    prompt.trim(),
+    "Photorealistic mobile selfie edit.",
+    "Change only the hairstyle and visible hair color/texture requested.",
+    "Preserve the exact same face, identity, skin texture, expression, eyes, nose, mouth, jawline, pose, body, clothing, background, camera angle, and lighting.",
+    "Natural salon-quality hair with realistic strands, hairline, shadows, and blending.",
+    "No beauty filter, no face retouching, no face swap, no age change.",
+  ].join(" ");
+}
+
 export const runVirtualTryOn = onCall({
-  ...CALLABLE_APP_CHECK_OPTIONS,
+  ...VIRTUAL_TRY_ON_APP_CHECK_OPTIONS,
   secrets: [replicateApiToken],
   timeoutSeconds: 180,
   memory: "1GiB",
 }, async (request) => {
   if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
 
-  const image = stringValue(request.data?.image);
+  const rawImage = stringValue(request.data?.image) || stringValue(request.data?.base64Image);
+  const image = rawImage.startsWith("data:")
+    ? rawImage
+    : rawImage
+      ? `data:image/jpeg;base64,${rawImage}`
+      : "";
   const prompt = stringValue(request.data?.prompt);
+  const modelVersion = stringValue(request.data?.modelVersion) || DEFAULT_VIRTUAL_TRY_ON_MODEL_VERSION;
   const negativePrompt = stringValue(request.data?.negativePrompt) ||
-    "nsfw, lowres, bad anatomy, bad hands, text, watermark, blurry";
+    "nsfw, lowres, bad anatomy, deformed face, altered face, different person, face swap, changed identity, changed eyes, changed nose, changed mouth, changed jaw, plastic skin, airbrushed skin, beauty filter, doll, cartoon, illustration, 3d render, painting, text, watermark, blurry, jpeg artifacts";
 
-  if (!image || !prompt) {
-    throw new functions.https.HttpsError("invalid-argument", "image and prompt are required");
+  const missingFields = [
+    !image ? "base64Image" : "",
+    !prompt ? "prompt" : "",
+    !modelVersion ? "modelVersion" : "",
+  ].filter(Boolean);
+  if (missingFields.length > 0) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      `Missing required fields: ${missingFields.join(", ")}`,
+    );
   }
 
   const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
@@ -1303,14 +1691,14 @@ export const runVirtualTryOn = onCall({
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      version: "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+      version: modelVersion,
       input: {
         image,
         input_image: image,
-        prompt,
+        prompt: buildVirtualTryOnPrompt(prompt),
         negative_prompt: negativePrompt,
-        prompt_strength: 0.55,
-        style_strength_ratio: 20,
+        prompt_strength: 0.38,
+        style_strength_ratio: 12,
         num_outputs: 1,
       },
     }),

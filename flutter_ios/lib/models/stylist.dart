@@ -16,7 +16,13 @@ class Stylist {
   final List<Service> services;
   final String? bio;
   final String? address;
+  final String? salonAddress;
+  final String? businessAddress;
+  final String? serviceLocationType;
   final String? specialty;
+  final bool offersAtHomeService;
+  final double atHomeServiceFee;
+  final int maxTravelRangeKm;
 
   // ── Stripe Connect fields (new) ──────────────────
   /// Stripe Connect Express account ID.
@@ -25,6 +31,9 @@ class Stylist {
 
   /// "active" | "pending" | null
   final String? stripeAccountStatus;
+  final bool? stripeChargesEnabled;
+  final bool? stripePayoutsEnabled;
+  final bool? stripeOnboardingComplete;
   // ─────────────────────────────────────────────────
 
   const Stylist({
@@ -37,12 +46,45 @@ class Stylist {
     this.services = const [],
     this.bio,
     this.address,
+    this.salonAddress,
+    this.businessAddress,
+    this.serviceLocationType,
     this.specialty,
+    this.offersAtHomeService = false,
+    this.atHomeServiceFee = 0.0,
+    this.maxTravelRangeKm = 15,
     this.stripeAccountId,
     this.stripeAccountStatus,
+    this.stripeChargesEnabled,
+    this.stripePayoutsEnabled,
+    this.stripeOnboardingComplete,
   });
 
-  bool get hasActivePayoutAccount => stripeAccountStatus == 'active';
+  bool get hasActivePayoutAccount =>
+      stripeAccountStatus == 'active' ||
+      stripeOnboardingComplete == true ||
+      (stripeChargesEnabled == true && stripePayoutsEnabled == true);
+
+  String? get displayAddress {
+    for (final value in [salonAddress, address, businessAddress]) {
+      final trimmed = value?.trim();
+      if (trimmed != null && trimmed.isNotEmpty) return trimmed;
+    }
+    return null;
+  }
+
+  bool get hasFixedPublicLocation {
+    final loc = location;
+    if (loc == null) return false;
+    if (loc.latitude == 0.0 && loc.longitude == 0.0) return false;
+
+    final fixedByType = serviceLocationType == 'fixed';
+    final legacyFixedProfile =
+        (serviceLocationType == null || serviceLocationType!.trim().isEmpty) &&
+        !offersAtHomeService;
+    return (fixedByType || legacyFixedProfile) &&
+        (displayAddress?.isNotEmpty ?? false);
+  }
 
   factory Stylist.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -53,15 +95,25 @@ class Stylist {
       rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
       isAvailable: data['isAvailable'] as bool? ?? true,
       location: data['location'] as GeoPoint?,
-      services: (data['services'] as List<dynamic>?)
+      services:
+          (data['services'] as List<dynamic>?)
               ?.map((s) => Service.fromMap(s as Map<String, dynamic>))
               .toList() ??
           [],
       bio: data['bio'] as String?,
       address: data['address'] as String?,
+      salonAddress: data['salonAddress'] as String?,
+      businessAddress: data['businessAddress'] as String?,
+      serviceLocationType: data['serviceLocationType'] as String?,
       specialty: data['specialty'] as String?,
+      offersAtHomeService: data['offersAtHomeService'] as bool? ?? false,
+      atHomeServiceFee: (data['atHomeServiceFee'] as num?)?.toDouble() ?? 0.0,
+      maxTravelRangeKm: (data['maxTravelRangeKm'] as num?)?.toInt() ?? 15,
       stripeAccountId: data['stripeAccountId'] as String?,
       stripeAccountStatus: data['stripeAccountStatus'] as String?,
+      stripeChargesEnabled: data['stripeChargesEnabled'] as bool?,
+      stripePayoutsEnabled: data['stripePayoutsEnabled'] as bool?,
+      stripeOnboardingComplete: data['stripeOnboardingComplete'] as bool?,
     );
   }
 
@@ -75,9 +127,18 @@ class Stylist {
       'services': services.map((s) => s.toMap()).toList(),
       'bio': bio,
       'address': address,
+      'salonAddress': salonAddress,
+      'businessAddress': businessAddress,
+      'serviceLocationType': serviceLocationType,
       'specialty': specialty,
+      'offersAtHomeService': offersAtHomeService,
+      'atHomeServiceFee': atHomeServiceFee,
+      'maxTravelRangeKm': maxTravelRangeKm,
       'stripeAccountId': stripeAccountId,
       'stripeAccountStatus': stripeAccountStatus,
+      'stripeChargesEnabled': stripeChargesEnabled,
+      'stripePayoutsEnabled': stripePayoutsEnabled,
+      'stripeOnboardingComplete': stripeOnboardingComplete,
     };
   }
 
@@ -91,9 +152,18 @@ class Stylist {
     List<Service>? services,
     String? bio,
     String? address,
+    String? salonAddress,
+    String? businessAddress,
+    String? serviceLocationType,
     String? specialty,
+    bool? offersAtHomeService,
+    double? atHomeServiceFee,
+    int? maxTravelRangeKm,
     String? stripeAccountId,
     String? stripeAccountStatus,
+    bool? stripeChargesEnabled,
+    bool? stripePayoutsEnabled,
+    bool? stripeOnboardingComplete,
   }) {
     return Stylist(
       id: id ?? this.id,
@@ -105,9 +175,19 @@ class Stylist {
       services: services ?? this.services,
       bio: bio ?? this.bio,
       address: address ?? this.address,
+      salonAddress: salonAddress ?? this.salonAddress,
+      businessAddress: businessAddress ?? this.businessAddress,
+      serviceLocationType: serviceLocationType ?? this.serviceLocationType,
       specialty: specialty ?? this.specialty,
+      offersAtHomeService: offersAtHomeService ?? this.offersAtHomeService,
+      atHomeServiceFee: atHomeServiceFee ?? this.atHomeServiceFee,
+      maxTravelRangeKm: maxTravelRangeKm ?? this.maxTravelRangeKm,
       stripeAccountId: stripeAccountId ?? this.stripeAccountId,
       stripeAccountStatus: stripeAccountStatus ?? this.stripeAccountStatus,
+      stripeChargesEnabled: stripeChargesEnabled ?? this.stripeChargesEnabled,
+      stripePayoutsEnabled: stripePayoutsEnabled ?? this.stripePayoutsEnabled,
+      stripeOnboardingComplete:
+          stripeOnboardingComplete ?? this.stripeOnboardingComplete,
     );
   }
 }

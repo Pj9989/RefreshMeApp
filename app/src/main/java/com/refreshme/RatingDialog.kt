@@ -9,6 +9,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.refreshme.data.Booking
 
@@ -38,7 +43,14 @@ fun RatingDialog(
                 ) {
                     repeat(5) { index ->
                         val starIndex = index + 1
-                        IconButton(onClick = { rating = starIndex.toDouble() }) {
+                        IconButton(
+                            onClick = { rating = starIndex.toDouble() },
+                            modifier = Modifier.semantics {
+                                role = Role.Button
+                                contentDescription = "Rate $starIndex ${if (starIndex == 1) "star" else "stars"}"
+                                stateDescription = if (starIndex <= rating) "Selected" else "Not selected"
+                            }
+                        ) {
                             Icon(
                                 imageVector = if (starIndex <= rating) Icons.Filled.Star else Icons.Outlined.StarOutline,
                                 contentDescription = null,

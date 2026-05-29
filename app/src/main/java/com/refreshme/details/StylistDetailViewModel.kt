@@ -224,7 +224,7 @@ class StylistDetailViewModel @Inject constructor(
                     "roleReported" to "STYLIST",
                     "reason" to reason,
                     "details" to details,
-                    "timestamp" to com.google.firebase.Timestamp.now(),
+                    "timestamp" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
                     "status" to "PENDING_REVIEW"
                 )
                 

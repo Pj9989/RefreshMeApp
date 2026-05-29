@@ -13,8 +13,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.google.firebase.auth.FirebaseAuth
 import com.refreshme.MainActivity
+import com.refreshme.legal.CustomerTermsAcceptanceScreen
 import com.refreshme.ui.theme.RefreshMeTheme
 
 class CustomerOnboardingActivity : AppCompatActivity() {
@@ -33,19 +38,44 @@ class CustomerOnboardingActivity : AppCompatActivity() {
                     }
                 }
                 
+                // Pending profile captured before terms acceptance.
+                // Once the user accepts ToS + Privacy, we commit the profile
+                // and navigate to MainActivity. Declining returns them to
+                // the profile screen so they can exit without an account.
+                var pendingProfile by remember {
+                    mutableStateOf<Triple<String, String, android.net.Uri?>?>(null)
+                }
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    CustomerOnboardingScreen(
-                        isLoading = onboardingState is OnboardingState.Loading,
-                        onContinue = { name, email, photoUri ->
-                            viewModel.saveCustomerData(name, email, photoUri) {
-                                startActivity(MainActivity.newIntent(this))
+                    val pending = pendingProfile
+                    if (pending == null) {
+                        CustomerOnboardingScreen(
+                            isLoading = onboardingState is OnboardingState.Loading,
+                            onContinue = { name, email, photoUri ->
+                                pendingProfile = Triple(name, email, photoUri)
+                            }
+                        )
+                    } else {
+                        CustomerTermsAcceptanceScreen(
+                            onAccepted = {
+                                val (name, email, photoUri) = pending
+                                viewModel.saveCustomerData(name, email, photoUri) {
+                                    startActivity(MainActivity.newIntent(this))
+                                    finish()
+                                }
+                            },
+                            onCancel = {
+                                // User declined: sign them out so they can't
+                                // reach the app without accepting the terms.
+                                FirebaseAuth.getInstance().signOut()
+                                pendingProfile = null
                                 finish()
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }

@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.functions.FirebaseFunctionsException
 import com.refreshme.data.BookingStatus
 import com.refreshme.data.Service
 import com.refreshme.data.Stylist
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -29,6 +31,10 @@ import javax.inject.Inject
 class NewBookingViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+    companion object {
+        const val FIRST_BOOKING_PROMO_CODE = "FIRST10"
+        const val FIRST_BOOKING_PROMO_AMOUNT = 10.0
+    }
 
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
@@ -45,6 +51,9 @@ class NewBookingViewModel @Inject constructor(
 
     private val _selectedDate = MutableStateFlow<Date?>(null)
     val selectedDate: StateFlow<Date?> = _selectedDate
+
+    private val _isEmergencyAsap = MutableStateFlow(false)
+    val isEmergencyAsap: StateFlow<Boolean> = _isEmergencyAsap
     
     private val _isMobileBooking = MutableStateFlow(false)
     val isMobileBooking: StateFlow<Boolean> = _isMobileBooking
@@ -72,11 +81,57 @@ class NewBookingViewModel @Inject constructor(
     private val _waitlistState = MutableStateFlow<WaitlistState>(WaitlistState.Idle)
     val waitlistState: StateFlow<WaitlistState> = _waitlistState
 
+    private val _customerVerificationStatus = MutableStateFlow<com.refreshme.identity.VerificationStatus>(com.refreshme.identity.VerificationStatus.NOT_STARTED)
+    val customerVerificationStatus: StateFlow<com.refreshme.identity.VerificationStatus> = _customerVerificationStatus
+
+    private val _isFirstBookingCustomer = MutableStateFlow(false)
+    val isFirstBookingCustomer: StateFlow<Boolean> = _isFirstBookingCustomer
+
     private var currentBookingId: String?
         get() = savedStateHandle.get<String>("currentBookingId")
         set(value) {
             savedStateHandle["currentBookingId"] = value
         }
+
+    init {
+        fetchCustomerVerificationStatus()
+        fetchFirstBookingEligibility()
+    }
+
+    private fun fetchFirstBookingEligibility() {
+        val uid = auth.currentUser?.uid ?: return
+        viewModelScope.launch {
+            try {
+                val existing = db.collection("bookings")
+                    .whereEqualTo("customerId", uid)
+                    .limit(1)
+                    .get()
+                    .await()
+                _isFirstBookingCustomer.value = existing.isEmpty
+            } catch (e: Exception) {
+                _isFirstBookingCustomer.value = false
+            }
+        }
+    }
+
+    fun fetchCustomerVerificationStatus() {
+        val uid = auth.currentUser?.uid ?: return
+        viewModelScope.launch {
+            try {
+                val doc = db.collection("users").document(uid).get().await()
+                val rawStatus = doc.getString("verificationStatus")
+                val isVerified = doc.getBoolean("verified") == true || doc.getBoolean("isVerified") == true
+                
+                if (isVerified) {
+                    _customerVerificationStatus.value = com.refreshme.identity.VerificationStatus.VERIFIED
+                } else {
+                    _customerVerificationStatus.value = com.refreshme.identity.VerificationStatus.fromFirestore(rawStatus)
+                }
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+    }
 
     fun fetchStylist(stylistId: String) {
         if (stylistId.isBlank()) return
@@ -124,8 +179,9 @@ class NewBookingViewModel @Inject constructor(
         }
     }
 
-    fun selectDate(date: Date) {
+    fun selectDate(date: Date, isEmergencyAsap: Boolean = false) {
         _selectedDate.value = date
+        _isEmergencyAsap.value = isEmergencyAsap
         if (_bookingState.value is BookingState.Error) {
             _bookingState.value = BookingState.Idle
         }
@@ -159,7 +215,11 @@ class NewBookingViewModel @Inject constructor(
         _isSensoryFriendly.value = enabled
     }
 
-    fun createBooking(isEmergencyAsap: Boolean = false) {
+    fun createBooking(
+        isEmergencyAsap: Boolean = false,
+        waiverAcceptedVersion: String? = null,
+        allergyDisclosureVersion: String? = null,
+    ) {
         viewModelScope.launch {
             val currentUser = auth.currentUser
             val stylistValue = _stylist.value
@@ -212,8 +272,8 @@ class NewBookingViewModel @Inject constructor(
                 var finalPrice = perPersonPrice * eventGroupSize
                 
                 var travelFeeApplied = 0.0
-                if (mobileBooking && (stylistValue.atHomeServiceFee ?: 0.0) > 0) {
-                    travelFeeApplied = stylistValue.atHomeServiceFee!!
+                if (mobileBooking && (stylistValue.effectiveAtHomeServiceFee) > 0) {
+                    travelFeeApplied = stylistValue.effectiveAtHomeServiceFee
                     finalPrice += travelFeeApplied
                 }
 
@@ -241,20 +301,35 @@ class NewBookingViewModel @Inject constructor(
                     "stylistName" to stylistValue.name,
                     "stripeAccountId" to (stylistValue.stripeAccountId ?: ""),
                     "stylistPhotoUrl" to (stylistValue.profileImageUrl ?: ""),
+                    "serviceId" to serviceValue.id,
                     "serviceName" to fullServiceName,
+                    "selectedServiceName" to serviceValue.name,
+                    "addOnServiceIds" to addOnsValue.map { it.id }.filter { it.isNotBlank() },
+                    "addOnServiceNames" to addOnsValue.map { it.name }.filter { it.isNotBlank() },
                     "servicePrice" to finalPrice,
                     "emergencyFeeApplied" to emergencyFeeApplied,
                     "travelFeeApplied" to travelFeeApplied,
+                    "promoCode" to if (_isFirstBookingCustomer.value) FIRST_BOOKING_PROMO_CODE else "",
                     "bookingDate" to dateValue.time, 
                     "date" to dateValue.time,        
                     "currency" to "usd",
                     "isMobile" to mobileBooking,
+                    "isEmergencyAsap" to isEmergencyAsap,
                     "isEvent" to isEventBooking,
                     "groupSize" to eventGroupSize,
                     "eventType" to eventTypeStr,
                     "isSilentAppointment" to silentBooking,
                     "isSensoryFriendly" to sensoryBooking,
-                    "status" to BookingStatus.REQUESTED.name
+                    "status" to BookingStatus.REQUESTED.name,
+                    // Legal audit trail on the booking document itself.
+                    // waiverAcceptedVersion is non-null for at-home bookings;
+                    // allergyDisclosureVersion is non-null for chemical services.
+                    "waiverAcceptedVersion" to (waiverAcceptedVersion ?: ""),
+                    "waiverAcceptedAt" to
+                        if (waiverAcceptedVersion != null) System.currentTimeMillis() else 0L,
+                    "allergyDisclosureVersion" to (allergyDisclosureVersion ?: ""),
+                    "allergyDisclosureAcceptedAt" to
+                        if (allergyDisclosureVersion != null) System.currentTimeMillis() else 0L
                 )
 
                 val result = functions
@@ -280,7 +355,7 @@ class NewBookingViewModel @Inject constructor(
 
             } catch (e: Exception) {
                 Log.e("NewBookingVM", "Booking creation failed", e)
-                _bookingState.value = BookingState.Error("Booking failed: ${e.localizedMessage}")
+                _bookingState.value = BookingState.Error(e.toBookingErrorMessage())
             }
         }
     }
@@ -293,24 +368,9 @@ class NewBookingViewModel @Inject constructor(
         }
         
         viewModelScope.launch {
-            try {
-                val updates = hashMapOf<String, Any>(
-                    "status" to BookingStatus.DEPOSIT_PAID.name,
-                    "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
-                )
-                
-                db.collection("bookings").document(bookingId)
-                    .update(updates)
-                    .await()
-                
-                // Smart Reminder Setup
-                scheduleSmartReminder(context)
-                
-                _bookingState.value = BookingState.Success
-            } catch (e: Exception) {
-                Log.e("NewBookingVM", "Finalize DB update failed", e)
-                _bookingState.value = BookingState.Success
-            }
+            // Stripe webhook owns payment status updates. The client only finishes local UX.
+            scheduleSmartReminder(context)
+            _bookingState.value = BookingState.Success
         }
     }
 
@@ -393,6 +453,37 @@ class NewBookingViewModel @Inject constructor(
 
     fun resetState() {
         _bookingState.value = BookingState.Idle
+    }
+}
+
+private fun Exception.toBookingErrorMessage(): String {
+    if (this is FirebaseFunctionsException) {
+        val raw = message.orEmpty()
+        val lower = raw.lowercase(Locale.US)
+        return when {
+            lower.contains("payout") ||
+                lower.contains("stripe") ||
+                lower.contains("connected") ||
+                lower.contains("destination") ->
+                "This stylist is not ready for in-app payments yet. Please ask them to finish payout setup, then try again."
+            lower.contains("service") || lower.contains("price") ->
+                raw.ifBlank { "This service cannot be booked right now. Please choose another service or try again later." }
+            code == FirebaseFunctionsException.Code.UNAUTHENTICATED ->
+                "Please sign in again before booking."
+            code == FirebaseFunctionsException.Code.FAILED_PRECONDITION ->
+                raw.ifBlank { "This booking cannot be completed yet. Please review the appointment details and try again." }
+            code == FirebaseFunctionsException.Code.INTERNAL ->
+                "Payment setup failed. Please try again in a moment. If this keeps happening, the stylist may need to finish payout setup."
+            else ->
+                raw.ifBlank { "Booking failed. Please try again." }
+        }
+    }
+
+    val raw = localizedMessage.orEmpty()
+    return if (raw.isBlank() || raw == "INTERNAL") {
+        "Payment setup failed. Please try again in a moment."
+    } else {
+        "Booking failed: $raw"
     }
 }
 

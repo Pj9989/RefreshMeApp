@@ -13,6 +13,30 @@ object DatabaseSeeder {
         val db = FirebaseFirestore.getInstance()
         val stylistsCollection = db.collection("stylists")
         
+        // Wipe all existing stylists to clean up old random test data
+        stylistsCollection.get().addOnSuccessListener { snapshot ->
+            val batch = db.batch()
+            for (document in snapshot.documents) {
+                // Don't delete real user accounts if they happen to be in the stylists collection (e.g. current auth user testing as a stylist)
+                // Actually, if we're clearing old mock data, we might just delete everything, but to be safe let's just delete the ones that don't look like Firebase Auth UIDs (length != 28)
+                // Wait, PopulateStylistProfiles added random IDs which are 20 chars long. Auth UIDs are 28.
+                if (document.id.length != 28) {
+                    batch.delete(document.reference)
+                }
+            }
+            batch.commit().addOnSuccessListener {
+                Log.d("Seeder", "Cleaned up old test stylists.")
+                
+                // Now proceed to seed the new data
+                seedSpecificStylists(db, stylistsCollection)
+            }
+        }.addOnFailureListener {
+            Log.e("Seeder", "Failed to clear stylists", it)
+            seedSpecificStylists(db, stylistsCollection)
+        }
+    }
+
+    private fun seedSpecificStylists(db: FirebaseFirestore, stylistsCollection: com.google.firebase.firestore.CollectionReference) {
         val calendar = Calendar.getInstance()
         calendar.add(Calendar.HOUR, 4)
         val flashDealExpiry = calendar.time
@@ -30,7 +54,7 @@ object DatabaseSeeder {
             "isVerified" to true,
             "online" to true,
             "offersAtHomeService" to true,
-            "atHomeServiceFee" to 15.0,
+            "atHomeServiceFee" to 20.0,
             "bio" to "Specializing in precision fades and urban styles. I bring the shop experience to your doorstep.",
             "vibes" to listOf("Urban", "Hip-Hop", "Streetwear", "Fast"),
             "recommendedFaceShapes" to listOf("SQUARE", "OVAL"),
@@ -128,7 +152,7 @@ object DatabaseSeeder {
             "isVerified" to true,
             "online" to true,
             "offersAtHomeService" to true,
-            "atHomeServiceFee" to 10.0,
+            "atHomeServiceFee" to 20.0,
             "bio" to "Hair tattoos, vivid colors, and breaking the rules. Let's create something unique.",
             "vibes" to listOf("Artistic", "Trendy", "Loud", "Creative"),
             "recommendedFaceShapes" to listOf("ROUND", "HEART"),

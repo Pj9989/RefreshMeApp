@@ -114,7 +114,7 @@ fun BookingScreen(
                             var buttonText = "Select a Service"
                             if (selectedService != null && selectedDate != null) {
                                 var total = selectedService!!.price + selectedAddOns.sumOf { it.price }
-                                if (isMobileBooking) total += (stylist?.atHomeServiceFee ?: 0.0)
+                                if (isMobileBooking) total += (stylist?.effectiveAtHomeServiceFee ?: 0.0)
                                 if (bookingMode == BookingMode.ASAP) total += (stylist?.emergencyFee ?: 0.0)
                                 buttonText = "Confirm Booking ($${total})"
                             } else if (selectedService != null) {
@@ -217,7 +217,11 @@ fun BookingScreen(
                             icon = Icons.Default.Home,
                             onClick = { viewModel.setMobileBooking(true) },
                             modifier = Modifier.weight(1f),
-                            subtitle = if ((s.atHomeServiceFee ?: 0.0) > 0) "+$${s.atHomeServiceFee}" else null
+                            subtitle = if (s.effectiveAtHomeServiceFee > 0) {
+                                "+$${String.format(Locale.US, "%.0f", s.effectiveAtHomeServiceFee)}"
+                            } else {
+                                null
+                            }
                         )
                     }
 

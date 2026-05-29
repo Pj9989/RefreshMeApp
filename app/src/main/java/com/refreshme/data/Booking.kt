@@ -13,6 +13,8 @@ enum class BookingStatus {
     DECLINED,
     ON_THE_WAY, // Newly added for house calls
     IN_PROGRESS,
+    AWAITING_CUSTOMER_CONFIRMATION,
+    COMPLETION_DISPUTED,
     COMPLETED,
     CANCELLED,
     REFUND_PROCESSING

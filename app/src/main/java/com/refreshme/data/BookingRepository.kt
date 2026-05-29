@@ -5,6 +5,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -16,7 +17,8 @@ import javax.inject.Singleton
 @Singleton
 class BookingRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val functions: FirebaseFunctions
 ) {
 
     /**
@@ -93,6 +95,8 @@ class BookingRepository @Inject constructor(
                     "CONFIRMED", "ACCEPTED" -> BookingStatus.ACCEPTED.name
                     "PENDING_PAYMENT", "PENDING" -> BookingStatus.PENDING.name
                     "DEPOSIT_PAID", "PAID" -> BookingStatus.DEPOSIT_PAID.name
+                    "AWAITING_CUSTOMER_CONFIRMATION", "PENDING_CUSTOMER_CONFIRMATION", "COMPLETION_PENDING" -> BookingStatus.AWAITING_CUSTOMER_CONFIRMATION.name
+                    "COMPLETION_DISPUTED", "DISPUTED" -> BookingStatus.COMPLETION_DISPUTED.name
                     "PAID_IN_FULL", "COMPLETED" -> BookingStatus.COMPLETED.name
                     "REFUNDED", "CANCELLED", "PAYMENT_CANCELLED", "PAYMENT_FAILED" -> BookingStatus.CANCELLED.name
                     "DECLINED" -> BookingStatus.DECLINED.name
@@ -146,36 +150,29 @@ class BookingRepository @Inject constructor(
     }
 
     suspend fun createBooking(req: Booking): Result<String> {
-        return try {
-            val customerId = auth.currentUser?.uid ?: throw IllegalStateException("Not signed in")
-            val bookingRef = firestore.collection("bookings").document()
-            val bookingId = bookingRef.id
-            
-            val now = Timestamp.now()
-            val bookingData = req.copy(
-                id = bookingId,
-                customerId = customerId,
-                requestedAt = now,
-                updatedAt = now
+        return Result.failure(
+            UnsupportedOperationException(
+                "Direct client booking creation is disabled. Use the payment-backed booking flow."
             )
-
-            firestore.runBatch { batch ->
-                batch.set(bookingRef, bookingData)
-            }.await()
-            
-            Result.success(bookingId)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        )
     }
 
     suspend fun updateBookingStatus(bookingId: String, status: BookingStatus): Result<Unit> {
         return try {
             val bookingRef = firestore.collection("bookings").document(bookingId)
-            val updates = mapOf(
+            val updates = mutableMapOf<String, Any>(
                 "status" to status.name,
                 "updatedAt" to FieldValue.serverTimestamp()
             )
+            // When the stylist declines/cancels a booking from Android, mark
+            // cancelledBy + cancelledAt so the Cloud Function
+            // `notifyCustomerOnBookingUpdate` issues a Stripe refund of the
+            // deposit (per policy: deposits are refundable when the stylist
+            // cancels, but NOT when the customer cancels).
+            if (status == BookingStatus.DECLINED || status == BookingStatus.CANCELLED) {
+                updates["cancelledBy"] = "stylist"
+                updates["cancelledAt"] = FieldValue.serverTimestamp()
+            }
             bookingRef.update(updates).await()
 
             Result.success(Unit)
@@ -315,4 +312,37 @@ class BookingRepository @Inject constructor(
 
     suspend fun acceptBookingRequest(bookingId: String) = updateBookingStatus(bookingId, BookingStatus.ACCEPTED)
     suspend fun declineBookingRequest(bookingId: String) = updateBookingStatus(bookingId, BookingStatus.DECLINED)
+
+    suspend fun requestBookingCompletion(bookingId: String): Result<Unit> {
+        return try {
+            functions.getHttpsCallable("requestBookingCompletion")
+                .call(hashMapOf("bookingId" to bookingId))
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun confirmBookingCompletion(bookingId: String): Result<Unit> {
+        return try {
+            functions.getHttpsCallable("confirmBookingCompletion")
+                .call(hashMapOf("bookingId" to bookingId))
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun disputeBookingCompletion(bookingId: String, reason: String): Result<Unit> {
+        return try {
+            functions.getHttpsCallable("disputeBookingCompletion")
+                .call(hashMapOf("bookingId" to bookingId, "reason" to reason))
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

@@ -34,8 +34,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
+import com.refreshme.CustomerDashboardActivity
 import com.refreshme.details.ReviewItem
 import com.refreshme.identity.IdentityVerificationActivity
+import com.refreshme.ui.components.rememberFirebaseImageModel
 import java.util.Locale
 
 enum class StylistDashboardEvent {
@@ -63,6 +65,8 @@ fun StylistDashboardScreen(
     val profileImageUrl by viewModel.profileImageUrl.collectAsState()
     val rating by viewModel.rating.collectAsState()
     val reviews by viewModel.reviews.collectAsState()
+    val isProfileReady by viewModel.isProfileReady.collectAsState()
+    val profileError by viewModel.profileError.collectAsState()
     
     val scrollState = rememberScrollState()
     val context = LocalContext.current
@@ -91,6 +95,29 @@ fun StylistDashboardScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        if (!isProfileReady) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            return@Box
+        }
+
+        if (profileError != null) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = profileError ?: "",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+            return@Box
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -106,7 +133,7 @@ fun StylistDashboardScreen(
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     val fallbackPainter = rememberVectorPainter(Icons.Default.Person)
                     AsyncImage(
-                        model = profileImageUrl,
+                        model = rememberFirebaseImageModel(profileImageUrl),
                         contentDescription = "Profile",
                         placeholder = fallbackPainter,
                         error = fallbackPainter,
@@ -421,10 +448,14 @@ fun StylistDashboardScreen(
                 context.startActivity(Intent.createChooser(shareIntent, "Share My Profile"))
             }
 
+            MenuRow("Browse & Book as Customer", Icons.Default.Search) {
+                context.startActivity(CustomerDashboardActivity.newIntent(context, allowStylistBrowse = true))
+            }
+
             MenuRow("Availability Settings", Icons.Default.Schedule) { onNavigate(StylistDashboardEvent.Availability) }
             MenuRow("Earnings & Payouts", Icons.Default.Payments) { onNavigate(StylistDashboardEvent.EarningsPayouts) }
             
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(60.dp))
         }
 
         if (showFlashDealDialog) {

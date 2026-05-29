@@ -7,6 +7,7 @@ import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.refreshme.CustomerDashboardActivity
 import com.refreshme.MainActivity
 import com.refreshme.salon.SalonOwnerDashboardActivity
 import com.refreshme.stylist.StylistDashboardActivity
@@ -37,8 +38,8 @@ object RoleBasedNavigationManager {
         return when (role) {
             UserRole.STYLIST -> StylistDashboardActivity::class.java
             UserRole.SALON_OWNER -> SalonOwnerDashboardActivity::class.java 
-            UserRole.CUSTOMER -> MainActivity::class.java
-            UserRole.UNKNOWN -> MainActivity::class.java // Fallback to customer dashboard
+            UserRole.CUSTOMER -> CustomerDashboardActivity::class.java
+            UserRole.UNKNOWN -> CustomerDashboardActivity::class.java
         }
     }
 
@@ -56,19 +57,45 @@ object RoleBasedNavigationManager {
         firestore.collection("users").document(userId)
             .get()
             .addOnSuccessListener { document ->
-                val role = document.getString("role")?.uppercase()
-                callback(
-                    when (role) {
-                        "STYLIST" -> UserRole.STYLIST
-                        "SALON_OWNER" -> UserRole.SALON_OWNER
-                        "CUSTOMER" -> UserRole.CUSTOMER
-                        else -> UserRole.UNKNOWN
-                    }
-                )
+                val userRole = parseRole(document.getString("role"))
+                if (userRole == UserRole.STYLIST || userRole == UserRole.SALON_OWNER) {
+                    callback(userRole)
+                } else {
+                    getStylistFallbackRole(userId, userRole, callback)
+                }
             }
             .addOnFailureListener {
-                callback(UserRole.UNKNOWN)
+                getStylistFallbackRole(userId, UserRole.UNKNOWN, callback)
             }
+    }
+
+    private fun getStylistFallbackRole(
+        userId: String,
+        fallbackRole: UserRole,
+        callback: (UserRole) -> Unit
+    ) {
+        firestore.collection("stylists").document(userId)
+            .get()
+            .addOnSuccessListener { stylistDoc ->
+                callback(if (stylistDoc.exists()) UserRole.STYLIST else fallbackRole)
+            }
+            .addOnFailureListener {
+                callback(fallbackRole)
+            }
+    }
+
+    private fun parseRole(rawRole: String?): UserRole {
+        val normalizedRole = rawRole
+            ?.trim()
+            ?.uppercase()
+            ?.replace(Regex("[^A-Z0-9]"), "")
+
+        return when (normalizedRole) {
+            "STYLIST", "STYLISTBARBER", "BARBER", "PROFESSIONAL" -> UserRole.STYLIST
+            "SALONOWNER", "OWNER" -> UserRole.SALON_OWNER
+            "CUSTOMER", "CLIENT", "USER" -> UserRole.CUSTOMER
+            else -> UserRole.UNKNOWN
+        }
     }
 
     /**
@@ -78,7 +105,7 @@ object RoleBasedNavigationManager {
         val intent = when (role) {
             UserRole.STYLIST -> Intent(context, StylistDashboardActivity::class.java)
             UserRole.SALON_OWNER -> Intent(context, SalonOwnerDashboardActivity::class.java)
-            UserRole.CUSTOMER -> Intent(context, MainActivity::class.java)
+            UserRole.CUSTOMER -> Intent(context, CustomerDashboardActivity::class.java)
             UserRole.UNKNOWN -> return
         }
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK

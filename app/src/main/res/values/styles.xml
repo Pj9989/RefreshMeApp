@@ -25,4 +25,16 @@
         <item name="android:textSize">20sp</item>
         <item name="android:textStyle">bold</item>
     </style>
+
+    <style name="TextAppearance.RefreshMe.BottomNav.Active" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textColor">@color/customer_nav_selected</item>
+        <item name="android:textSize">9sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="TextAppearance.RefreshMe.BottomNav.Inactive" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textColor">@color/customer_nav_unselected</item>
+        <item name="android:textSize">9sp</item>
+        <item name="android:textStyle">normal</item>
+    </style>
 </resources>

@@ -15,13 +15,195 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == stylistId;
     }
 
+    function protectedBookingFields() {
+      return [
+        'id', 'userId', 'customerId', 'stylistId', 'stripeAccountId',
+        'serviceId', 'serviceName', 'selectedServiceName', 'addOnServiceIds',
+        'addOnServiceNames', 'servicePrice', 'depositAmount', 'currency',
+        'paymentIntentId', 'checkoutSessionId', 'bookingDate', 'date', 'status',
+        'travelFeeApplied', 'emergencyFeeApplied', 'waiverAcceptedVersion',
+        'waiverAcceptedAt', 'allergyDisclosureVersion',
+        'allergyDisclosureAcceptedAt', 'paidAt', 'cancelledAt',
+        'paymentFailureMessage', 'createdAt', 'pointsAwarded',
+        'completionRequestedAt', 'completionRequestedBy',
+        'completionAutoConfirmAt', 'customerConfirmedAt',
+        'customerConfirmedBy', 'completedAt', 'autoConfirmedAt',
+        'disputeReason', 'disputedAt', 'disputedBy', 'payoutStatus'
+      ];
+    }
+
+    function isBookingParticipant() {
+      return isAuthenticated() && (
+        request.auth.uid == resource.data.customerId ||
+        request.auth.uid == resource.data.userId ||
+        request.auth.uid == resource.data.stylistId
+      );
+    }
+
+    function isCustomerOnBooking() {
+      return isAuthenticated() && (
+        request.auth.uid == resource.data.customerId ||
+        request.auth.uid == resource.data.userId
+      );
+    }
+
+    function isStylistOnBooking() {
+      return isAuthenticated() && request.auth.uid == resource.data.stylistId;
+    }
+
+    function stylistStatusUpdateFields() {
+      return [
+        'status', 'updatedAt',
+        'acceptedAt', 'acceptedBy',
+        'confirmedAt', 'confirmedBy',
+        'declinedAt', 'declinedBy',
+        'cancelledAt', 'cancelledBy',
+        'completionRequestedAt', 'completionRequestedBy',
+        'completionAutoConfirmAt', 'payoutStatus'
+      ];
+    }
+
+    function validStylistActionMetadata() {
+      return (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['acceptedBy']) ||
+        request.resource.data.acceptedBy == request.auth.uid
+      ) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['confirmedBy']) ||
+        request.resource.data.confirmedBy == request.auth.uid
+      ) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['declinedBy']) ||
+        request.resource.data.declinedBy == request.auth.uid
+      ) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['cancelledBy']) ||
+        request.resource.data.cancelledBy == request.auth.uid
+      ) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['completionRequestedBy']) ||
+        request.resource.data.completionRequestedBy == request.auth.uid
+      ) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['payoutStatus']) ||
+        request.resource.data.payoutStatus == 'pending_customer_confirmation'
+      );
+    }
+
+    function stylistPendingStatuses() {
+      return ['REQUESTED', 'PENDING', 'pending', 'pending_payment', 'DEPOSIT_PAID'];
+    }
+
+    function stylistAcceptedStatuses() {
+      return ['ACCEPTED', 'accepted', 'CONFIRMED', 'confirmed'];
+    }
+
+    function stylistDeclinedStatuses() {
+      return ['DECLINED', 'declined', 'CANCELLED', 'cancelled'];
+    }
+
+    function stylistActiveStatuses() {
+      return ['ACCEPTED', 'accepted', 'CONFIRMED', 'confirmed', 'DEPOSIT_PAID'];
+    }
+
+    function allowedStylistStatusTransition() {
+      return isStylistOnBooking() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(stylistStatusUpdateFields()) &&
+        validStylistActionMetadata() &&
+        request.resource.data.status in [
+          'ACCEPTED', 'accepted', 'CONFIRMED', 'confirmed',
+          'DECLINED', 'declined',
+          'ON_THE_WAY', 'on_the_way',
+          'IN_PROGRESS', 'in_progress',
+          'AWAITING_CUSTOMER_CONFIRMATION',
+          'CANCELLED', 'cancelled'
+        ] &&
+        (
+          (
+            resource.data.status in stylistPendingStatuses() &&
+            (
+              request.resource.data.status in stylistAcceptedStatuses() ||
+              request.resource.data.status in stylistDeclinedStatuses()
+            )
+          ) ||
+          (
+            resource.data.status in stylistActiveStatuses() &&
+            request.resource.data.status in ['ON_THE_WAY', 'on_the_way', 'IN_PROGRESS', 'in_progress', 'CANCELLED', 'cancelled']
+          ) ||
+          (
+            resource.data.status in ['ON_THE_WAY', 'on_the_way'] &&
+            request.resource.data.status in ['IN_PROGRESS', 'in_progress', 'AWAITING_CUSTOMER_CONFIRMATION']
+          ) ||
+          (
+            resource.data.status in ['IN_PROGRESS', 'in_progress'] &&
+            request.resource.data.status in ['AWAITING_CUSTOMER_CONFIRMATION']
+          )
+        );
+    }
+
+    function allowedCustomerStatusTransition() {
+      return isCustomerOnBooking() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+        resource.data.status in ['REQUESTED', 'PENDING', 'pending_payment', 'ACCEPTED'] &&
+        request.resource.data.status == 'CANCELLED';
+    }
+
+    function allowedBookingUpdate() {
+      return isBookingParticipant() && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(protectedBookingFields()) ||
+        allowedStylistStatusTransition() ||
+        allowedCustomerStatusTransition()
+      );
+    }
+
+    function validChatParticipants(participants) {
+      return participants is list &&
+        participants.size() >= 2 &&
+        participants.size() <= 10 &&
+        request.auth.uid in participants;
+    }
+
+    function validChatMessage(chatId) {
+      return isAuthenticated() &&
+        request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants &&
+        request.resource.data.senderId == request.auth.uid;
+    }
+
+    function validUserConversation(userId, conversationId) {
+      return request.resource.data.keys().hasOnly([
+        'otherUserId', 'lastMessage', 'lastMessageTime', 'lastSenderId'
+      ]) && (
+        (
+          request.auth.uid == userId &&
+          request.resource.data.otherUserId == conversationId
+        ) ||
+        (
+          request.auth.uid == conversationId &&
+          request.resource.data.otherUserId == userId
+        )
+      );
+    }
+
+    function serverOwnedUserFields() {
+      return [
+        'isVerified', 'verified', 'loyaltyPoints', 'verificationStatus',
+        'verificationStatusRaw', 'verificationUpdatedAt'
+      ];
+    }
+
+    function serverOwnedStylistFields() {
+      return [
+        'isVerified', 'verified', 'stripeAccountId', 'stripeAccountStatus',
+        'stripeChargesEnabled', 'stripePayoutsEnabled',
+        'stripeDetailsSubmitted', 'stripeOnboardingComplete',
+        'subscriptionTier', 'verificationStatus', 'verificationStatusRaw',
+        'verificationUpdatedAt'
+      ];
+    }
+
     // â”€â”€â”€ User Profile Rules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isOwner(userId);
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        !request.resource.data.keys().hasAny(serverOwnedUserFields());
       allow delete: if isOwner(userId);
       allow update: if isOwner(userId) && (
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isVerified', 'verified']) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(serverOwnedUserFields()) &&
         (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['verificationStatus']) ||
           request.resource.data.verificationStatus in ['PENDING', 'UNVERIFIED', 'FAILED', 'REQUIRES_INPUT']
@@ -35,18 +217,33 @@ service cloud.firestore {
       match /bookings/{bookingId} {
         allow read, write: if isOwner(userId);
       }
+
+      match /pointsHistory/{historyId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+
+      match /conversations/{conversationId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isAuthenticated() &&
+          validUserConversation(userId, conversationId);
+      }
+    }
+
+    match /publicUserProfiles/{userId} {
+      allow read: if true;
+      allow write: if false;
     }
 
     // â”€â”€â”€ Stylist Profile Rules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     match /stylists/{stylistId} {
       allow read: if true;
-      allow create: if isAuthenticated() && request.auth.uid == stylistId;
+      allow create: if isAuthenticated() &&
+        request.auth.uid == stylistId &&
+        !request.resource.data.keys().hasAny(serverOwnedStylistFields());
       allow delete: if isStylist(stylistId);
       allow update: if isStylist(stylistId) && (
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'isVerified', 'verified', 'stripeAccountId', 'subscriptionTier',
-          'stripeChargesEnabled', 'stripePayoutsEnabled'
-        ]) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(serverOwnedStylistFields()) &&
         (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['verificationStatus']) ||
           request.resource.data.verificationStatus in ['PENDING', 'UNVERIFIED', 'FAILED', 'REQUIRES_INPUT']
@@ -84,6 +281,17 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && request.auth.uid == profileId;
     }
 
+    // Business / shop listings. Owners can create and edit their shop;
+    // customers can read public shops.
+    match /shops/{shopId} {
+      allow read: if true;
+      allow create: if isAuthenticated() &&
+        request.resource.data.ownerId == request.auth.uid &&
+        request.auth.uid in request.resource.data.stylistIds;
+      allow update, delete: if isAuthenticated() &&
+        resource.data.ownerId == request.auth.uid;
+    }
+
     // â”€â”€â”€ Booking Rules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     match /bookings/{bookingId} {
       allow read: if isAuthenticated() && (
@@ -92,48 +300,40 @@ service cloud.firestore {
         request.auth.uid == resource.data.userId ||
         request.auth.uid == resource.data.stylistId
       );
-      allow create: if isAuthenticated() && (
-        request.auth.uid == request.resource.data.customerId ||
-        request.auth.uid == request.resource.data.userId ||
-        request.auth.uid == request.resource.data.stylistId
-      );
-      allow update, delete: if isAuthenticated() && (
-        request.auth.uid == resource.data.customerId ||
-        request.auth.uid == resource.data.userId ||
-        request.auth.uid == resource.data.stylistId
-      );
+      // Booking creation is owned by Cloud Functions so payment totals and
+      // server-owned fields cannot be forged by a modified client.
+      allow create: if false;
+      allow update: if allowedBookingUpdate();
+      allow delete: if false;
     }
 
     // â”€â”€â”€ Chat Rules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     match /chats/{chatId} {
       allow read: if isAuthenticated() && (
         resource == null ||
-        request.auth.uid in resource.data.participants ||
-        request.auth.uid == resource.data.customerId ||
-        request.auth.uid == resource.data.stylistId
+        request.auth.uid in resource.data.participants
       );
-      allow create: if isAuthenticated() && (
-        request.auth.uid in request.resource.data.participants ||
-        request.auth.uid == request.resource.data.customerId ||
-        request.auth.uid == request.resource.data.stylistId
-      );
-      allow update: if isAuthenticated() && (
-        request.auth.uid in resource.data.participants ||
-        request.auth.uid == resource.data.customerId ||
-        request.auth.uid == resource.data.stylistId
-      );
-      allow delete: if isAuthenticated() && (
-        request.auth.uid in resource.data.participants ||
-        request.auth.uid == resource.data.customerId ||
-        request.auth.uid == resource.data.stylistId
-      );
+      allow create: if isAuthenticated() &&
+        validChatParticipants(request.resource.data.participants);
+      allow update: if isAuthenticated() &&
+        request.auth.uid in resource.data.participants &&
+        request.resource.data.participants == resource.data.participants &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'lastMessage', 'lastMessageAt', 'lastMessageTimestamp',
+          'lastSenderId', 'updatedAt', 'unreadCounts', 'typing'
+        ]);
+      allow delete: if isAuthenticated() &&
+        request.auth.uid in resource.data.participants;
 
       match /messages/{messageId} {
-        allow read, write: if isAuthenticated() && (
-          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants ||
-          request.auth.uid == get(/databases/$(database)/documents/chats/$(chatId)).data.customerId ||
-          request.auth.uid == get(/databases/$(database)/documents/chats/$(chatId)).data.stylistId
-        );
+        allow read: if isAuthenticated() &&
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow create: if validChatMessage(chatId);
+        allow update: if isAuthenticated() &&
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants &&
+          request.resource.data.senderId == resource.data.senderId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+        allow delete: if false;
       }
     }
 
@@ -144,6 +344,22 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.userId;
       allow update, delete: if isAuthenticated() &&
         request.auth.uid == resource.data.userId;
+    }
+
+    match /safety_reports/{reportId} {
+      allow read, update, delete: if false;
+      allow create: if isAuthenticated() &&
+        request.resource.data.keys().hasOnly([
+          'reportedUserId', 'reporterId', 'roleReported', 'reason',
+          'details', 'timestamp', 'status', 'source', 'chatId'
+        ]) &&
+        request.resource.data.reporterId == request.auth.uid &&
+        request.resource.data.reportedUserId is string &&
+        request.resource.data.reportedUserId.size() > 0 &&
+        request.resource.data.reason is string &&
+        request.resource.data.reason.size() > 0 &&
+        request.resource.data.status == 'PENDING_REVIEW' &&
+        request.resource.data.timestamp == request.time;
     }
 
     // â”€â”€â”€ Styles (System Defined) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -183,19 +399,10 @@ service cloud.firestore {
     // Records are owner-scoped and IMMUTABLE once written (no delete).
     match /legalAcceptances/{userId} {
       allow read: if isOwner(userId);
-      allow write: if false; // only subcollection docs are written
+      allow write: if isOwner(userId);
 
       match /acceptances/{docKey} {
-        allow read: if isOwner(userId);
-        allow create: if isOwner(userId) &&
-          request.resource.data.userId == userId &&
-          request.resource.data.docKey == docKey &&
-          request.resource.data.docVersion is string &&
-          request.resource.data.docVersion.size() > 0;
-        // Audit records are append-only: no update or delete ever allowed
-        allow update: if false;
-        // Audit records must never be deletable
-        allow delete: if false;
+        allow read, write: if isOwner(userId);
       }
     }
 

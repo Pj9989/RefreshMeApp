@@ -11,9 +11,14 @@ Copy each file to the matching path in your Flutter project:
 | File here | Where it goes in your Flutter project |
 |-----------|--------------------------------------|
 | `lib/services/stripe_service.dart` | `lib/services/stripe_service.dart` |
+| `lib/services/virtual_try_on_service.dart` | `lib/services/virtual_try_on_service.dart` |
+| `lib/screens/virtual_try_on/virtual_try_on_screen.dart` | `lib/screens/virtual_try_on/virtual_try_on_screen.dart` |
 | `lib/screens/booking/payment_screen.dart` | `lib/screens/booking/payment_screen.dart` |
+| `lib/screens/booking/booking_completion_controls.dart` | `lib/screens/booking/booking_completion_controls.dart` |
 | `lib/screens/stylist/payout_account_screen.dart` | `lib/screens/stylist/payout_account_screen.dart` |
 | `lib/screens/stylist/stylist_profile_menu.dart` | `lib/screens/stylist/stylist_profile_menu.dart` |
+| `lib/services/role_navigation_service.dart` | `lib/services/role_navigation_service.dart` |
+| `lib/screens/profile/stylist_dashboard_switch_tile.dart` | `lib/screens/profile/stylist_dashboard_switch_tile.dart` |
 | `lib/models/stylist.dart` | `lib/models/stylist.dart` (merge with existing) |
 
 ---
@@ -27,12 +32,16 @@ dependencies:
   firebase_auth: ^5.3.1
   cloud_firestore: ^5.4.4
   cloud_functions: ^5.1.3
+  firebase_app_check: ^0.3.1+4
 
   # Stripe
   flutter_stripe: ^10.2.0
 
   # URL launcher (for Stripe Connect onboarding)
   url_launcher: ^6.3.0
+
+  # Media picker (used by virtual_try_on_screen.dart)
+  image_picker: ^1.1.2
 
   # Date formatting (used in payment_screen.dart)
   intl: ^0.19.0
@@ -49,21 +58,30 @@ flutter pub get
 
 ```dart
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Stripe — use the LIVE publishable key
-  Stripe.publishableKey =
-      'pk_live_51SPX9JQgZH4F30tQK5oSYs2lkbu5JnPQjGGZJwVYyFash0HKLGCmgzPoJ1HMnhofVIL7vFqr658VjKIp2uQe9YxF007oV37c7C';
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  await FirebaseAppCheck.instance.activate(
+    appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
+    androidProvider: AndroidProvider.playIntegrity,
+  );
+
+  // Stripe publishable key should be injected from environment/config.
+  Stripe.publishableKey = stripePublishableKey;
+
   runApp(const RefreshMeApp());
 }
 ```
+
+For local iOS simulator testing, use the App Check debug provider and register
+the generated debug token in Firebase Console. Do not ship debug App Check in
+TestFlight or App Store builds.
 
 ---
 
@@ -95,6 +113,8 @@ Open `ios/Runner/Info.plist` and add inside the root `<dict>`:
 
 ```dart
 // In your MaterialApp or GoRouter:
+'/stylist-dashboard': (context) => const StylistDashboardScreen(),
+'/customer-dashboard': (context) => const CustomerDashboardScreen(),
 '/booking-success': (context) => BookingSuccessScreen(
   bookingId: ModalRoute.of(context)!.settings.arguments as Map ... ,
 ),
@@ -102,7 +122,53 @@ Open `ios/Runner/Info.plist` and add inside the root `<dict>`:
 
 ---
 
-## 5. Replace subscription tile in stylist profile
+## 5. Route stylists to the stylist dashboard after login
+
+Use the same role resolution as Android: check `users/{uid}.role`, then fall
+back to `stylists/{uid}` so existing stylist profiles do not get trapped in the
+customer flow when their user role is missing or stale.
+
+```dart
+import 'services/role_navigation_service.dart';
+
+Future<void> openDashboardAfterLogin(BuildContext context) async {
+  final role = await RoleNavigationService().getCurrentUserRole();
+  final route = role == RefreshMeUserRole.stylist
+      ? '/stylist-dashboard'
+      : '/customer-dashboard';
+
+  Navigator.of(context).pushNamedAndRemoveUntil(route, (route) => false);
+}
+```
+
+## 6. Add a stylist return option to the customer profile
+
+In your customer profile screen/menu, add this tile near the other account or
+growth options:
+
+```dart
+import 'stylist_dashboard_switch_tile.dart'; // adjust path for your screen
+
+StylistDashboardSwitchTile(
+  stylistDashboardRouteName: '/stylist-dashboard',
+),
+```
+
+When opening the customer app intentionally from a stylist account, pass
+`isStylistBrowseMode: true` so the return option appears immediately while the
+role check loads.
+
+If your app uses a custom router instead of named routes:
+
+```dart
+StylistDashboardSwitchTile(
+  onSwitchToStylistDashboard: () => context.go('/stylist-dashboard'),
+),
+```
+
+---
+
+## 7. Replace subscription tile in stylist profile
 
 In your stylist profile screen, find any `ListTile` or widget referencing "Subscription" and replace with:
 
@@ -110,12 +176,17 @@ In your stylist profile screen, find any `ListTile` or widget referencing "Subsc
 import '../stylist/stylist_profile_menu.dart';
 
 // In your profile screen widget tree:
-PayoutAccountTile(stripeAccountStatus: stylist.stripeAccountStatus),
+PayoutAccountTile(
+  stripeAccountStatus: stylist.stripeAccountStatus,
+  stripeChargesEnabled: stylist.stripeChargesEnabled,
+  stripePayoutsEnabled: stylist.stripePayoutsEnabled,
+  stripeOnboardingComplete: stylist.stripeOnboardingComplete,
+),
 ```
 
 ---
 
-## 6. Navigate to PaymentScreen when client books
+## 8. Navigate to PaymentScreen when client books
 
 ```dart
 import '../../screens/booking/payment_screen.dart';
@@ -144,11 +215,53 @@ Navigator.push(
 
 ```
 Client books → PaymentScreen → Stripe PaymentSheet (20% deposit)
-   → Firebase Function splits: 90% to stylist, 10% to RefreshMe
+   → Firebase Function calculates totals from Firestore, then splits: 90% to stylist, 10% to RefreshMe
+   → Stripe `payment_intent.succeeded` webhook marks booking `DEPOSIT_PAID`
    → Stylist sees payout in their Stripe Express dashboard
 ```
 
 No subscription needed — RefreshMe earns its cut automatically from every booking.
+
+---
+
+## iOS payout completion flow
+
+The backend now protects stylist payouts with customer confirmation:
+
+```
+Stylist taps Complete Session
+   → call StripeService().requestBookingCompletion(bookingId: booking.id)
+   → booking status becomes AWAITING_CUSTOMER_CONFIRMATION
+   → customer sees Confirm + Report Issue
+   → Confirm calls StripeService().confirmBookingCompletion(...)
+   → Report Issue calls StripeService().disputeBookingCompletion(...)
+   → no response for 24 hours auto-confirms to COMPLETED
+```
+
+Use these statuses in your iOS booking UI:
+
+- `IN_PROGRESS`: stylist button should say `Complete Session`
+- `AWAITING_CUSTOMER_CONFIRMATION`: customer sees `Confirm` and `Report Issue`; stylist sees `Awaiting Client Confirmation`
+- `COMPLETION_DISPUTED`: show `In Review`; payout is paused
+- `COMPLETED`: show receipt/rating as usual
+
+Do not let iOS write `COMPLETED` directly when a stylist finishes. Always call `requestBookingCompletion`; the backend handles customer confirmation and the 24-hour fallback.
+
+Drop this into the iOS booking card or active session screen where actions are shown:
+
+```dart
+import 'screens/booking/booking_completion_controls.dart';
+
+BookingCompletionControls(
+  bookingId: booking.id,
+  status: booking.status,
+  isStylist: currentUserIsStylist,
+  onStatusChanged: () {
+    // Refresh the booking stream/list if your screen does not already listen
+    // to Firestore snapshots.
+  },
+),
+```
 
 ---
 

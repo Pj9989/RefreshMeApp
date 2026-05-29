@@ -47,7 +47,7 @@ data class User(
     val stripeCustomerId: String? = null,
     val rating: Double = 0.0,
     val reviewCount: Long = 0,
-    val refreshPoints: Long = 0, // Loyalty points
+    val loyaltyPoints: Long = 0, // Loyalty points (synced with iOS)
     val reviews: List<Review> = emptyList()
 ) {
     @get:Exclude

@@ -27,6 +27,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.refreshme.BuildConfig
+import com.refreshme.Role
+import com.refreshme.ui.components.rememberFirebaseImageModel
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,16 +40,20 @@ fun UserProfileScreen(
     onSignOut: () -> Unit,
     onViewBookings: () -> Unit,
     onViewSavedStylists: () -> Unit,
+    onSwitchToStylistDashboard: () -> Unit,
+    isStylistBrowseMode: Boolean = false,
+    resolveRole: (((Boolean) -> Unit) -> Unit)? = null,
     onDeleteAccount: () -> Unit
 ) {
     val userProfile by viewModel.userProfile.collectAsState()
+    var resolvedStylistRole by remember { mutableStateOf<Boolean?>(null) }
 
     val userName = userProfile?.name ?: "User"
     val userEmail = userProfile?.email ?: "No email"
     val userPhotoUrl = userProfile?.displayImageUrl
     val userRating = userProfile?.rating ?: 0.0
     val userReviewCount = userProfile?.reviewCount ?: 0L
-    val refreshPoints = userProfile?.refreshPoints ?: 0L
+    val loyaltyPoints = userProfile?.loyaltyPoints ?: 0L
 
     val context = LocalContext.current
     val privacyPolicyUrl = "https://refreshme-74f79.web.app/privacy.html"
@@ -55,6 +62,12 @@ fun UserProfileScreen(
     val aboutUrl = "https://refreshme-74f79.web.app/"
 
     var showDeleteDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(resolveRole) {
+        resolveRole?.invoke { isStylist ->
+            resolvedStylistRole = isStylist
+        }
+    }
 
     fun openUrl(url: String) {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -117,7 +130,7 @@ fun UserProfileScreen(
                 val fallbackPainter = rememberVectorPainter(Icons.Default.Person)
                 Box(contentAlignment = Alignment.BottomEnd) {
                     AsyncImage(
-                        model = userPhotoUrl,
+                        model = rememberFirebaseImageModel(userPhotoUrl),
                         contentDescription = "Profile Picture",
                         placeholder = fallbackPainter,
                         error = fallbackPainter,
@@ -217,7 +230,7 @@ fun UserProfileScreen(
                     ) {
                         Icon(Icons.Default.MonetizationOn, contentDescription = null, tint = Color(0xFFFF9800), modifier = Modifier.size(32.dp))
                         Spacer(modifier = Modifier.width(16.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 "Refresh Points", 
                                 fontWeight = FontWeight.Bold, 
@@ -226,7 +239,18 @@ fun UserProfileScreen(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            Text("Earn points on every cut · $refreshPoints pt", fontSize = 12.sp, color = Color(0xFFEF6C00))
+                            val nextReward = if (loyaltyPoints > 0) {
+                                "Earned from completed bookings"
+                            } else {
+                                "Earn points after completed bookings"
+                            }
+                            Text(
+                                "$loyaltyPoints pts  ·  $nextReward",
+                                fontSize = 12.sp,
+                                color = Color(0xFFEF6C00),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
@@ -258,7 +282,16 @@ fun UserProfileScreen(
 
             item {
                 ProfileSectionTitle("Rewards & Growth")
-                ProfileMenuItem(Icons.Default.CardGiftcard, "Refer a Friend", "Get 500 points when they book their first cut", ::onReferFriend)
+                val canSwitchToStylist = isStylistBrowseMode || userProfile?.role == Role.STYLIST || resolvedStylistRole == true
+                if (canSwitchToStylist) {
+                    ProfileMenuItem(
+                        Icons.Default.Dashboard,
+                        if (isStylistBrowseMode) "Return to Stylist Dashboard" else "Switch to Stylist Dashboard",
+                        "Manage bookings, payouts, and your shop",
+                        onSwitchToStylistDashboard
+                    )
+                }
+                ProfileMenuItem(Icons.Default.CardGiftcard, "Refer a Friend", "Share RefreshMe with people who'd love it", ::onReferFriend)
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
@@ -266,7 +299,7 @@ fun UserProfileScreen(
                 ProfileSectionTitle("Support & Legal")
                 ProfileMenuItem(Icons.Default.Help, "Help Center", "FAQs and support", { openUrl(helpCenterUrl) })
                 ProfileMenuItem(Icons.Default.Policy, "Privacy Policy", "Review our data usage policy", { openUrl(privacyPolicyUrl) })
-                ProfileMenuItem(Icons.Default.Info, "About RefreshMe", "Version 3.0.0", { openUrl(aboutUrl) })
+                ProfileMenuItem(Icons.Default.Info, "About RefreshMe", "Version ${BuildConfig.VERSION_NAME}", { openUrl(aboutUrl) })
                 Spacer(modifier = Modifier.height(32.dp))
                 Button(
                         onClick = onSignOut,

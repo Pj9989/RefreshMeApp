@@ -51,10 +51,13 @@ class FilterBottomSheetFragment : BottomSheetDialogFragment() {
                 // Initial load
                 val currentFilters = viewModel.vibeFilters.value
                 binding.vibeChipGroup.removeAllViews()
+                val chipCtx = android.view.ContextThemeWrapper(requireContext(), com.google.android.material.R.style.Widget_MaterialComponents_Chip_Filter)
                 vibes.forEach { vibe ->
-                    val chip = Chip(requireContext(), null, com.google.android.material.R.style.Widget_MaterialComponents_Chip_Filter).apply {
+                    val chip = Chip(chipCtx).apply {
                         text = vibe
                         isCheckable = true
+                        isClickable = true
+                        isFocusable = true
                         isChecked = currentFilters.contains(vibe)
                         setOnCheckedChangeListener { _, isChecked ->
                             // We need to fetch the latest value inside the listener to avoid stale state
@@ -85,10 +88,13 @@ class FilterBottomSheetFragment : BottomSheetDialogFragment() {
                     binding.specialtyChipGroup.removeAllViews()
                     val currentFilters = viewModel.specialtyFilters.value
                     
+                    val chipCtx = android.view.ContextThemeWrapper(requireContext(), com.google.android.material.R.style.Widget_MaterialComponents_Chip_Filter)
                     specialties.forEach { specialty ->
-                        val chip = Chip(requireContext(), null, com.google.android.material.R.style.Widget_MaterialComponents_Chip_Filter).apply {
+                        val chip = Chip(chipCtx).apply {
                             text = specialty
                             isCheckable = true
+                            isClickable = true
+                            isFocusable = true
                             isChecked = currentFilters.contains(specialty)
                             setOnCheckedChangeListener { _, isChecked ->
                                 val current = viewModel.specialtyFilters.value.toMutableList()

@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import com.refreshme.data.Conversation
+import com.refreshme.ui.components.rememberFirebaseImageModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -157,7 +158,7 @@ fun ConversationItem(
         leadingContent = {
             Box {
                 SubcomposeAsyncImage(
-                    model = conversation.otherUserProfileImageUrl,
+                    model = rememberFirebaseImageModel(conversation.otherUserProfileImageUrl),
                     contentDescription = "Profile Image",
                     modifier = Modifier
                         .size(48.dp)

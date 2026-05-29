@@ -1,12 +1,14 @@
 package com.refreshme.chat
 
-import android.net.Uri
+import android.text.format.DateUtils
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.SetOptions
 import com.refreshme.Role
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
@@ -40,11 +42,11 @@ class ChatViewModel : ViewModel() {
     private val _otherUserProfileImageUrl = MutableStateFlow<String?>(null)
     val otherUserProfileImageUrl: StateFlow<String?> = _otherUserProfileImageUrl.asStateFlow()
 
+    private val _otherUserPresence = MutableStateFlow("Status unavailable")
+    val otherUserPresence: StateFlow<String> = _otherUserPresence.asStateFlow()
+
     private val _toastMessage = MutableSharedFlow<String>()
     val toastMessage: SharedFlow<String> = _toastMessage.asSharedFlow()
-
-    private val _isUploading = MutableStateFlow(false)
-    val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
 
     private val _reportSuccess = MutableStateFlow<Boolean?>(null)
     val reportSuccess: StateFlow<Boolean?> = _reportSuccess.asStateFlow()
@@ -94,13 +96,25 @@ class ChatViewModel : ViewModel() {
                     val fallback = email?.substringBefore("@") ?: "Stylist"
                     _otherUserName.value = (name ?: fallback).toTitleCase()
                     _otherUserProfileImageUrl.value = stylistDoc.getString("profileImageUrl")
+                    _otherUserPresence.value = if (stylistDoc.getBoolean("online") == true) {
+                        "Online now"
+                    } else {
+                        stylistDoc.getDate("lastOnlineAt")?.let { lastOnline ->
+                            "Last online " + DateUtils.getRelativeTimeSpanString(
+                                lastOnline.time,
+                                System.currentTimeMillis(),
+                                DateUtils.MINUTE_IN_MILLIS,
+                                DateUtils.FORMAT_ABBREV_RELATIVE
+                            )
+                        } ?: "Offline"
+                    }
                 } else {
-                    val userDoc = firestore.collection("users").document(otherUserId).get().await()
+                    val userDoc = firestore.collection("publicUserProfiles").document(otherUserId).get().await()
                     val name = userDoc.getString("name")?.takeIf { it.isNotBlank() }
-                    val email = userDoc.getString("email")
-                    val fallback = email?.substringBefore("@") ?: "User"
+                    val fallback = "User"
                     _otherUserName.value = (name ?: fallback).toTitleCase()
                     _otherUserProfileImageUrl.value = userDoc.getString("profileImageUrl")
+                    _otherUserPresence.value = "Messages"
                 }
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "Failed to fetch user name", e)
@@ -162,9 +176,23 @@ class ChatViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                // 1. Add message
-                firestore.collection("chats").document(chatId)
-                    .collection("messages").add(message).await()
+                val participants = listOf(currentUserId, otherUserId).sorted()
+                val chatRef = firestore.collection("chats").document(chatId)
+                val messageRef = chatRef.collection("messages").document()
+
+                chatRef.set(
+                    mapOf(
+                        "participants" to participants,
+                        "lastMessage" to text,
+                        "lastMessageAt" to FieldValue.serverTimestamp(),
+                        "lastMessageTimestamp" to FieldValue.serverTimestamp(),
+                        "lastSenderId" to currentUserId,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    ),
+                    SetOptions.merge()
+                ).await()
+
+                messageRef.set(message).await()
 
                 // 2. Update conversation snippet for current user
                 val conversationRef1 = firestore.collection("users").document(currentUserId)
@@ -178,7 +206,7 @@ class ChatViewModel : ViewModel() {
                         "lastSenderId" to currentUserId
                     ),
                     com.google.firebase.firestore.SetOptions.merge()
-                )
+                ).await()
 
                 // 3. Update conversation snippet for other user
                 val conversationRef2 = firestore.collection("users").document(otherUserId)
@@ -192,7 +220,7 @@ class ChatViewModel : ViewModel() {
                         "lastSenderId" to currentUserId
                     ),
                     com.google.firebase.firestore.SetOptions.merge()
-                )
+                ).await()
                 
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "Error sending message", e)
@@ -201,21 +229,29 @@ class ChatViewModel : ViewModel() {
         }
     }
 
-    fun sendImageMessage(otherUserId: String, uri: Uri) {
-        viewModelScope.launch {
-            _isUploading.value = true
-            try {
-                // Implement image upload here... (mocking for compile)
-                sendMessage(otherUserId, "[Image]")
-            } finally {
-                _isUploading.value = false
-            }
-        }
-    }
-
     fun reportUser(otherUserId: String, reason: String, details: String) {
+        val reporterId = auth.currentUser?.uid
+        if (reporterId == null) {
+            _reportSuccess.value = false
+            return
+        }
+
         viewModelScope.launch {
             try {
+                val chatId = getChatId(reporterId, otherUserId)
+                val reportData = mapOf(
+                    "reportedUserId" to otherUserId,
+                    "reporterId" to reporterId,
+                    "roleReported" to "USER",
+                    "reason" to reason,
+                    "details" to details,
+                    "timestamp" to FieldValue.serverTimestamp(),
+                    "status" to "PENDING_REVIEW",
+                    "source" to "CHAT",
+                    "chatId" to chatId
+                )
+
+                firestore.collection("safety_reports").add(reportData).await()
                 _reportSuccess.value = true
             } catch (e: Exception) {
                 _reportSuccess.value = false

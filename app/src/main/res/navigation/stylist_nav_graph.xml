@@ -10,21 +10,35 @@
         android:name="com.refreshme.stylist.StylistDashboardFragment"
         android:label="Dashboard"
         tools:layout="@layout/fragment_stylist_dashboard">
+        <!-- Tab destinations: use saveState/restoreState so navigation matches bottom nav tab behaviour -->
         <action
             android:id="@+id/action_stylistDashboardFragment_to_manageServicesFragment"
-            app:destination="@id/manageServicesFragment" />
+            app:destination="@id/manageServicesFragment"
+            app:popUpTo="@id/stylistDashboardFragment"
+            app:popUpToSaveState="true"
+            app:launchSingleTop="true"
+            app:restoreState="true" />
+        <action
+            android:id="@+id/action_stylistDashboardFragment_to_stylistBookingsFragment"
+            app:destination="@id/stylistBookingsFragment"
+            app:popUpTo="@id/stylistDashboardFragment"
+            app:popUpToSaveState="true"
+            app:launchSingleTop="true"
+            app:restoreState="true" />
+        <action
+            android:id="@+id/action_stylistDashboardFragment_to_stylistProfileFragment"
+            app:destination="@id/stylistProfileFragment"
+            app:popUpTo="@id/stylistDashboardFragment"
+            app:popUpToSaveState="true"
+            app:launchSingleTop="true"
+            app:restoreState="true" />
+        <!-- Non-tab destinations: normal push navigation -->
         <action
             android:id="@+id/action_stylistDashboardFragment_to_setAvailabilityFragment"
             app:destination="@id/setAvailabilityFragment" />
         <action
             android:id="@+id/action_stylistDashboardFragment_to_payoutsEarningsFragment"
             app:destination="@id/payoutsEarningsFragment" />
-        <action
-            android:id="@+id/action_stylistDashboardFragment_to_stylistBookingsFragment"
-            app:destination="@id/stylistBookingsFragment" />
-        <action
-            android:id="@+id/action_stylistDashboardFragment_to_stylistProfileFragment"
-            app:destination="@id/stylistProfileFragment" />
         <action
             android:id="@+id/action_stylistDashboardFragment_to_stylistWaitlistFragment"
             app:destination="@id/stylistWaitlistFragment" />

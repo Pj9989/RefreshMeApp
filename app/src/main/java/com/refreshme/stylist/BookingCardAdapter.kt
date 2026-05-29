@@ -110,7 +110,12 @@ class BookingCardAdapter(
                     btnStart.setOnClickListener { onStartClick(booking) }
                     btnCancel.setOnClickListener { onCancelClick(booking) }
                 }
-                BookingStatus.COMPLETED, BookingStatus.CANCELLED, BookingStatus.DECLINED, BookingStatus.REFUND_PROCESSING -> { 
+                BookingStatus.AWAITING_CUSTOMER_CONFIRMATION,
+                BookingStatus.COMPLETION_DISPUTED,
+                BookingStatus.COMPLETED,
+                BookingStatus.CANCELLED,
+                BookingStatus.DECLINED,
+                BookingStatus.REFUND_PROCESSING -> { 
                     // Only message button is visible (set outside of the when block)
                     btnCancel.visibility = View.GONE
                 }

@@ -4,7 +4,7 @@
     android:layout_height="wrap_content"
     android:gravity="start"
     android:orientation="vertical"
-    android.padding="8dp">
+    android:padding="8dp">
 
     <TextView
         android:id="@+id/message_text"

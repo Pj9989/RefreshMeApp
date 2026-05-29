@@ -164,6 +164,90 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
+                <!-- Who Do You Serve Card -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="2dp"
+                    android:layout_marginBottom="16dp">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+                        <TextView
+                            android:text="Who Do You Serve?"
+                            android:textStyle="bold"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="4dp" />
+                        <TextView
+                            android:text="Select all that apply"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="12sp"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:layout_marginBottom="12dp" />
+                        <com.google.android.material.chip.ChipGroup
+                            android:id="@+id/chip_group_serves_gender"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            app:singleSelection="false" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- What Do You Offer? (Categories: hair / makeup / nails) -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="2dp"
+                    android:layout_marginBottom="16dp">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+                        <TextView
+                            android:text="What Do You Offer?"
+                            android:textStyle="bold"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="4dp" />
+                        <TextView
+                            android:text="Pick every category you work in — you can choose more than one"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="12sp"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:layout_marginBottom="12dp" />
+                        <com.google.android.material.chip.ChipGroup
+                            android:id="@+id/chip_group_stylist_categories"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            app:singleSelection="false" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Shop / Business Listing -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/shop_business_card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="2dp"
+                    android:layout_marginBottom="16dp">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                                <TextView android:text="Shop / Business Listing" android:textStyle="bold" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="4dp" />
+                                <TextView android:text="Show your shop name, address, phone, and website on RefreshMe." android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="?attr/colorOnSurfaceVariant" />
+                            </LinearLayout>
+                            <com.google.android.material.switchmaterial.SwitchMaterial android:id="@+id/switch_shop_profile" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" />
+                        </LinearLayout>
+                        <LinearLayout android:id="@+id/layout_business_fields" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:layout_marginTop="16dp">
+                            <EditText android:id="@+id/edit_business_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Business or shop name" android:inputType="textCapWords" android:layout_marginBottom="8dp" />
+                            <EditText android:id="@+id/edit_business_bio" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Short shop description" android:inputType="textMultiLine" android:minLines="2" android:gravity="top" android:layout_marginBottom="8dp" />
+                            <EditText android:id="@+id/edit_business_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Business address" android:inputType="textPostalAddress" android:layout_marginBottom="8dp" />
+                            <EditText android:id="@+id/edit_business_phone" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Business phone" android:inputType="phone" android:layout_marginBottom="8dp" />
+                            <EditText android:id="@+id/edit_business_website" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Business website" android:inputType="textUri" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
                 <!-- Social Links Card -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
@@ -209,6 +293,7 @@
                         </RadioGroup>
                         <EditText android:id="@+id/edit_salon_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/salon_address_hint" android:inputType="textPostalAddress" android:visibility="gone" android:layout_marginTop="8dp" />
                         <EditText android:id="@+id/edit_service_radius" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/service_radius_hint" android:inputType="number" android:visibility="gone" android:layout_marginTop="8dp" />
+                        <EditText android:id="@+id/edit_at_home_service_fee" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/at_home_service_fee_hint" android:inputType="numberDecimal" android:visibility="gone" android:layout_marginTop="8dp" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 

@@ -38,9 +38,10 @@ fun ReceiptScreen(
     val sdf = SimpleDateFormat("MMM dd, yyyy 'at' h:mm a", Locale.getDefault())
     val formattedDate = booking.scheduledStart?.toDate()?.let { sdf.format(it) } ?: "Pending"
     
-    val basePrice = booking.priceCents.toDouble() / 100.0
-    val travelFee = if (booking.isMobile) 15.0 else 0.0
-    val total = basePrice + travelFee
+    val total = booking.priceCents.toDouble() / 100.0
+    val travelFee = if (booking.isMobile) booking.travelFeeApplied ?: 0.0 else 0.0
+    val emergencyFee = booking.emergencyFeeApplied ?: 0.0
+    val serviceSubtotal = (total - travelFee - emergencyFee).coerceAtLeast(0.0)
 
     Scaffold(
         topBar = {
@@ -107,10 +108,14 @@ fun ReceiptScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    ReceiptItemRow(booking.serviceName, basePrice)
+                    ReceiptItemRow(booking.serviceName, serviceSubtotal)
                     
-                    if (booking.isMobile) {
+                    if (booking.isMobile && travelFee > 0.0) {
                         ReceiptItemRow("Mobile Travel Fee", travelFee)
+                    }
+
+                    if (emergencyFee > 0.0) {
+                        ReceiptItemRow("ASAP Priority Fee", emergencyFee)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))

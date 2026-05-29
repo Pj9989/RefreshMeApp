@@ -49,6 +49,18 @@ class ManageServicesViewModel @Inject constructor(
                 
                 val stylist = snapshot?.toObject(com.refreshme.data.Stylist::class.java)
                 val services = stylist?.services ?: emptyList()
+
+                if (snapshot != null && !snapshot.exists()) {
+                    firestore.collection("stylists").document(uid).set(
+                        mapOf(
+                            "name" to (auth.currentUser?.displayName ?: "Stylist"),
+                            "email" to (auth.currentUser?.email ?: ""),
+                            "role" to "STYLIST",
+                            "services" to emptyList<Map<String, Any>>()
+                        ),
+                        SetOptions.merge()
+                    )
+                }
                 
                 _uiState.value = ServicesUiState.Success(services)
             }
@@ -60,7 +72,10 @@ class ManageServicesViewModel @Inject constructor(
             try {
                 val newService = service.copy(id = java.util.UUID.randomUUID().toString())
                 firestore.collection("stylists").document(uid)
-                    .update("services", com.google.firebase.firestore.FieldValue.arrayUnion(newService)).await()
+                    .set(
+                        mapOf("services" to com.google.firebase.firestore.FieldValue.arrayUnion(newService)),
+                        SetOptions.merge()
+                    ).await()
             } catch (e: Exception) {
                 // Handle error
             }

@@ -32,10 +32,6 @@ class SignInActivity : AppCompatActivity() {
     private lateinit var biometricPrompt: BiometricPrompt
     private lateinit var promptInfo: BiometricPrompt.PromptInfo
 
-    // Demo account credentials for Google Play reviewers
-    private val DEMO_EMAIL = "tester@refreshme.com"
-    private val DEMO_PASSWORD = "testpassword123"
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -49,20 +45,22 @@ class SignInActivity : AppCompatActivity() {
             binding.emailLayout.visibility = View.GONE
             binding.passwordLayout.visibility = View.GONE
             binding.signInButton.visibility = View.GONE
-            binding.demoLoginButton.visibility = View.GONE
             binding.signUpTextView.visibility = View.GONE
             binding.forgotPasswordTextView.visibility = View.GONE
             binding.progressBar.visibility = View.VISIBLE
             
-            updateFcmToken()
-            
-            // Check if Biometrics are available
-            val biometricManager = BiometricManager.from(this)
-            if (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL) == BiometricManager.BIOMETRIC_SUCCESS) {
-                setupBiometricPrompt()
-                biometricPrompt.authenticate(promptInfo)
-            } else {
-                checkUserRoleAndNavigate()
+            // Gate: require email verification (with reviewer bypass) before allowing app entry.
+            verifyEmailAndProceed {
+                updateFcmToken()
+
+                // Check if Biometrics are available
+                val biometricManager = BiometricManager.from(this)
+                if (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL) == BiometricManager.BIOMETRIC_SUCCESS) {
+                    setupBiometricPrompt()
+                    biometricPrompt.authenticate(promptInfo)
+                } else {
+                    checkUserRoleAndNavigate()
+                }
             }
             return
         }
@@ -74,10 +72,6 @@ class SignInActivity : AppCompatActivity() {
             signInUser()
         }
 
-        binding.demoLoginButton.setOnClickListener {
-            signInAsDemo()
-        }
-
         binding.signUpTextView.setOnClickListener {
             startActivity(SignUpActivity.newIntent(this))
         }
@@ -85,35 +79,6 @@ class SignInActivity : AppCompatActivity() {
         binding.forgotPasswordTextView.setOnClickListener {
             showForgotPasswordDialog()
         }
-
-        // Demo Login button: automatically fills and signs in with the reviewer test account
-        binding.demoLoginButton.setOnClickListener {
-            signInWithDemoAccount()
-        }
-    }
-
-    private fun signInWithDemoAccount() {
-        binding.progressBar.visibility = View.VISIBLE
-        binding.demoLoginButton.isEnabled = false
-        binding.signInButton.isEnabled = false
-
-        firebaseAuth.signInWithEmailAndPassword(DEMO_EMAIL, DEMO_PASSWORD)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    startActivity(Intent(this, com.refreshme.MainActivity::class.java))
-                    finish()
-                } else {
-                    binding.progressBar.visibility = View.GONE
-                    binding.demoLoginButton.isEnabled = true
-                    binding.signInButton.isEnabled = true
-                    Log.e("SignInActivity", "Demo login failed", task.exception)
-                    Toast.makeText(
-                        this,
-                        "Demo login failed. Please ensure the test account is set up in Firebase.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
     }
 
     private fun setupBiometricPrompt() {
@@ -193,17 +158,17 @@ class SignInActivity : AppCompatActivity() {
 
         binding.progressBar.visibility = View.VISIBLE
         binding.signInButton.isEnabled = false
-        binding.demoLoginButton.isEnabled = false
 
         firebaseAuth.signInWithEmailAndPassword(email, password).addOnCompleteListener { task ->
             if (task.isSuccessful) {
-                updateFcmToken()
-                // After manual sign in, we just navigate.
-                checkUserRoleAndNavigate()
+                // Gate: require email verification (with reviewer bypass) before allowing app entry.
+                verifyEmailAndProceed {
+                    updateFcmToken()
+                    checkUserRoleAndNavigate()
+                }
             } else {
                 binding.progressBar.visibility = View.GONE
                 binding.signInButton.isEnabled = true
-                binding.demoLoginButton.isEnabled = true
                 val exception = task.exception
                 val errorMessage = when (exception) {
                     is FirebaseAuthInvalidUserException -> getString(R.string.error_no_account_found)
@@ -211,28 +176,6 @@ class SignInActivity : AppCompatActivity() {
                     else -> getString(R.string.error_auth_failed)
                 }
                 Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private fun signInAsDemo() {
-        // NOTE: Create this user in your Firebase Console first
-        val demoEmail = "tester@refreshme.com"
-        val demoPassword = "testpassword123"
-
-        binding.progressBar.visibility = View.VISIBLE
-        binding.signInButton.isEnabled = false
-        binding.demoLoginButton.isEnabled = false
-
-        firebaseAuth.signInWithEmailAndPassword(demoEmail, demoPassword).addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                updateFcmToken()
-                checkUserRoleAndNavigate()
-            } else {
-                binding.progressBar.visibility = View.GONE
-                binding.signInButton.isEnabled = true
-                binding.demoLoginButton.isEnabled = true
-                Toast.makeText(this, "Demo Login Failed. Ensure tester account exists in Firebase.", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -270,9 +213,79 @@ class SignInActivity : AppCompatActivity() {
         dialog.show()
     }
 
+    /**
+     * Refreshes the current Firebase user and only invokes [onVerified] if the user's email
+     * is verified, or the email is on the reviewer allowlist. Otherwise signs the user out
+     * and shows the "verify your email" dialog.
+     *
+     * Mirrors the iOS gate in lib/providers/auth_provider.dart so both platforms refuse to
+     * let unverified accounts into the app.
+     */
+    private fun verifyEmailAndProceed(onVerified: () -> Unit) {
+        val user = firebaseAuth.currentUser
+        if (user == null) {
+            onVerified()
+            return
+        }
+
+        // Reviewer accounts bypass verification (for Apple / Google App Review).
+        if (isReviewerEmail(user.email)) {
+            onVerified()
+            return
+        }
+
+        user.reload().addOnCompleteListener {
+            val refreshedUser = firebaseAuth.currentUser
+            if (refreshedUser != null && refreshedUser.isEmailVerified) {
+                onVerified()
+            } else {
+                firebaseAuth.signOut()
+                showEmailNotVerifiedDialog()
+            }
+        }
+    }
+
+    private fun isReviewerEmail(email: String?): Boolean {
+        return email?.lowercase() in REVIEWER_EMAILS
+    }
+
+    private fun showEmailNotVerifiedDialog() {
+        if (isFinishing) return
+
+        // Reveal the sign-in form again (in case we just came from a persisted-session boot
+        // where the form fields were hidden behind the progress spinner).
+        binding.emailLayout.visibility = View.VISIBLE
+        binding.passwordLayout.visibility = View.VISIBLE
+        binding.signInButton.visibility = View.VISIBLE
+        binding.signUpTextView.visibility = View.VISIBLE
+        binding.forgotPasswordTextView.visibility = View.VISIBLE
+        binding.progressBar.visibility = View.GONE
+        binding.signInButton.isEnabled = true
+
+        AlertDialog.Builder(this)
+            .setTitle("Verify your email")
+            .setMessage(
+                "Please verify your email address before logging in. " +
+                    "Check your inbox for the verification link."
+            )
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
     companion object {
         fun newIntent(context: Context): Intent {
             return Intent(context, SignInActivity::class.java)
         }
+
+        // Demo / reviewer accounts that bypass email verification.
+        // ONLY accounts created specifically for App Review (Apple / Google) belong here.
+        // Real human accounts must verify like everyone else.
+        private val REVIEWER_EMAILS = setOf(
+            "reviewer@refreshmeapp.com",
+            "tester@refreshmeapp.com",
+            "appreviewer@refreshmeapp.com",
+            "reviewer.customer@refreshmeapp.com",
+            "reviewer.stylist@refreshmeapp.com"
+        )
     }
 }

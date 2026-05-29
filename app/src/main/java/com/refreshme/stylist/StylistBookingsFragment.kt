@@ -75,7 +75,7 @@ class StylistBookingsFragment : Fragment() {
     @Composable
     fun StylistBookingsScreen() {
         var selectedTab by remember { mutableIntStateOf(0) }
-        val tabs = listOf("Requests", "Upcoming", "Done", "Cancelled")
+        val tabs = listOf("Requests", "Upcoming", "Pending", "Done", "Cancelled")
         
         var allBookings by remember { mutableStateOf<List<Booking>>(emptyList()) }
         var isLoading by remember { mutableStateOf(true) }
@@ -103,7 +103,8 @@ class StylistBookingsFragment : Fragment() {
             val statusFilter = when (selectedTab) {
                 0 -> listOf(BookingStatus.REQUESTED, BookingStatus.PENDING)
                 1 -> listOf(BookingStatus.DEPOSIT_PAID, BookingStatus.ACCEPTED, BookingStatus.ON_THE_WAY, BookingStatus.IN_PROGRESS)
-                2 -> listOf(BookingStatus.COMPLETED)
+                2 -> listOf(BookingStatus.AWAITING_CUSTOMER_CONFIRMATION, BookingStatus.COMPLETION_DISPUTED)
+                3 -> listOf(BookingStatus.COMPLETED)
                 else -> listOf(BookingStatus.CANCELLED, BookingStatus.DECLINED)
             }
             
@@ -399,6 +400,25 @@ class StylistBookingsFragment : Fragment() {
                                 }
                             }
                         }
+                        BookingStatus.AWAITING_CUSTOMER_CONFIRMATION -> {
+                            OutlinedButton(onClick = onMessage, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                                Icon(Icons.Default.HourglassTop, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Awaiting Client Confirmation")
+                            }
+                        }
+                        BookingStatus.COMPLETION_DISPUTED -> {
+                            Button(
+                                onClick = onMessage,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Icon(Icons.Default.ReportProblem, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Review Client Issue")
+                            }
+                        }
                         else -> {
                             OutlinedButton(onClick = onMessage, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
                                 Icon(Icons.Default.MailOutline, contentDescription = null)
@@ -451,9 +471,23 @@ class StylistBookingsFragment : Fragment() {
     private fun handleStartBooking(booking: Booking) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                val nextStatus = if (booking.bookingStatus == BookingStatus.IN_PROGRESS) BookingStatus.COMPLETED else BookingStatus.IN_PROGRESS
-                bookingRepository.updateBookingStatus(booking.id, nextStatus)
-                val msg = if (nextStatus == BookingStatus.COMPLETED) "Session Completed!" else "Session Started!"
+                val completing = booking.bookingStatus == BookingStatus.IN_PROGRESS
+                if (completing) {
+                    val result = bookingRepository.requestBookingCompletion(booking.id)
+                    if (result.isFailure) {
+                        throw result.exceptionOrNull() ?: IllegalStateException("Could not request completion")
+                    }
+                } else {
+                    val result = bookingRepository.updateBookingStatus(booking.id, BookingStatus.IN_PROGRESS)
+                    if (result.isFailure) {
+                        throw result.exceptionOrNull() ?: IllegalStateException("Could not start session")
+                    }
+                }
+                val msg = if (completing) {
+                    "Sent to client for confirmation"
+                } else {
+                    "Session Started!"
+                }
                 Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Log.e("StylistBookings", "Failed to update status", e)

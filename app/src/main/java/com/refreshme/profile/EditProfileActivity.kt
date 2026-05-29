@@ -1,6 +1,7 @@
 package com.refreshme.profile
 
 import android.content.Intent
+import android.location.Geocoder
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -24,12 +25,17 @@ import com.google.android.material.imageview.ShapeableImageView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.functions.FirebaseFunctions
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.refreshme.R
 import com.refreshme.StyleProfile
+import com.refreshme.data.DEFAULT_AT_HOME_SERVICE_FEE
 import com.refreshme.auth.SignInActivity
+import com.refreshme.data.StylistCategories
 import com.refreshme.data.VerificationStatus
 import com.refreshme.stylist.ManagePortfolioActivity
 import com.refreshme.stylist.ManagePayoutsActivity
@@ -41,6 +47,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import java.util.Locale
 import java.util.concurrent.Executor
 import kotlin.math.roundToInt
 
@@ -73,6 +81,16 @@ class EditProfileActivity : AppCompatActivity() {
     private lateinit var chipGroupCustomerFrequency: ChipGroup
     private lateinit var chipGroupCustomerFinish: ChipGroup
 
+    private lateinit var chipGroupServesGender: ChipGroup
+    private lateinit var chipGroupStylistCategories: ChipGroup
+    private lateinit var shopBusinessCard: View
+    private lateinit var switchShopProfile: SwitchMaterial
+    private lateinit var layoutBusinessFields: View
+    private lateinit var editBusinessName: EditText
+    private lateinit var editBusinessBio: EditText
+    private lateinit var editBusinessAddress: EditText
+    private lateinit var editBusinessPhone: EditText
+    private lateinit var editBusinessWebsite: EditText
     private lateinit var manageServicesLink: TextView
     private lateinit var managePortfolioLink: TextView
     private lateinit var managePayoutsLink: TextView
@@ -83,6 +101,7 @@ class EditProfileActivity : AppCompatActivity() {
     private lateinit var editSalonAddress: EditText
     private lateinit var radioMobileLocation: RadioButton
     private lateinit var editServiceRadius: EditText
+    private lateinit var editAtHomeServiceFee: EditText
 
     private lateinit var saveProfileButton: Button
     private lateinit var stripeVerifyButton: Button
@@ -95,6 +114,7 @@ class EditProfileActivity : AppCompatActivity() {
     private lateinit var verificationStatusText: TextView
 
     private var isStylist = false
+    private var currentShopId: String? = null
     private lateinit var executor: Executor
     private lateinit var biometricPrompt: BiometricPrompt
     private lateinit var promptInfo: BiometricPrompt.PromptInfo
@@ -120,6 +140,7 @@ class EditProfileActivity : AppCompatActivity() {
         const val LOCATION_TYPE_MOBILE = "mobile"
         
         val AVAILABLE_GENDERS = listOf("women", "men")
+        val SERVES_GENDER_OPTIONS = listOf("Men", "Women", "Non-binary", "Kids")
         val AVAILABLE_VIBES = listOf("Urban", "Classic", "Trendy", "Luxury", "Quiet", "Hip-Hop", "Executive", "Artistic", "Fast")
         val AVAILABLE_FACE_SHAPES = listOf("OVAL", "ROUND", "SQUARE", "HEART", "OBLONG")
         val HAIR_TYPES = listOf("Straight", "Wavy", "Curly", "Coily")
@@ -156,7 +177,61 @@ class EditProfileActivity : AppCompatActivity() {
         editStylistTiktok = findViewById(R.id.edit_stylist_tiktok)
         editStylistWebsite = findViewById(R.id.edit_stylist_website)
         
+        // Use ContextThemeWrapper to apply the filter chip style correctly.
+        // Passing a style resource as the 3rd arg of the Chip(Context, AttrSet, Int)
+        // constructor is incorrect — that parameter is `defStyleAttr` (a theme
+        // attribute reference), not `defStyleRes`. The previous pattern wrapped
+        // the chip's drawable correctly enough to render, but broke the
+        // checkable touch behavior on Material3 themes, so taps never toggled.
+        val chipThemeCtx = android.view.ContextThemeWrapper(this, com.google.android.material.R.style.Widget_MaterialComponents_Chip_Filter)
+
+        chipGroupServesGender = findViewById(R.id.chip_group_serves_gender)
+        SERVES_GENDER_OPTIONS.forEach { option ->
+            val chip = Chip(chipThemeCtx).apply {
+                text = option
+                isCheckable = true
+                isClickable = true
+                isFocusable = true
+            }
+            chipGroupServesGender.addView(chip)
+        }
+
+        // What Do You Offer? — hair / makeup / nails multi-select.
+        // Mirrors the Flutter stylist profile editor; default selection is
+        // Hair so the minimum-one rule is satisfied for new pros.
+        chipGroupStylistCategories = findViewById(R.id.chip_group_stylist_categories)
+        StylistCategories.ALL.forEach { catId ->
+            val chip = Chip(chipThemeCtx).apply {
+                text = StylistCategories.label(catId)
+                tag = catId
+                isCheckable = true
+                isClickable = true
+                isFocusable = true
+                // Default: Hair pre-selected so the pro isn't hidden from the
+                // Home list before they've visited this editor.
+                isChecked = (catId == StylistCategories.HAIR)
+            }
+            chipGroupStylistCategories.addView(chip)
+        }
+        // Enforce "at least one category selected" — if the last chip is
+        // un-checked, snap it back on so filtering never yields a pro with
+        // an empty category list.
+        chipGroupStylistCategories.setOnCheckedStateChangeListener { group, checkedIds ->
+            if (checkedIds.isEmpty()) {
+                val firstChip = group.getChildAt(0) as? Chip
+                firstChip?.isChecked = true
+            }
+        }
+
         manageServicesLink = findViewById(R.id.manage_services_link)
+        shopBusinessCard = findViewById(R.id.shop_business_card)
+        switchShopProfile = findViewById(R.id.switch_shop_profile)
+        layoutBusinessFields = findViewById(R.id.layout_business_fields)
+        editBusinessName = findViewById(R.id.edit_business_name)
+        editBusinessBio = findViewById(R.id.edit_business_bio)
+        editBusinessAddress = findViewById(R.id.edit_business_address)
+        editBusinessPhone = findViewById(R.id.edit_business_phone)
+        editBusinessWebsite = findViewById(R.id.edit_business_website)
         managePortfolioLink = findViewById(R.id.manage_portfolio_link)
         managePayoutsLink = findViewById(R.id.manage_payouts_link)
         manageHoursLink = findViewById(R.id.manage_hours_link)
@@ -175,6 +250,7 @@ class EditProfileActivity : AppCompatActivity() {
         editSalonAddress = findViewById(R.id.edit_salon_address)
         radioMobileLocation = findViewById(R.id.radio_mobile_location)
         editServiceRadius = findViewById(R.id.edit_service_radius)
+        editAtHomeServiceFee = findViewById(R.id.edit_at_home_service_fee)
 
         licenseImagePreview = findViewById(R.id.license_image_preview)
         uploadLicenseButton = findViewById(R.id.upload_license_button)
@@ -246,11 +322,15 @@ class EditProfileActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 user.getIdToken(true).await() // forceRefresh = true
-                functions.getHttpsCallable("createIdentityVerificationSession").call()
+                // Deployed cloud function requires { userId } in the request body
+                // and verifies it matches the caller's auth uid.
+                functions.getHttpsCallable("createIdentityVerificationSession")
+                    .call(mapOf("userId" to user.uid))
                     .addOnSuccessListener { result ->
                         val data = result.data as? Map<*, *>
                         val verificationSessionId = data?.get("id") as? String
-                        val ephemeralKeySecret = data?.get("client_secret") as? String
+                        val ephemeralKeySecret = data?.get("ephemeral_key_secret") as? String
+                            ?: data?.get("client_secret") as? String
                         if (verificationSessionId != null && ephemeralKeySecret != null) {
                             identityVerificationSheet.present(verificationSessionId, ephemeralKeySecret)
                         } else {
@@ -282,12 +362,18 @@ class EditProfileActivity : AppCompatActivity() {
             chipGroupCustomerFrequency to AVAILABLE_FREQUENCIES,
             chipGroupCustomerFinish to AVAILABLE_FINISHES
         )
+        // Reuse the themed context so customer-side chips inherit the
+        // correct filter-chip drawable and respond to taps on Material3.
+        val customerChipCtx = android.view.ContextThemeWrapper(this, com.google.android.material.R.style.Widget_MaterialComponents_Chip_Filter)
         groups.forEach { (group, list) ->
             group.removeAllViews()
             list.forEach { item ->
-                val chip = Chip(this, null, com.google.android.material.R.style.Widget_MaterialComponents_Chip_Filter)
-                chip.text = item
-                chip.isCheckable = true
+                val chip = Chip(customerChipCtx).apply {
+                    text = item
+                    isCheckable = true
+                    isClickable = true
+                    isFocusable = true
+                }
                 group.addView(chip)
             }
         }
@@ -304,10 +390,18 @@ class EditProfileActivity : AppCompatActivity() {
         managePortfolioLink.setOnClickListener { authenticateAndExecute { startActivity(Intent(this, ManagePortfolioActivity::class.java)) } }
         managePayoutsLink.setOnClickListener { authenticateAndExecute { startActivity(Intent(this, ManagePayoutsActivity::class.java)) } }
         manageHoursLink.setOnClickListener { authenticateAndExecute { startActivity(Intent(this, ManageWorkingHoursActivity::class.java)) } }
+        switchShopProfile.setOnCheckedChangeListener { _, isChecked ->
+            layoutBusinessFields.visibility = if (isChecked) View.VISIBLE else View.GONE
+        }
         btnAiBio.setOnClickListener { showAiBioDialog() }
         radioLocationType.setOnCheckedChangeListener { _, checkedId ->
+            val isMobileLocation = checkedId == R.id.radio_mobile_location
             editSalonAddress.visibility = if (checkedId == R.id.radio_fixed_location) View.VISIBLE else View.GONE
-            editServiceRadius.visibility = if (checkedId == R.id.radio_mobile_location) View.VISIBLE else View.GONE
+            editServiceRadius.visibility = if (isMobileLocation) View.VISIBLE else View.GONE
+            editAtHomeServiceFee.visibility = if (isMobileLocation) View.VISIBLE else View.GONE
+            if (isMobileLocation && editAtHomeServiceFee.text.isNullOrBlank()) {
+                editAtHomeServiceFee.setText(String.format(Locale.US, "%.2f", DEFAULT_AT_HOME_SERVICE_FEE))
+            }
         }
         saveProfileButton.setOnClickListener {
             val newName = editUserName.text.toString().trim()
@@ -329,6 +423,18 @@ class EditProfileActivity : AppCompatActivity() {
         val bio = editStylistBio.text.toString().trim()
         if (bio.isNotEmpty() && bio.length < 10) {
             Toast.makeText(this, "Bio too short", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        if (radioLocationType.checkedRadioButtonId == R.id.radio_mobile_location) {
+            val fee = editAtHomeServiceFee.text.toString().trim().toDoubleOrNull()
+            if (fee == null || fee < 0.0) {
+                Toast.makeText(this, "Enter a valid at-home travel fee", Toast.LENGTH_SHORT).show()
+                return false
+            }
+        }
+        if (switchShopProfile.isChecked && editBusinessName.text.toString().trim().isEmpty()) {
+            Toast.makeText(this, "Enter your shop or business name", Toast.LENGTH_SHORT).show()
+            editBusinessName.requestFocus()
             return false
         }
         return true
@@ -428,6 +534,44 @@ class EditProfileActivity : AppCompatActivity() {
         val uid = auth.currentUser?.uid ?: return
         firestore.collection("stylists").document(uid).get().addOnSuccessListener { snapshot ->
             editStylistBio.setText(snapshot.getString("bio"))
+            currentShopId = snapshot.getString("shopId")
+            editBusinessName.setText(snapshot.getString("businessName"))
+            editBusinessBio.setText(snapshot.getString("businessBio"))
+            editBusinessAddress.setText(snapshot.getString("businessAddress"))
+            editBusinessPhone.setText(snapshot.getString("businessPhone"))
+            editBusinessWebsite.setText(snapshot.getString("businessWebsite"))
+            val hasShopListing = snapshot.getBoolean("isShopProfile") == true ||
+                !snapshot.getString("businessName").isNullOrBlank()
+            switchShopProfile.isChecked = hasShopListing
+            layoutBusinessFields.visibility = if (hasShopListing) View.VISIBLE else View.GONE
+            if (intent.getBooleanExtra("FOCUS_SHOP", false)) {
+                shopBusinessCard.post {
+                    findViewById<ScrollView>(R.id.main_scroll_view).smoothScrollTo(0, shopBusinessCard.top)
+                    editBusinessName.requestFocus()
+                }
+            }
+            @Suppress("UNCHECKED_CAST")
+            val savedGenders = (snapshot.get("servesGender") as? List<String>)
+                ?: listOf("Men", "Women", "Non-binary")
+            for (i in 0 until chipGroupServesGender.childCount) {
+                val chip = chipGroupServesGender.getChildAt(i) as Chip
+                chip.isChecked = chip.text.toString() in savedGenders
+            }
+
+            // Professional categories (hair / makeup / nails). Falls back to
+            // ["hair"] for legacy docs so existing pros stay visible under
+            // the Hair filter after rollout.
+            @Suppress("UNCHECKED_CAST")
+            val savedCategories: List<String> = when (val raw = snapshot.get("categories")) {
+                is List<*> -> raw.mapNotNull { it?.toString()?.trim()?.lowercase() }
+                    .filter { it.isNotEmpty() }
+                is String -> listOf(raw.trim().lowercase()).filter { it.isNotEmpty() }
+                else -> listOf(StylistCategories.HAIR)
+            }.ifEmpty { listOf(StylistCategories.HAIR) }
+            for (i in 0 until chipGroupStylistCategories.childCount) {
+                val chip = chipGroupStylistCategories.getChildAt(i) as Chip
+                chip.isChecked = (chip.tag as? String) in savedCategories
+            }
             val socialLinks = snapshot.get("socialLinks") as? Map<String, String>
             if (socialLinks != null) {
                 editStylistInstagram.setText(socialLinks["instagram"])
@@ -445,6 +589,9 @@ class EditProfileActivity : AppCompatActivity() {
                 val rangeMiles = rangeKm / 1.60934
                 editServiceRadius.setText(rangeMiles.roundToInt().toString())
                 editServiceRadius.visibility = View.VISIBLE
+                val fee = snapshot.getDouble("atHomeServiceFee") ?: DEFAULT_AT_HOME_SERVICE_FEE
+                editAtHomeServiceFee.setText(String.format(Locale.US, "%.2f", fee))
+                editAtHomeServiceFee.visibility = View.VISIBLE
             }
             
             val licenseImageUrl = snapshot.getString("licenseImageUrl")
@@ -559,21 +706,118 @@ class EditProfileActivity : AppCompatActivity() {
         editStylistWebsite.text.toString().trim().let { if (it.isNotEmpty()) socialLinks["website"] = it }
         updates["socialLinks"] = socialLinks
 
+        val selectedGenders = mutableListOf<String>()
+        for (i in 0 until chipGroupServesGender.childCount) {
+            val chip = chipGroupServesGender.getChildAt(i) as Chip
+            if (chip.isChecked) selectedGenders.add(chip.text.toString())
+        }
+        updates["servesGender"] = if (selectedGenders.isEmpty()) listOf("Men", "Women", "Non-binary") else selectedGenders
+
+        // Persist professional categories. Enforce at-least-one by falling
+        // back to ["hair"] if somehow every chip ended up un-checked, so the
+        // doc can never be written with an empty categories array.
+        val selectedCategories = mutableListOf<String>()
+        for (i in 0 until chipGroupStylistCategories.childCount) {
+            val chip = chipGroupStylistCategories.getChildAt(i) as Chip
+            if (chip.isChecked) {
+                (chip.tag as? String)?.let { selectedCategories.add(it) }
+            }
+        }
+        updates["categories"] = if (selectedCategories.isEmpty()) listOf(StylistCategories.HAIR) else selectedCategories
+
         if (radioLocationType.checkedRadioButtonId == R.id.radio_fixed_location) {
             updates["serviceLocationType"] = LOCATION_TYPE_FIXED
-            updates["salonAddress"] = editSalonAddress.text.toString().trim()
+            updates["offersAtHomeService"] = false
+            val address = editSalonAddress.text.toString().trim()
+            updates["salonAddress"] = address
+            // Geocode salon address to a GeoPoint so the customer-side distance
+            // calc has a real location instead of the default (0,0) which was
+            // producing nonsense distances like "2,200 mi away".
+            if (address.isNotEmpty()) {
+                try {
+                    val first = withContext(Dispatchers.IO) {
+                        val geocoder = Geocoder(this@EditProfileActivity, Locale.getDefault())
+                        @Suppress("DEPRECATION")
+                        geocoder.getFromLocationName(address, 1)?.firstOrNull()
+                    }
+                    if (first != null) {
+                        updates["location"] = GeoPoint(first.latitude, first.longitude)
+                    } else {
+                        Log.w(TAG, "Geocoder returned no results for salonAddress='$address'")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Geocoder failed for salonAddress='$address'", e)
+                }
+            }
         } else {
             updates["serviceLocationType"] = LOCATION_TYPE_MOBILE
             val rangeMiles = editServiceRadius.text.toString().trim().toDoubleOrNull() ?: 0.0
             updates["maxTravelRangeKm"] = (rangeMiles * 1.60934).roundToInt()
+            updates["offersAtHomeService"] = true
+            updates["atHomeServiceFee"] = editAtHomeServiceFee.text.toString().trim().toDoubleOrNull()
+                ?: DEFAULT_AT_HOME_SERVICE_FEE
         }
         if (selectedLicenseUri != null) {
             val ref = storage.reference.child("license_images/$uid")
             ref.putFile(selectedLicenseUri!!).await()
             updates["licenseImageUrl"] = ref.downloadUrl.await().toString()
-            updates["verificationStatus"] = VerificationStatus.PENDING.name
+            // NOTE: verificationStatus is a server-owned field (see firestore.rules
+            // serverOwnedStylistFields). The Stripe identity webhook in
+            // functions/src/index.ts sets it after verification — writing it from
+            // the client triggers PERMISSION_DENIED and fails the whole update.
         }
+        applyBusinessListingUpdates(uid, updates)
         firestore.collection("stylists").document(uid).set(updates, SetOptions.merge()).await()
+    }
+
+    private suspend fun applyBusinessListingUpdates(uid: String, stylistUpdates: MutableMap<String, Any>) {
+        val businessName = editBusinessName.text.toString().trim()
+        val businessBio = editBusinessBio.text.toString().trim()
+        val businessAddress = editBusinessAddress.text.toString().trim()
+        val businessPhone = editBusinessPhone.text.toString().trim()
+        val businessWebsite = editBusinessWebsite.text.toString().trim()
+        val enabled = switchShopProfile.isChecked && businessName.isNotEmpty()
+
+        stylistUpdates["businessName"] = businessName
+        stylistUpdates["businessBio"] = businessBio
+        stylistUpdates["businessAddress"] = businessAddress
+        stylistUpdates["businessPhone"] = businessPhone
+        stylistUpdates["businessWebsite"] = businessWebsite
+        stylistUpdates["isShopProfile"] = enabled
+
+        if (enabled) {
+            val existingShopId = currentShopId?.takeIf { it.isNotBlank() }
+            val shopId = existingShopId ?: firestore.collection("shops").document().id
+            currentShopId = shopId
+            stylistUpdates["shopId"] = shopId
+
+            val shopUpdates = mutableMapOf<String, Any>(
+                "ownerId" to uid,
+                "name" to businessName,
+                "bio" to businessBio,
+                "address" to businessAddress,
+                "phone" to businessPhone,
+                "website" to businessWebsite,
+                "stylistIds" to FieldValue.arrayUnion(uid),
+                "isPublic" to true,
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            if (existingShopId == null) {
+                shopUpdates["createdAt"] = FieldValue.serverTimestamp()
+            }
+            firestore.collection("shops").document(shopId).set(shopUpdates, SetOptions.merge()).await()
+        } else {
+            currentShopId?.takeIf { it.isNotBlank() }?.let { shopId ->
+                firestore.collection("shops").document(shopId).set(
+                    mapOf(
+                        "isPublic" to false,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    ),
+                    SetOptions.merge()
+                ).await()
+                stylistUpdates["shopId"] = shopId
+            }
+        }
     }
 
     private fun String.capitalize() = replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }

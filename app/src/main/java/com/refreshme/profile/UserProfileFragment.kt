@@ -16,9 +16,13 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import com.google.firebase.auth.FirebaseAuth
+import com.refreshme.CustomerDashboardActivity
 import com.refreshme.R
 import com.refreshme.auth.SignInActivity
+import com.refreshme.stylist.StylistDashboardActivity
 import com.refreshme.ui.theme.RefreshMeTheme
+import com.refreshme.util.RoleBasedNavigationManager
+import com.refreshme.util.RoleBasedNavigationManager.UserRole
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -58,8 +62,23 @@ class UserProfileFragment : Fragment() {
                             onViewSavedStylists = {
                                 findNavController().navigate(R.id.favoritesFragment)
                             },
+                            onSwitchToStylistDashboard = {
+                                val intent = Intent(requireContext(), StylistDashboardActivity::class.java).apply {
+                                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                }
+                                startActivity(intent)
+                                activity?.finish()
+                            },
                             onViewBookings = {
                                 findNavController().navigate(R.id.bookingsFragment)
+                            },
+                            isStylistBrowseMode = requireActivity()
+                                .intent
+                                .getBooleanExtra(CustomerDashboardActivity.EXTRA_ALLOW_STYLIST_BROWSE, false),
+                            resolveRole = { callback ->
+                                RoleBasedNavigationManager.getUserRole { role ->
+                                    callback(role == UserRole.STYLIST)
+                                }
                             },
                             onDeleteAccount = {
                                 val user = auth.currentUser

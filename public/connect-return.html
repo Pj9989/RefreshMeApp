@@ -25,12 +25,23 @@
         <div class="icon">✅</div>
         <h1>Stripe Setup Complete!</h1>
         <p>Your payout account is connected. RefreshMe will automatically send your earnings to your bank account after each completed booking.</p>
-        <a href="refreshme://dashboard" class="btn">Back to Dashboard</a>
+        <a id="backBtn" href="refreshme://dashboard" class="btn">Back to Dashboard</a>
         <p class="note">It may take a moment for your account status to update in the app.</p>
     </div>
     <script>
-        // Attempt to deep-link back to the app automatically
-        setTimeout(() => { window.location.href = "refreshme://dashboard"; }, 2000);
+        // Android Chrome blocks JS redirects to custom schemes.
+        // Use intent:// for Android, refreshme:// for iOS.
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        const iosLink     = "refreshme://dashboard";
+        const androidLink = "intent://dashboard#Intent;scheme=refreshme;package=com.refreshmeapp.stylist;end";
+        const deepLink    = isAndroid ? androidLink : iosLink;
+
+        document.getElementById("backBtn").href = deepLink;
+
+        // Auto-redirect after 2 seconds (works on iOS; Android needs the tap)
+        if (!isAndroid) {
+            setTimeout(() => { window.location.href = iosLink; }, 2000);
+        }
     </script>
 </body>
 </html>

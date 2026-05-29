@@ -44,7 +44,7 @@ class StylistRepository @Inject constructor(
                     Log.e("StylistRepository", "Skipping stylist ${doc.id} due to parsing error", e)
                     null
                 }
-            }
+            }.filter { it.isDiscoverable }
             Result.success(stylists)
         } catch (e: Exception) {
             Result.failure(e)

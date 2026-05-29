@@ -85,9 +85,21 @@ class ManagePayoutsActivity : AppCompatActivity() {
 
         setLoading(true)
 
+        // Deployed cloud function requires { stylistId, email, fullName } and verifies
+        // stylistId matches the caller's auth uid. Pull email/displayName from FirebaseAuth.
+        val currentUser = auth.currentUser
+        val email = currentUser?.email.orEmpty()
+        val fullName = currentUser?.displayName.orEmpty()
+
         // Call the createConnectAccount Firebase function to get the Stripe onboarding URL
         functions.getHttpsCallable("createConnectAccount")
-            .call()
+            .call(
+                mapOf(
+                    "stylistId" to uid,
+                    "email" to email,
+                    "fullName" to fullName,
+                ),
+            )
             .addOnSuccessListener { result ->
                 setLoading(false)
                 @Suppress("UNCHECKED_CAST")

@@ -25,7 +25,7 @@ class AiStyleResultsFragment : Fragment() {
 
     private val viewModel: AiStyleResultsViewModel by viewModels()
     private val args: AiStyleResultsFragmentArgs by navArgs()
-    
+
     private val adapter = AiRecommendationAdapter()
 
     override fun onCreateView(
@@ -41,7 +41,7 @@ class AiStyleResultsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupRecyclerView()
-        
+
         // Ensure quiz results are processed
         viewModel.processQuizResults(args.gender, args.vibe, args.frequency, args.finish, args.faceShape)
 
@@ -74,12 +74,12 @@ class AiStyleResultsFragment : Fragment() {
 
         val shareText = StringBuilder()
         shareText.append("Check out my AI-generated style recommendations from RefreshMe!\n\n")
-        
+
         recommendations.forEach { rec ->
             shareText.append("✨ ${rec.styleName}\n")
             shareText.append("${rec.reasoning}\n\n")
         }
-        
+
         shareText.append("Get your own personalized style guide at: https://refreshme-74f79.web.app/")
 
         val shareIntent = Intent().apply {

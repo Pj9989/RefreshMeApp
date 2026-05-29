@@ -26,6 +26,13 @@ local.properties
 
 # Keystore files
 keystore.properties
+app/debug.keystore
+*.jks
+*.keystore
+*signing*.txt
+*sha1*.txt
+*sha256*.txt
+app/*keystore*
 *.pem
 
 # Secrets — never commit API keys

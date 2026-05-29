@@ -100,10 +100,9 @@ class MessagesViewModel : ViewModel() {
                     otherUserProfileImageUrl = stylistDoc.getString("profileImageUrl") ?: ""
                 )
             } else {
-                val userDoc = firestore.collection("users").document(conversation.otherUserId).get().await()
+                val userDoc = firestore.collection("publicUserProfiles").document(conversation.otherUserId).get().await()
                 val name = userDoc.getString("name")?.takeIf { it.isNotBlank() }
-                val email = userDoc.getString("email")
-                val fallback = email?.substringBefore("@") ?: "User"
+                val fallback = "User"
                 conversation.copy(
                     otherUserName = (name ?: fallback).toTitleCase(),
                     otherUserProfileImageUrl = userDoc.getString("profileImageUrl") ?: ""

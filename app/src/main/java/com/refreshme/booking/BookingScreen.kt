@@ -3,7 +3,6 @@ package com.refreshme.booking
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -21,13 +20,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.refreshme.data.Service
 import com.refreshme.data.Stylist
+import com.refreshme.legal.AtHomeWaiverDialog
+import com.refreshme.legal.AllergyDisclosureDialog
+import com.refreshme.legal.LegalDocKeys
+import com.refreshme.legal.LegalRepository
+import com.refreshme.legal.LegalVersions
+import com.refreshme.legal.serviceRequiresAllergyDisclosure
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,14 +60,41 @@ fun BookingScreen(
     val selectedDate by viewModel.selectedDate.collectAsState()
     val bookingState by viewModel.bookingState.collectAsState()
     val waitlistState by viewModel.waitlistState.collectAsState()
+    val customerVerificationStatus by viewModel.customerVerificationStatus.collectAsState()
+    val isEmergencyAsap by viewModel.isEmergencyAsap.collectAsState()
+    val isFirstBookingCustomer by viewModel.isFirstBookingCustomer.collectAsState()
     
     val isEvent by viewModel.isEvent.collectAsState()
     val groupSize by viewModel.groupSize.collectAsState()
     val eventType by viewModel.eventType.collectAsState()
     
+    val isMobileBooking by viewModel.isMobileBooking.collectAsState()
+    
     val scrollState = rememberScrollState()
 
     var showWaitlistDialog by remember { mutableStateOf(false) }
+    var showIdentityVerificationDialog by remember { mutableStateOf(false) }
+    // Legal gating for the Confirm & Pay button.
+    var showAtHomeWaiver by remember { mutableStateOf(false) }
+    var showAllergyDisclosure by remember { mutableStateOf(false) }
+    var acceptedWaiverVersion by remember { mutableStateOf<String?>(null) }
+    var acceptedAllergyVersion by remember { mutableStateOf<String?>(null) }
+    val legalRepo = remember { LegalRepository() }
+    val legalScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.fetchCustomerVerificationStatus()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     LaunchedEffect(stylistId) {
         viewModel.fetchStylist(stylistId)
@@ -68,8 +106,16 @@ fun BookingScreen(
     LaunchedEffect(bookingState) {
         if (bookingState is BookingState.RequiresPayment) {
             val state = bookingState as BookingState.RequiresPayment
-            val basePrice = (selectedService?.price ?: 0.0) + selectedAddOns.sumOf { it.price }
-            val totalPrice = basePrice * groupSize
+            val serviceSubtotal = ((selectedService?.price ?: 0.0) + selectedAddOns.sumOf { it.price }) * groupSize
+            val travelFee = if (isMobileBooking) stylist?.effectiveAtHomeServiceFee ?: 0.0 else 0.0
+            val emergencyFee = if (isEmergencyAsap) stylist?.emergencyFee ?: 0.0 else 0.0
+            val subtotal = serviceSubtotal + travelFee + emergencyFee
+            val promoDiscount = if (isFirstBookingCustomer) {
+                minOf(NewBookingViewModel.FIRST_BOOKING_PROMO_AMOUNT, subtotal)
+            } else {
+                0.0
+            }
+            val totalPrice = subtotal - promoDiscount
             onPaymentRequired(state.clientSecret, state.depositAmount ?: (totalPrice * 0.2))
         } else if (bookingState is BookingState.Success) {
             onBookingSuccess()
@@ -81,6 +127,85 @@ fun BookingScreen(
             showWaitlistDialog = false
             viewModel.resetWaitlistState()
         }
+    }
+    
+    // At-Home waiver — shown after the user taps Confirm if mobile booking + not yet accepted.
+    if (showAtHomeWaiver) {
+        AtHomeWaiverDialog(
+            onAccepted = { version ->
+                acceptedWaiverVersion = version
+                showAtHomeWaiver = false
+                legalScope.launch {
+                    runCatching {
+                        legalRepo.recordAcceptance(
+                            docKey = LegalDocKeys.AT_HOME_LIABILITY_WAIVER,
+                            docVersion = version,
+                        )
+                    }
+                }
+                // Continue into allergy step (if needed) or booking.
+                val svc = selectedService?.name
+                if (serviceRequiresAllergyDisclosure(svc) && acceptedAllergyVersion == null) {
+                    showAllergyDisclosure = true
+                } else {
+                    viewModel.createBooking(
+                        isEmergencyAsap = isEmergencyAsap,
+                        waiverAcceptedVersion = version,
+                        allergyDisclosureVersion = acceptedAllergyVersion,
+                    )
+                }
+            },
+            onDismiss = { showAtHomeWaiver = false }
+        )
+    }
+
+    // Allergy disclosure — shown for chemical services.
+    if (showAllergyDisclosure) {
+        AllergyDisclosureDialog(
+            onAccepted = { version ->
+                acceptedAllergyVersion = version
+                showAllergyDisclosure = false
+                legalScope.launch {
+                    runCatching {
+                        legalRepo.recordAcceptance(
+                            docKey = LegalDocKeys.ALLERGY_DISCLOSURE,
+                            docVersion = version,
+                        )
+                    }
+                }
+                viewModel.createBooking(
+                    isEmergencyAsap = isEmergencyAsap,
+                    waiverAcceptedVersion = acceptedWaiverVersion,
+                    allergyDisclosureVersion = version,
+                )
+            },
+            onDismiss = { showAllergyDisclosure = false }
+        )
+    }
+
+    if (showIdentityVerificationDialog) {
+        AlertDialog(
+            onDismissRequest = { showIdentityVerificationDialog = false },
+            title = { Text("Verification Required", fontWeight = FontWeight.Bold) },
+            text = { 
+                Text("For the safety of our stylists, you must verify your identity before booking an at-home house call appointment.") 
+            },
+            confirmButton = {
+                Button(
+                    onClick = { 
+                        showIdentityVerificationDialog = false
+                        context.startActivity(com.refreshme.identity.IdentityVerificationActivity.newIntent(context))
+                    }
+                ) {
+                    Text("Verify Identity")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showIdentityVerificationDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     if (showWaitlistDialog) {
@@ -181,9 +306,6 @@ fun BookingScreen(
                         }
                     } else {
                         Surface(
-                            onClick = { 
-                                viewModel.selectService(Service(name = "General Consultation", price = 45.0, durationMinutes = 30))
-                            },
                             modifier = Modifier.fillMaxWidth(),
                             color = MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(12.dp),
@@ -192,7 +314,18 @@ fun BookingScreen(
                             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                 Spacer(Modifier.width(12.dp))
-                                Text("Add General Consultation ($45.00)", color = MaterialTheme.colorScheme.onSurface)
+                                Column {
+                                    Text(
+                                        "No bookable services yet",
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        "This stylist needs to add services before you can book.",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 13.sp
+                                    )
+                                }
                             }
                         }
                     }
@@ -249,6 +382,47 @@ fun BookingScreen(
                                 )
                             }
                         }
+                        
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                        val offersMobile = stylist?.offersAtHomeService == true || 
+                                         stylist?.serviceType == com.refreshme.data.ServiceType.AT_HOME || 
+                                         stylist?.serviceType == com.refreshme.data.ServiceType.ALL_HOURS
+                        
+                        if (offersMobile) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    Icon(
+                                        Icons.Default.DirectionsCar, 
+                                        contentDescription = null, 
+                                        tint = if (isMobileBooking) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(Modifier.width(12.dp))
+                                    Column {
+                                        Text("At Home Service (House Call)", fontWeight = FontWeight.Bold)
+                                        Text(
+                                            "Stylist travels to you (+$${String.format(Locale.US, "%.0f", stylist?.effectiveAtHomeServiceFee ?: 0.0)} fee)",
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Switch(
+                                    checked = isMobileBooking,
+                                    onCheckedChange = { checked ->
+                                        if (checked && customerVerificationStatus != com.refreshme.identity.VerificationStatus.VERIFIED) {
+                                            showIdentityVerificationDialog = true
+                                        } else {
+                                            viewModel.setMobileBooking(checked)
+                                        }
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
                 Spacer(Modifier.height(24.dp))
@@ -259,13 +433,52 @@ fun BookingScreen(
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     DateTimeSelectionCard(
                         selectedDate = selectedDate,
+                        isAsap = isEmergencyAsap,
                         onSelectClick = onDateTimeClick,
                         modifier = Modifier.weight(1f)
                     )
                     
                     Spacer(modifier = Modifier.width(12.dp))
                     
-                    AsapButton(onClick = onAsapClick)
+                    AsapButton(
+                        selected = isEmergencyAsap,
+                        onClick = onAsapClick
+                    )
+                }
+
+                AnimatedVisibility(visible = isEmergencyAsap) {
+                    val emergencyFee = stylist?.emergencyFee ?: 0.0
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Bolt,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                text = if (emergencyFee > 0.0) {
+                                    "ASAP priority fee: $${String.format(Locale.US, "%.2f", emergencyFee)}"
+                                } else {
+                                    "No ASAP priority fee set for this stylist"
+                                },
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
                 }
                 
                 Spacer(Modifier.height(16.dp))
@@ -339,15 +552,48 @@ fun BookingScreen(
 
                 // 4. Payment Breakdown
                 SectionTitle("Payment Breakdown")
-                val basePrice = (selectedService?.price ?: 0.0) + selectedAddOns.sumOf { it.price }
-                PaymentBreakdownCard(price = basePrice * groupSize, isGroup = groupSize > 1)
+                val serviceSubtotal = ((selectedService?.price ?: 0.0) + selectedAddOns.sumOf { it.price }) * groupSize
+                val travelFee = if (isMobileBooking) stylist?.effectiveAtHomeServiceFee ?: 0.0 else 0.0
+                val emergencyFee = if (isEmergencyAsap) stylist?.emergencyFee ?: 0.0 else 0.0
+                val subtotal = serviceSubtotal + travelFee + emergencyFee
+                val promoDiscount = if (isFirstBookingCustomer) {
+                    minOf(NewBookingViewModel.FIRST_BOOKING_PROMO_AMOUNT, subtotal)
+                } else {
+                    0.0
+                }
+                val totalPrice = subtotal - promoDiscount
+                PaymentBreakdownCard(
+                    serviceSubtotal = serviceSubtotal,
+                    travelFee = travelFee,
+                    emergencyFee = emergencyFee,
+                    promoDiscount = promoDiscount,
+                    totalPrice = totalPrice,
+                    isGroup = groupSize > 1,
+                    isMobile = isMobileBooking,
+                    isAsap = isEmergencyAsap
+                )
                 Spacer(Modifier.height(32.dp))
 
                 // 5. Confirm Button
                 val isOperable = (selectedService != null && selectedService?.name?.isNotBlank() == true) && selectedDate != null
                 
                 Button(
-                    onClick = { viewModel.createBooking() },
+                    onClick = {
+                        // Legal gating: require at-home waiver + allergy disclosure first.
+                        val needsWaiver = isMobileBooking && acceptedWaiverVersion == null
+                        val svcName = selectedService?.name
+                        val needsAllergy = serviceRequiresAllergyDisclosure(svcName) &&
+                            acceptedAllergyVersion == null
+                        when {
+                            needsWaiver -> showAtHomeWaiver = true
+                            needsAllergy -> showAllergyDisclosure = true
+                            else -> viewModel.createBooking(
+                                isEmergencyAsap = isEmergencyAsap,
+                                waiverAcceptedVersion = acceptedWaiverVersion,
+                                allergyDisclosureVersion = acceptedAllergyVersion,
+                            )
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
@@ -472,15 +718,28 @@ fun ServiceSummaryCard(service: Service, onClear: () -> Unit) {
 }
 
 @Composable
-fun DateTimeSelectionCard(selectedDate: Date?, onSelectClick: () -> Unit, modifier: Modifier = Modifier) {
+fun DateTimeSelectionCard(
+    selectedDate: Date?,
+    isAsap: Boolean,
+    onSelectClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Surface(
         onClick = onSelectClick,
         modifier = modifier,
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = if (isAsap) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        },
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(
-            1.dp, 
-            if (selectedDate == null) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+            width = if (isAsap) 2.dp else 1.dp,
+            color = when {
+                isAsap -> MaterialTheme.colorScheme.primary
+                selectedDate == null -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+            }
         )
     ) {
         Row(
@@ -490,55 +749,103 @@ fun DateTimeSelectionCard(selectedDate: Date?, onSelectClick: () -> Unit, modifi
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                if (selectedDate == null) Icons.AutoMirrored.Filled.EventNote else Icons.Default.EventAvailable,
+                when {
+                    isAsap -> Icons.Default.Bolt
+                    selectedDate == null -> Icons.AutoMirrored.Filled.EventNote
+                    else -> Icons.Default.EventAvailable
+                },
                 contentDescription = null,
-                tint = if (selectedDate == null) MaterialTheme.colorScheme.primary else Color(0xFF4CAF50)
+                tint = when {
+                    isAsap -> MaterialTheme.colorScheme.primary
+                    selectedDate == null -> MaterialTheme.colorScheme.primary
+                    else -> Color(0xFF4CAF50)
+                }
             )
             Spacer(Modifier.width(16.dp))
-            Text(
-                text = if (selectedDate == null) "Choose Date & Time" else {
-                    val sdf = java.text.SimpleDateFormat("EEEE, MMM d 'at' h:mm a", Locale.getDefault())
-                    sdf.format(selectedDate)
-                },
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (selectedDate == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(Modifier.weight(1f))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = when {
+                        isAsap -> "ASAP appointment"
+                        selectedDate == null -> "Choose Date & Time"
+                        else -> {
+                            val sdf = java.text.SimpleDateFormat("EEEE, MMM d", Locale.getDefault())
+                            sdf.format(selectedDate)
+                        }
+                    },
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (selectedDate == null || isAsap) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
+                )
+                if (selectedDate != null) {
+                    val sdf = java.text.SimpleDateFormat("h:mm a", Locale.getDefault())
+                    Text(
+                        text = if (isAsap) "Estimated for ${sdf.format(selectedDate)}" else sdf.format(selectedDate),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
-fun AsapButton(onClick: () -> Unit) {
+fun AsapButton(selected: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         modifier = Modifier.height(IntrinsicSize.Min),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+        border = BorderStroke(
+            width = if (selected) 2.dp else 1.dp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = if (selected) 1f else 0.5f)
+        ),
+        tonalElevation = if (selected) 4.dp else 0.dp
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 18.dp)
                 .fillMaxHeight(),
-            contentAlignment = Alignment.Center
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
         ) {
+            if (selected) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+                Spacer(Modifier.width(6.dp))
+            }
             Text(
                 text = "ASAP",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
             )
         }
     }
 }
 
 @Composable
-fun PaymentBreakdownCard(price: Double, isGroup: Boolean = false) {
-    val deposit = price * 0.20
-    val remaining = price - deposit
+fun PaymentBreakdownCard(
+    serviceSubtotal: Double,
+    travelFee: Double,
+    emergencyFee: Double,
+    promoDiscount: Double,
+    totalPrice: Double,
+    isGroup: Boolean = false,
+    isMobile: Boolean = false,
+    isAsap: Boolean = false
+) {
+    val deposit = totalPrice * 0.20
+    val remaining = totalPrice - deposit
     
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -546,7 +853,42 @@ fun PaymentBreakdownCard(price: Double, isGroup: Boolean = false) {
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            PriceRow(if (isGroup) "Total Group Price" else "Service Price", price)
+            PriceRow(
+                if (isGroup) "Services subtotal" else "Service price",
+                serviceSubtotal
+            )
+
+            if (isMobile) {
+                Spacer(Modifier.height(8.dp))
+                PriceRow("Travel fee", travelFee)
+            }
+
+            if (isAsap) {
+                Spacer(Modifier.height(8.dp))
+                PriceRow(
+                    "ASAP priority fee",
+                    emergencyFee,
+                    color = MaterialTheme.colorScheme.primary,
+                    isBold = true
+                )
+            }
+
+            if (promoDiscount > 0) {
+                Spacer(Modifier.height(8.dp))
+                PriceRow("First booking promo", -promoDiscount, color = Color(0xFF4CAF50), isBold = true)
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+            PriceRow(
+                when {
+                    isAsap && isGroup -> "ASAP group total"
+                    isAsap -> "ASAP appointment total"
+                    isGroup -> "Total group price"
+                    else -> "Total"
+                },
+                totalPrice,
+                isBold = true
+            )
             Spacer(Modifier.height(8.dp))
             PriceRow("Deposit (20% paid now)", deposit, color = Color(0xFF4CAF50), isBold = true)
             Spacer(Modifier.height(8.dp))
@@ -570,10 +912,15 @@ fun PaymentBreakdownCard(price: Double, isGroup: Boolean = false) {
 
 @Composable
 fun PriceRow(label: String, amount: Double, color: Color = MaterialTheme.colorScheme.onSurface, isBold: Boolean = false) {
+    val formattedAmount = if (amount < 0) {
+        "-$${String.format(Locale.US, "%.2f", kotlin.math.abs(amount))}"
+    } else {
+        "$${String.format(Locale.US, "%.2f", amount)}"
+    }
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = if (isBold) color else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal)
         Text(
-            "$${String.format(Locale.US, "%.2f", amount)}",
+            formattedAmount,
             color = color,
             fontSize = 16.sp,
             fontWeight = if (isBold) FontWeight.ExtraBold else FontWeight.Medium

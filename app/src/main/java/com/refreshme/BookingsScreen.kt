@@ -31,6 +31,7 @@ import androidx.compose.ui.window.DialogProperties
 import coil.compose.rememberAsyncImagePainter
 import com.refreshme.data.Booking
 import com.refreshme.data.BookingStatus
+import com.refreshme.ui.components.rememberFirebaseImageModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -121,7 +122,8 @@ fun BookingsScreen(
                     val filteredBookings = state.bookings.filter { booking ->
                         val isPast = booking.bookingStatus == BookingStatus.COMPLETED || 
                                      booking.bookingStatus == BookingStatus.CANCELLED ||
-                                     booking.bookingStatus == BookingStatus.DECLINED
+                                     booking.bookingStatus == BookingStatus.DECLINED ||
+                                     booking.bookingStatus == BookingStatus.COMPLETION_DISPUTED
                         if (selectedTab == 0) !isPast else isPast
                     }
 
@@ -142,7 +144,9 @@ fun BookingsScreen(
                                     onBookAgainClick = { onBookAgain(booking.stylistId) },
                                     onRateClick = { viewModel.openRatingDialog(booking) },
                                     onAddToCalendar = { addToCalendar(context, booking) },
-                                    onViewReceipt = { onViewReceipt(booking) }
+                                    onViewReceipt = { onViewReceipt(booking) },
+                                    onConfirmCompletion = { viewModel.confirmCompletion(booking.id) },
+                                    onDisputeCompletion = { viewModel.disputeCompletion(booking.id) }
                                 )
                             }
                         }
@@ -200,7 +204,9 @@ fun BookingItem(
     onBookAgainClick: () -> Unit,
     onRateClick: () -> Unit,
     onAddToCalendar: () -> Unit,
-    onViewReceipt: () -> Unit
+    onViewReceipt: () -> Unit,
+    onConfirmCompletion: () -> Unit,
+    onDisputeCompletion: () -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -213,7 +219,7 @@ fun BookingItem(
             ) {
                 Image(
                     painter = rememberAsyncImagePainter(
-                        model = booking.stylistPhotoUrl ?: "https://via.placeholder.com/150"
+                        model = rememberFirebaseImageModel(booking.stylistPhotoUrl)
                     ),
                     contentDescription = "Stylist Image",
                     modifier = Modifier
@@ -301,6 +307,8 @@ fun BookingItem(
                         BookingStatus.ACCEPTED, BookingStatus.DEPOSIT_PAID -> "Confirmed" to Color(0xFF4CAF50)
                         BookingStatus.ON_THE_WAY -> "On The Way" to Color(0xFF4CAF50)
                         BookingStatus.IN_PROGRESS -> "In Progress" to MaterialTheme.colorScheme.primary
+                        BookingStatus.AWAITING_CUSTOMER_CONFIRMATION -> "Confirm Completion" to Color(0xFFFFA000)
+                        BookingStatus.COMPLETION_DISPUTED -> "In Review" to Color(0xFFFFA000)
                         BookingStatus.COMPLETED -> "Completed" to Color(0xFF4CAF50)
                         BookingStatus.CANCELLED, BookingStatus.DECLINED -> "Cancelled" to MaterialTheme.colorScheme.error
                         BookingStatus.REFUND_PROCESSING -> "Refunding" to Color(0xFFFFA000)
@@ -370,6 +378,21 @@ fun BookingItem(
                             }
                         }
                     }
+                    BookingStatus.AWAITING_CUSTOMER_CONFIRMATION -> {
+                        Text(
+                            text = "Your stylist marked this session complete. Confirm it so payout can move forward, or report an issue before it auto-confirms in 24 hours.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = onDisputeCompletion, modifier = Modifier.weight(1f)) {
+                                Text("Report Issue", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Button(onClick = onConfirmCompletion, modifier = Modifier.weight(1f)) {
+                                Text("Confirm", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
                     BookingStatus.COMPLETED -> {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = onViewReceipt, modifier = Modifier.weight(1f)) {
@@ -391,6 +414,11 @@ fun BookingItem(
                     BookingStatus.CANCELLED, BookingStatus.DECLINED, BookingStatus.REFUND_PROCESSING -> {
                         Button(onClick = onBookAgainClick, modifier = Modifier.fillMaxWidth()) {
                             Text("Book Again")
+                        }
+                    }
+                    BookingStatus.COMPLETION_DISPUTED -> {
+                        OutlinedButton(onClick = onChatClick, modifier = Modifier.fillMaxWidth()) {
+                            Text("Message Stylist")
                         }
                     }
                 }

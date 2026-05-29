@@ -8,12 +8,12 @@
 
     <item
         android:id="@+id/bookingsFragment"
-        android:icon="@android:drawable/ic_menu_agenda"
+        android:icon="@drawable/ic_bookings"
         android:title="Bookings" />
 
     <item
         android:id="@+id/messagesFragment"
-        android:icon="@android:drawable/ic_dialog_email"
+        android:icon="@drawable/ic_messages_24"
         android:title="Messages" />
 
     <item

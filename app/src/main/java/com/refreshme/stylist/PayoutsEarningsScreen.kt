@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -56,9 +57,15 @@ fun PayoutsEarningsScreen(
     // On mount, fetch the real Stripe status and sync it to Firestore
     LaunchedEffect(Unit) {
         try {
+            val user = FirebaseAuth.getInstance().currentUser
+            if (user == null) {
+                stripeStatus = "not_connected"
+                return@LaunchedEffect
+            }
+            // Deployed cloud function requires { stylistId } that matches caller uid.
             val result = FirebaseFunctions.getInstance()
                 .getHttpsCallable("getConnectAccountStatus")
-                .call()
+                .call(mapOf("stylistId" to user.uid))
                 .await()
             @Suppress("UNCHECKED_CAST")
             val data = result.getData() as? Map<String, Any>
@@ -116,9 +123,23 @@ fun PayoutsEarningsScreen(
                         coroutineScope.launch {
                             isStripeLoading = true
                             try {
+                                // Deployed cloud function requires { stylistId, email, fullName }
+                                // and verifies stylistId == caller's auth uid.
+                                val user = FirebaseAuth.getInstance().currentUser
+                                if (user == null) {
+                                    Toast.makeText(context, "Please sign in first.", Toast.LENGTH_SHORT).show()
+                                    isStripeLoading = false
+                                    return@launch
+                                }
                                 val result = FirebaseFunctions.getInstance()
                                     .getHttpsCallable("createConnectAccount")
-                                    .call()
+                                    .call(
+                                        mapOf(
+                                            "stylistId" to user.uid,
+                                            "email" to user.email.orEmpty(),
+                                            "fullName" to user.displayName.orEmpty(),
+                                        ),
+                                    )
                                     .await()
 
                                 @Suppress("UNCHECKED_CAST")

@@ -63,6 +63,7 @@ class StylistHomeViewModel @Inject constructor(
                 val updates = hashMapOf<String, Any>(
                     "online" to newStatus,
                     "availableNow" to newStatus,
+                    "isOnline" to newStatus,
                     "lastOnlineAt" to FieldValue.serverTimestamp()
                 )
                 

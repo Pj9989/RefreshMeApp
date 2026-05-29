@@ -64,7 +64,7 @@ fun BeforeAfterImageSlider(
         
         // 1. Bottom Image (After Image - The final haircut)
         AsyncImage(
-            model = afterImageUrl,
+            model = rememberFirebaseImageModel(afterImageUrl),
             contentDescription = "After image",
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
@@ -72,7 +72,7 @@ fun BeforeAfterImageSlider(
 
         // 2. Top Image (Before Image - Clipped by the slider position)
         AsyncImage(
-            model = beforeImageUrl,
+            model = rememberFirebaseImageModel(beforeImageUrl),
             contentDescription = "Before image",
             contentScale = ContentScale.Crop,
             modifier = Modifier

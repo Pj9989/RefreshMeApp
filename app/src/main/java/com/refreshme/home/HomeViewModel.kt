@@ -12,9 +12,13 @@ import com.refreshme.User
 import com.refreshme.aistylefinder.AiStyleRequest
 import com.refreshme.aistylefinder.RecommendationEngine
 import com.refreshme.data.Stylist
+import com.refreshme.data.StylistCategories
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -37,6 +41,33 @@ class HomeViewModel : ViewModel() {
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    /**
+     * Selected category filter. "all" = no filter. Otherwise one of
+     * [StylistCategories.HAIR] / [StylistCategories.MAKEUP] / [StylistCategories.NAILS].
+     * Driven by the All/Hair/Makeup/Nails chip row on HomeFragment.
+     */
+    private val _selectedCategory = MutableStateFlow(CATEGORY_ALL)
+    val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
+
+    /**
+     * Live stylists filtered by the currently-selected category. When "all"
+     * is selected this emits the full list. Pros missing a `categories`
+     * field fall back to ["hair"] via the Stylist data class default so
+     * legacy docs keep surfacing under the Hair filter.
+     */
+    val filteredStylists: StateFlow<List<Stylist>> = combine(_stylists, _selectedCategory) { list, cat ->
+        if (cat == CATEGORY_ALL) list
+        else list.filter { (it.categories ?: listOf(StylistCategories.HAIR)).contains(cat) }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun setSelectedCategory(category: String) {
+        _selectedCategory.value = category
+    }
+
+    companion object {
+        const val CATEGORY_ALL = "all"
+    }
 
     private var currentUserLocation: Location? = null
     private var allLiveStylists: List<Stylist> = emptyList()
@@ -102,7 +133,7 @@ class HomeViewModel : ViewModel() {
 
                 allLiveStylists = snapshots?.documents?.mapNotNull { doc ->
                     doc.toObject(Stylist::class.java)?.copy(id = doc.id)
-                } ?: emptyList()
+                }?.filter { it.isDiscoverable } ?: emptyList()
                 
                 recalculateStylistDistances(_stylists, allLiveStylists)
             }
@@ -124,7 +155,7 @@ class HomeViewModel : ViewModel() {
                         
                     val stylists = snapshots.documents.mapNotNull { doc ->
                         doc.toObject(Stylist::class.java)?.copy(id = doc.id)
-                    }
+                    }.filter { it.isDiscoverable }
                     stylists.forEach { stylist ->
                         stylist.matchScore = 95
                         stylist.matchExplanation = RecommendationEngine.getMatchExplanation(stylist.specialty, request)
@@ -142,12 +173,21 @@ class HomeViewModel : ViewModel() {
         currentUserLocation?.let { location ->
             updatedList.forEach { stylist ->
                 stylist.location?.let {
+                    // Skip (0,0) placeholders — those are Flutter-side signup defaults
+                    // that were never geocoded from the saved address, and produce
+                    // nonsense distances like "5,900 mi away".
+                    if (it.latitude == 0.0 && it.longitude == 0.0) {
+                        stylist.distance = 0.0
+                        return@let
+                    }
                     val stylistLocation = Location("").apply {
                         latitude = it.latitude
                         longitude = it.longitude
                     }
                     val distanceInMeters = location.distanceTo(stylistLocation)
-                    stylist.distance = (distanceInMeters / 1609.34).roundTo(1)
+                    val miles = (distanceInMeters / 1609.34).roundTo(1)
+                    // Treat implausibly large distances as dirty data and hide.
+                    stylist.distance = if (miles > 500.0) 0.0 else miles
                 }
             }
             targetStateFlow.value = updatedList.sortedBy { it.distance }

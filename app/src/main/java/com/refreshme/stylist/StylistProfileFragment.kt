@@ -28,16 +28,18 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
+import com.refreshme.BuildConfig
+import com.refreshme.CustomerDashboardActivity
 import com.refreshme.StylistSubscriptionActivity
 import com.refreshme.auth.RoleSelectActivity
 import com.refreshme.profile.EditProfileActivity
+import com.refreshme.ui.components.rememberFirebaseImageModel
 import com.refreshme.ui.theme.RefreshMeTheme
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
@@ -67,6 +69,15 @@ class StylistProfileFragment : Fragment() {
                                 val intent = Intent(requireContext(), EditProfileActivity::class.java)
                                 intent.putExtra("IS_STYLIST", true)
                                 startActivity(intent)
+                            },
+                            onNavigateToShopListing = {
+                                val intent = Intent(requireContext(), EditProfileActivity::class.java)
+                                intent.putExtra("IS_STYLIST", true)
+                                intent.putExtra("FOCUS_SHOP", true)
+                                startActivity(intent)
+                            },
+                            onBrowseAsCustomer = {
+                                startActivity(CustomerDashboardActivity.newIntent(requireContext(), allowStylistBrowse = true))
                             },
                             onNavigateToSubscription = {
                                 startActivity(StylistSubscriptionActivity.newIntent(requireContext()))
@@ -109,6 +120,8 @@ class StylistProfileFragment : Fragment() {
 fun StylistProfileScreen(
     viewModel: StylistProfileViewModel,
     onNavigateToEditProfile: () -> Unit,
+    onNavigateToShopListing: () -> Unit,
+    onBrowseAsCustomer: () -> Unit,
     onNavigateToSubscription: () -> Unit,
     onOpenUrl: (String) -> Unit,
     onSignOut: () -> Unit,
@@ -169,7 +182,7 @@ fun StylistProfileScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AsyncImage(
-                    model = stylist.displayImageUrl ?: "https://via.placeholder.com/150",
+                    model = rememberFirebaseImageModel(stylist.displayImageUrl),
                     contentDescription = "Profile Picture",
                     modifier = Modifier
                         .size(80.dp)
@@ -225,11 +238,13 @@ fun StylistProfileScreen(
         ) {
             val isOnline = stylist?.isOnline == true
             Text(
-                text = if (isOnline) "Online - Accepting Bookings" else "Go Online",
-                fontSize = 16.sp,
-                modifier = Modifier.weight(1f).padding(end = 8.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                text = if (isOnline) "Online\nAccepting bookings" else "Go Online",
+                fontSize = 15.sp,
+                lineHeight = 18.sp,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 16.dp),
+                maxLines = 2,
                 color = if (isOnline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
             )
             Switch(
@@ -252,6 +267,20 @@ fun StylistProfileScreen(
             title = "Edit Profile",
             subtitle = "Update your details and portfolio",
             onClick = onNavigateToEditProfile
+        )
+
+        StylistProfileMenuItem(
+            icon = Icons.Default.Store,
+            title = if (stylist?.isShopProfile == true) "Edit Shop / Business Listing" else "Add Shop / Business Listing",
+            subtitle = if (stylist?.isShopProfile == true) "Update your shop details" else "Put your whole shop on RefreshMe",
+            onClick = onNavigateToShopListing
+        )
+
+        StylistProfileMenuItem(
+            icon = Icons.Default.Search,
+            title = "Browse & Book as Customer",
+            subtitle = "Use RefreshMe like a client whenever you need",
+            onClick = onBrowseAsCustomer
         )
 
         // Payout Account Setup (Stripe Connect)
@@ -289,7 +318,7 @@ fun StylistProfileScreen(
         StylistProfileMenuItem(
             icon = Icons.Default.Info,
             title = "About RefreshMe",
-            subtitle = "Version 3.0.0",
+            subtitle = "Version ${BuildConfig.VERSION_NAME}",
             onClick = { onOpenUrl("https://refreshme-74f79.web.app/") }
         )
 

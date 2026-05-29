@@ -56,11 +56,13 @@ class StylistListFragment : Fragment() {
                             styleIds = styleIds.toTypedArray(),
                             viewModel = viewModel,
                             onStylistClick = { stylist ->
-                                // Use standardized ID
-                                findNavController().navigate(
-                                    R.id.action_list_to_details,
-                                    bundleOf("stylistId" to stylist.id)
-                                )
+                                val navController = findNavController()
+                                if (navController.currentDestination?.id == R.id.stylistListFragment) {
+                                    navController.navigate(
+                                        R.id.action_list_to_details,
+                                        bundleOf("stylistId" to stylist.id)
+                                    )
+                                }
                             }
                         )
                     }

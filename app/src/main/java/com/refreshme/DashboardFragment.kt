@@ -12,8 +12,10 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import dagger.hilt.android.AndroidEntryPoint
 import com.refreshme.ui.theme.RefreshMeTheme
 
+@AndroidEntryPoint
 class DashboardFragment : Fragment() {
 
     override fun onCreateView(
@@ -30,19 +32,24 @@ class DashboardFragment : Fragment() {
                     ) {
                         DashboardScreen(
                             onFindStylist = {
-                                findNavController().navigate(R.id.action_dashboardFragment_to_mapFragment)
+                                findNavController().navigate(R.id.mapFragment)
                             },
                             onMyBookings = {
                                 findNavController().navigate(R.id.bookingsFragment)
                             },
                             onStylistClick = { stylist ->
-                                findNavController().navigate(
-                                    R.id.action_dashboard_to_details,
-                                    bundleOf("stylistId" to stylist.id)
-                                )
+                                val navController = findNavController()
+                                if (navController.currentDestination?.id == R.id.homeFragment ||
+                                    navController.currentDestination?.id == R.id.dashboardFragment
+                                ) {
+                                    navController.navigate(
+                                        R.id.stylistDetailsFragment,
+                                        bundleOf("stylistId" to stylist.id)
+                                    )
+                                }
                             },
                             onVirtualTryOn = {
-                                findNavController().navigate(R.id.action_dashboardFragment_to_virtualTryOnFragment)
+                                findNavController().navigate(R.id.virtualTryOnFragment)
                             }
                         )
                     }

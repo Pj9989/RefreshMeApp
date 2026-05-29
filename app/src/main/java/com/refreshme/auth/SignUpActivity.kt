@@ -109,8 +109,7 @@ class SignUpActivity : AppCompatActivity() {
                                 "name" to name,
                                 "email" to email,
                                 "role" to selectedRole,
-                                "createdAt" to FieldValue.serverTimestamp(),
-                                "verified" to false
+                                "createdAt" to FieldValue.serverTimestamp()
                             )
                             firestore.collection("users").document(userId).set(userMap).await()
 
@@ -119,7 +118,21 @@ class SignUpActivity : AppCompatActivity() {
                                 val stylistTrialMap = hashMapOf<String, Any>(
                                     "trialStartTime" to FieldValue.serverTimestamp(),
                                     "subscriptionActive" to false,
-                                    "name" to name
+                                    "name" to name,
+                                    "email" to email,
+                                    "role" to selectedRole,
+                                    "online" to false,
+                                    "availableNow" to false,
+                                    "available" to false,
+                                    "services" to emptyList<Map<String, Any>>(),
+                                    "categories" to listOf("hair"),
+                                    "servesGender" to listOf("Men", "Women", "Non-binary"),
+                                    "serviceLocationType" to "mobile",
+                                    "offersAtHomeService" to true,
+                                    "atHomeServiceFee" to 20.0,
+                                    "maxTravelRangeKm" to 15,
+                                    "createdAt" to FieldValue.serverTimestamp(),
+                                    "updatedAt" to FieldValue.serverTimestamp()
                                 )
                                 firestore.collection("stylists").document(userId).set(stylistTrialMap).await()
                             }

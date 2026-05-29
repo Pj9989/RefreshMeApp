@@ -28,19 +28,22 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             val title = data["title"] ?: remoteMessage.notification?.title
             val body = data["body"] ?: remoteMessage.notification?.body
             val type = data["type"] 
-            val targetId = data["targetId"] 
+            val targetId = data["targetId"]
+            val chatId = data["chatId"] ?: data["chat_id"]
+            val senderId = data["senderId"] ?: data["sender_id"]
+            val otherUserId = data["otherUserId"] ?: data["other_user_id"]
             val imageUrl = data["imageUrl"]
 
-            sendNotification(title, body, type, targetId, imageUrl)
+            sendNotification(title, body, type, targetId, chatId, senderId, otherUserId, imageUrl)
         } else {
-            remoteMessage.notification?.let {
-                sendNotification(it.title, it.body, null, null, null)
+            remoteMessage.notification?.let { notification ->
+                sendNotification(notification.title, notification.body, null, null, null, null, null, null)
             }
         }
     }
 
     override fun onNewToken(token: String) {
-        Log.d(TAG, "Refreshed token: $token")
+        Log.d(TAG, "Refreshed FCM token")
         getSharedPreferences("fcm_prefs", Context.MODE_PRIVATE).edit {
             putString("fcm_token", token)
         }
@@ -58,16 +61,32 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         }
     }
 
-    private fun sendNotification(title: String?, messageBody: String?, type: String?, targetId: String?, imageUrl: String?) {
+    private fun sendNotification(
+        title: String?,
+        messageBody: String?,
+        type: String?,
+        targetId: String?,
+        chatId: String?,
+        senderId: String?,
+        otherUserId: String?,
+        imageUrl: String?
+    ) {
         val isStylistNotif = type == "booking_request" || type == "new_booking" || type == "payout_ready"
         val targetActivity = if (isStylistNotif) StylistDashboardActivity::class.java else MainActivity::class.java
+        val chatPartnerId = if (type == "chat") {
+            otherUserId ?: senderId ?: resolveChatPartnerId(chatId ?: targetId)
+        } else {
+            targetId
+        }
 
         val intent = Intent(this, targetActivity).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra("notification_type", type)
-            putExtra("target_id", targetId)
+            putExtra("target_id", chatPartnerId)
             if (type == "chat") {
-                putExtra("chat_id", targetId)
+                putExtra("chat_id", chatId ?: targetId)
+                putExtra("sender_id", senderId)
+                putExtra("other_user_id", chatPartnerId)
             }
         }
         
@@ -104,6 +123,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(System.currentTimeMillis().toInt(), notificationBuilder.build())
+    }
+
+    private fun resolveChatPartnerId(chatId: String?): String? {
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return chatId
+        val parts = chatId?.split("_") ?: return null
+        return parts.firstOrNull { it.isNotBlank() && it != currentUserId } ?: chatId
     }
 
     private fun getBitmapFromUrl(imageUrl: String): Bitmap? {

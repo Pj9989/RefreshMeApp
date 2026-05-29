@@ -108,7 +108,19 @@ class ScheduleViewModel : ViewModel() {
     }
     
     fun saveSchedule(onSuccess: () -> Unit, onError: (String) -> Unit) {
-        val uid = auth.currentUser?.uid ?: return
+        val uid = auth.currentUser?.uid
+        if (uid == null) {
+            onError("Please sign in again to save your schedule")
+            return
+        }
+
+        val invalidDay = _schedule.value.firstOrNull { day ->
+            day.isOpen && !hasValidTimeRange(day)
+        }
+        if (invalidDay != null) {
+            onError("${invalidDay.dayName}: start time must be before end time")
+            return
+        }
         
         viewModelScope.launch {
             _isLoading.value = true
@@ -132,6 +144,20 @@ class ScheduleViewModel : ViewModel() {
                 _isLoading.value = false
             }
         }
+    }
+
+    private fun hasValidTimeRange(day: DaySchedule): Boolean {
+        val start = minutesSinceMidnight(day.startTime) ?: return false
+        val end = minutesSinceMidnight(day.endTime) ?: return false
+        return start < end
+    }
+
+    private fun minutesSinceMidnight(time: String): Int? {
+        val parts = time.split(":")
+        val hour = parts.getOrNull(0)?.toIntOrNull() ?: return null
+        val minute = parts.getOrNull(1)?.toIntOrNull() ?: return null
+        if (hour !in 0..23 || minute !in 0..59) return null
+        return hour * 60 + minute
     }
 }
 

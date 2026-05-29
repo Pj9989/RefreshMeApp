@@ -100,9 +100,9 @@
     <string name="manage_subscription_activate">Activate Subscription</string>
 
     <string name="onboarding_title_1">Welcome to RefreshMe!</string>
-    <string name="onboarding_desc_1">Find and book your next appointment with the best hairstylists and barbers in your area.</string>
-    <string name="onboarding_title_2">Discover new styles</string>
-    <string name="onboarding_desc_2">Browse through a curated list of professionals, view their portfolios, and read reviews from other users.</string>
+    <string name="onboarding_desc_1">Find and book your next appointment with top barbers, hairstylists, makeup artists, and nail techs in your area.</string>
+    <string name="onboarding_title_2">Discover your pro</string>
+    <string name="onboarding_desc_2">Browse a curated list of beauty and grooming professionals, view their portfolios, and read reviews from other clients.</string>
     <string name="onboarding_title_3">Book with ease</string>
     <string name="onboarding_desc_3">Booking your next appointment is just a few taps away. Choose a professional, select a service, and pick a time that works for you.</string>
 
@@ -160,7 +160,7 @@
     <string name="label_frequency">Frequency</string>
     <string name="label_preferred_finish">Preferred Finish</string>
     <string name="stylist_bio_hint">Bio</string>
-    <string name="manage_services_pricing">Manage Services &amp; Pricing</string>
+    <string name="manage_services_pricing">Manage Services, Add-ons &amp; Pricing</string>
     <string name="manage_portfolio">Manage Portfolio</string>
     <string name="manage_payouts">Manage Payouts</string>
     <string name="manage_working_hours">Manage Working Hours</string>
@@ -168,6 +168,7 @@
     <string name="location_mobile">Mobile (I travel to clients)</string>
     <string name="salon_address_hint">Salon Address</string>
     <string name="service_radius_hint">Service Radius (miles)</string>
+    <string name="at_home_service_fee_hint">At-home travel fee ($)</string>
     <string name="sign_up_to_get_started">Sign up to get started</string>
     <string name="toggle_favorite">Toggle Favorite</string>
     <string name="favorites_only">Favorites Only</string>
@@ -182,6 +183,7 @@
     <string name="full_name">Full Name</string>
     <string name="customer">Client</string>
     <string name="stylist">Stylist / Barber</string>
+    <string name="stylist_short">Stylist</string>
     <string name="come_to_me">Come to me</string>
     <string name="sign_up_as">Sign up as</string>
     <string name="enable_disable_notifications">Enable/Disable Notifications</string>

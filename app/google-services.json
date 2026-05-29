@@ -36,6 +36,12 @@
       ],
       "api_key": [
         {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        },
+        {
+          "current_key": "AIzaSyAe7JQrTxqh3IgzZHQ7DU2d_ss0BB6UmEM"
+        },
+        {
           "current_key": "AIzaSyANn0AdmJAlEriNMY56evteDkRmhDaneCE"
         }
       ],
@@ -72,6 +78,54 @@
       ],
       "api_key": [
         {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        },
+        {
+          "current_key": "AIzaSyAe7JQrTxqh3IgzZHQ7DU2d_ss0BB6UmEM"
+        },
+        {
+          "current_key": "AIzaSyANn0AdmJAlEriNMY56evteDkRmhDaneCE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "12424011789-jlugg49ks4k19lt09al75jmq5ug0fu2a.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.refreshme.refreshme"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:12424011789:android:5f4c66ed4cb3d3a0bef544",
+        "android_client_info": {
+          "package_name": "com.refreshmeapp.refreshme"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        },
+        {
+          "current_key": "AIzaSyAe7JQrTxqh3IgzZHQ7DU2d_ss0BB6UmEM"
+        },
+        {
           "current_key": "AIzaSyANn0AdmJAlEriNMY56evteDkRmhDaneCE"
         }
       ],
@@ -101,6 +155,22 @@
         }
       },
       "oauth_client": [
+        {
+          "client_id": "12424011789-0fuf7dqga08v87uurbq3jfg33cbs0gvc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.refreshmeapp.stylist",
+            "certificate_hash": "b0a95a8c32c01a876c8594d237ed6f84232c28fb"
+          }
+        },
+        {
+          "client_id": "12424011789-2j7tffsontjuktqbgnoouhb3otn8ce3q.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.refreshmeapp.stylist",
+            "certificate_hash": "3b728425b1d2b524a8e8103ff430a4b64ed6939e"
+          }
+        },
         {
           "client_id": "12424011789-lco6v5mmumjgfbt6n4gisc9d1qhridg2.apps.googleusercontent.com",
           "client_type": 1,
@@ -124,6 +194,12 @@
       ],
       "api_key": [
         {
+          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
+        },
+        {
+          "current_key": "AIzaSyAe7JQrTxqh3IgzZHQ7DU2d_ss0BB6UmEM"
+        },
+        {
           "current_key": "AIzaSyANn0AdmJAlEriNMY56evteDkRmhDaneCE"
         }
       ],
@@ -140,35 +216,6 @@
               "ios_info": {
                 "bundle_id": "com.refreshme.refreshme"
               }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:12424011789:android:1cb039bdefbeaf6abef544",
-        "android_client_info": {
-          "package_name": "com.refreshmeapp.stylist"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDejRLpvftc-eM2oHPK7JP2PVMksWdW6_8"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "12424011789-tq2299nm2ch71p8vi0g38jm6qoa3rab0.apps.googleusercontent.com",
-              "client_type": 3
             }
           ]
         }

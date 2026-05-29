@@ -13,6 +13,11 @@
     <color name="green">#4CAF50</color>
     <color name="darker_gray">#424242</color>
     <color name="red">#F44336</color>
+    <color name="customer_dashboard_bg">#0D0D17</color>
+    <color name="customer_bottom_nav_bg">#11111B</color>
+    <color name="customer_bottom_nav_stroke">#20202C</color>
+    <color name="customer_nav_selected">#A13DFF</color>
+    <color name="customer_nav_unselected">#6F6D7A</color>
 
     <color name="onboarding_bg">#FFFFFF</color>
     <color name="onboarding_text">#121212</color>

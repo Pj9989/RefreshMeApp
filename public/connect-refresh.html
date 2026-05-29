@@ -25,7 +25,13 @@
         <div class="icon">⚠️</div>
         <h1>Setup Incomplete</h1>
         <p>Your Stripe onboarding session expired or was interrupted. Please return to the app and try setting up your payout account again.</p>
-        <a href="refreshme://dashboard" class="btn">Back to App</a>
+        <a id="backBtn" href="refreshme://dashboard" class="btn">Back to App</a>
+    <script>
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        document.getElementById("backBtn").href = isAndroid
+            ? "intent://dashboard#Intent;scheme=refreshme;package=com.refreshmeapp.stylist;end"
+            : "refreshme://dashboard";
+    </script>
         <a href="mailto:admin@refreshmeapp.com" class="btn btn-outline">Contact Support</a>
     </div>
 </body>

@@ -134,13 +134,15 @@ class IdentityVerificationActivity : AppCompatActivity() {
                 // token. Stale or missing tokens are the most common cause of UNAUTHENTICATED errors.
                 user.getIdToken(true).await() // forceRefresh = true
 
+                // Deployed cloud function requires { userId } that matches caller uid.
                 val result = functions
                     .getHttpsCallable("createIdentityVerificationSession")
-                    .call()
+                    .call(mapOf("userId" to user.uid))
                     .await()
 
                 val data = result.data as? Map<*, *>
-                val ephemeralKeySecret = data?.get("client_secret") as? String
+                val ephemeralKeySecret = data?.get("ephemeral_key_secret") as? String
+                    ?: data?.get("client_secret") as? String
                 val verificationSessionId = data?.get("id") as? String
 
                 if (ephemeralKeySecret != null && verificationSessionId != null) {

@@ -38,8 +38,10 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.material.chip.Chip
 import com.refreshme.R
 import com.refreshme.data.Stylist
+import com.refreshme.data.StylistCategories
 import com.refreshme.databinding.FragmentHomeBinding
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -63,6 +65,8 @@ class HomeFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnMarkerClickList
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
             if (isGranted) {
                 getUserLocation()
+            } else {
+                showLocationPermissionRecovery()
             }
         }
 
@@ -79,6 +83,7 @@ class HomeFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnMarkerClickList
         super.onViewCreated(view, savedInstanceState)
         
         setupRecyclerViews()
+        setupCategoryChips()
         setupObservers()
         setupListeners()
         
@@ -130,7 +135,9 @@ class HomeFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnMarkerClickList
                 }
 
                 launch {
-                    homeViewModel.stylists.collectLatest { stylists ->
+                    // Observe the filtered list (respects category chip selection).
+                    // Markers + live row both reflect the selected category.
+                    homeViewModel.filteredStylists.collectLatest { stylists ->
                         liveAdapter.submitList(stylists)
                         updateMapMarkers(stylists)
                     }
@@ -194,6 +201,48 @@ class HomeFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnMarkerClickList
         binding.aiStyleFinderCard.setOnClickListener {
             findNavController().navigate(R.id.action_home_to_quiz)
         }
+        binding.locationText.setOnClickListener {
+            checkLocationPermission()
+        }
+    }
+
+    /**
+     * Build the All / Hair / Makeup / Nails chip row. A single chip is
+     * selected at any given time; tapping one pushes the selection into
+     * [HomeViewModel.setSelectedCategory] which in turn filters the live
+     * stylist list and map markers.
+     */
+    private fun setupCategoryChips() {
+        val group = binding.chipGroupCategories
+        group.removeAllViews()
+
+        data class CatSpec(val id: String, val label: String)
+        val specs = listOf(
+            CatSpec(HomeViewModel.CATEGORY_ALL, "All"),
+            CatSpec(StylistCategories.HAIR, "Hair"),
+            CatSpec(StylistCategories.MAKEUP, "Makeup"),
+            CatSpec(StylistCategories.NAILS, "Nails")
+        )
+
+        specs.forEach { spec ->
+            val chip = Chip(
+                requireContext(),
+                null,
+                com.google.android.material.R.style.Widget_MaterialComponents_Chip_Choice
+            ).apply {
+                text = spec.label
+                isCheckable = true
+                isChecked = spec.id == homeViewModel.selectedCategory.value
+                tag = spec.id
+                setOnClickListener {
+                    // Defensive: keep the chip checked even if the user re-taps
+                    // the already-active chip (selectionRequired behaviour).
+                    isChecked = true
+                    homeViewModel.setSelectedCategory(spec.id)
+                }
+            }
+            group.addView(chip)
+        }
     }
 
     private fun checkLocationPermission() {
@@ -208,6 +257,10 @@ class HomeFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnMarkerClickList
                 requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
             }
         }
+    }
+
+    private fun showLocationPermissionRecovery() {
+        binding.locationText.text = "Location off - tap to retry"
     }
 
     private fun getUserLocation() {
@@ -306,20 +359,21 @@ class HomeFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnMarkerClickList
 
     private fun navigateToStylistProfile(stylistId: String, sharedImageView: ImageView?) {
         val trimmedId = stylistId.trim()
-        if (trimmedId.isNotBlank()) {
+        val navController = findNavController()
+        if (trimmedId.isNotBlank() && navController.currentDestination?.id == R.id.homeFragment) {
             val extras = if (sharedImageView != null) {
                 FragmentNavigatorExtras(sharedImageView to "stylist_image_$trimmedId")
             } else null
-            
+
             if (extras != null) {
-                findNavController().navigate(
+                navController.navigate(
                     R.id.action_home_to_details,
                     bundleOf("stylistId" to trimmedId),
                     null,
                     extras
                 )
             } else {
-                findNavController().navigate(
+                navController.navigate(
                     R.id.action_home_to_details,
                     bundleOf("stylistId" to trimmedId)
                 )

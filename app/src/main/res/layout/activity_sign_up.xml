@@ -5,6 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
+    android:clipToPadding="false"
+    android:paddingBottom="72dp"
     android:background="?attr/colorSurface"
     tools:context=".auth.SignUpActivity">
 
@@ -15,11 +17,11 @@
 
         <ImageView
             android:id="@+id/logo"
-            android:layout_width="120dp"
-            android:layout_height="120dp"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
             android:src="@mipmap/ic_launcher_foreground"
             android:contentDescription="@string/app_name"
-            android:layout_marginTop="40dp"
+            android:layout_marginTop="16dp"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
@@ -32,7 +34,7 @@
             android:textSize="28sp"
             android:textStyle="bold"
             android:textColor="?android:attr/textColorPrimary"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="12dp"
             app:layout_constraintTop_toBottomOf="@id/logo"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
@@ -53,7 +55,7 @@
             android:id="@+id/formCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
+            android:layout_marginTop="16dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
             app:strokeWidth="1dp"
@@ -71,8 +73,7 @@
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="@string/full_name"
-                    app:errorEnabled="true">
+                    android:hint="@string/full_name">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/nameEditText"
@@ -86,8 +87,8 @@
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="@string/prompt_email"
-                    app:errorEnabled="true">
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/prompt_email">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/emailEditText"
@@ -101,9 +102,9 @@
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
                     android:hint="@string/prompt_password"
-                    app:endIconMode="password_toggle"
-                    app:errorEnabled="true">
+                    app:endIconMode="password_toggle">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/passwordEditText"
@@ -141,7 +142,7 @@
                         android:id="@+id/stylistRadioButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/stylist"/>
+                        android:text="@string/stylist_short"/>
                 </RadioGroup>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -149,9 +150,9 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/signUpButton"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="52dp"
             android:text="Sign Up"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="12dp"
             app:cornerRadius="12dp"
             app:layout_constraintTop_toBottomOf="@id/formCard" />
 
@@ -159,14 +160,17 @@
             android:id="@+id/signInTextView"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Already have an account? Sign In"
+            android:text="Have an account? Sign In"
             android:textColor="?attr/colorPrimary"
-            android:padding="16dp"
-            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:minHeight="40dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="0dp"
+            android:layout_marginTop="4dp"
             app:layout_constraintTop_toBottomOf="@id/signUpButton"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" />
+            app:layout_constraintEnd_toEndOf="parent" />
 
         <ProgressBar
             android:id="@+id/progressBar"

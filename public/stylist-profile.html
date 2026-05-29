@@ -86,19 +86,52 @@
         <div id="stylist-specialty"></div>
         <p class="loading" id="loading-msg">Open the RefreshMe app to view the full profile and book an appointment.</p>
 
-        <a id="deep-link" href="refreshme://home" class="btn">View in App</a>
-        <a href="https://play.google.com/store" class="btn btn-outline">Download RefreshMe</a>
+        <a id="deep-link" href="https://play.google.com/store/apps/details?id=com.refreshmeapp.stylist" class="btn">View in App</a>
+        <a id="download-link" href="https://play.google.com/store/apps/details?id=com.refreshmeapp.stylist" class="btn btn-outline">Download RefreshMe</a>
         <p class="note">Don't have the app yet? Download it free.</p>
     </div>
 
     <script>
+        const androidPackage = 'com.refreshmeapp.stylist';
+        const androidStoreUrl = 'https://play.google.com/store/apps/details?id=' + androidPackage;
+        const iosStoreUrl = 'https://apps.apple.com/app/id6761734264';
+        const userAgent = navigator.userAgent || '';
+        const isAndroid = /Android/i.test(userAgent);
+        const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
+        const storeUrl = isIOS ? iosStoreUrl : androidStoreUrl;
+
         // Extract stylist ID from URL path: /stylist/{id}
         const pathParts = window.location.pathname.split('/').filter(Boolean);
         const stylistId = pathParts.length >= 2 ? pathParts[1] : null;
+        const deepLink = document.getElementById('deep-link');
+        const downloadLink = document.getElementById('download-link');
+
+        downloadLink.href = storeUrl;
+
+        function androidIntentFor(path) {
+            return `intent://${path}#Intent;scheme=refreshme;package=${androidPackage};S.browser_fallback_url=${encodeURIComponent(androidStoreUrl)};end`;
+        }
+
+        function configureOpenButton(path) {
+            if (isAndroid) {
+                deepLink.href = androidIntentFor(path);
+                return;
+            }
+
+            if (isIOS) {
+                // The current iOS app does not expose the refreshme://stylist
+                // scheme here, so avoid Safari's "address is invalid" alert.
+                deepLink.href = iosStoreUrl;
+                deepLink.textContent = 'Download on iPhone';
+                return;
+            }
+
+            deepLink.href = storeUrl;
+        }
 
         if (stylistId) {
             // Update deep link to open the specific stylist in-app
-            document.getElementById('deep-link').href = 'refreshme://stylist/' + stylistId;
+            configureOpenButton('stylist/' + encodeURIComponent(stylistId));
 
             // Try to load stylist name from Firestore REST API
             const projectId = 'refreshme-74f79';
@@ -120,6 +153,7 @@
                     document.getElementById('stylist-name').textContent = 'Stylist Profile';
                 });
         } else {
+            configureOpenButton('home');
             document.getElementById('stylist-name').textContent = 'Find Your Stylist';
             document.getElementById('loading-msg').textContent = 'Open the RefreshMe app to discover and book top stylists near you.';
         }

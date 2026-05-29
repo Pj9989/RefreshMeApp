@@ -1,10 +1,8 @@
 package com.refreshme
 
-import android.location.Location
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -17,7 +15,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.util.*
 import javax.inject.Inject
 
 data class CustomerDashboardUiState(
@@ -50,57 +47,65 @@ class CustomerDashboardViewModel @Inject constructor(
             
             try {
                 // 1. Fetch User Name
-                val userDoc = firestore.collection("users").document(uid).get().await()
-                val name = userDoc.getString("name") ?: "User"
+                val name = runCatching {
+                    firestore.collection("users").document(uid).get().await().getString("name")
+                }.getOrNull() ?: "User"
                 _uiState.value = _uiState.value.copy(userName = name)
 
                 // 2. Fetch Upcoming Booking (next one within future)
-                val bookingsSnapshot = firestore.collection("bookings")
-                    .whereEqualTo("userId", uid)
-                    .whereIn("status", listOf(BookingStatus.ACCEPTED.name, BookingStatus.DEPOSIT_PAID.name, BookingStatus.ON_THE_WAY.name))
-                    .orderBy("startTime", Query.Direction.ASCENDING)
-                    .limit(1)
-                    .get()
-                    .await()
-                
-                val upcoming = bookingsSnapshot.documents.firstOrNull()?.let { doc ->
-                    doc.toObject(Booking::class.java)?.apply { id = doc.id }
-                }
+                val upcoming = runCatching {
+                    val bookingsSnapshot = firestore.collection("bookings")
+                        .whereEqualTo("userId", uid)
+                        .whereIn("status", listOf(BookingStatus.ACCEPTED.name, BookingStatus.DEPOSIT_PAID.name, BookingStatus.ON_THE_WAY.name))
+                        .orderBy("startTime", Query.Direction.ASCENDING)
+                        .limit(1)
+                        .get()
+                        .await()
+
+                    bookingsSnapshot.documents.firstOrNull()?.let { doc ->
+                        doc.toObject(Booking::class.java)?.apply { id = doc.id }
+                    }
+                }.onFailure {
+                    Log.w("CustomerDashboardVM", "Unable to load upcoming booking", it)
+                }.getOrNull()
 
                 // 3. Fetch Flash Deals
-                val flashSnapshot = firestore.collection("stylists")
-                    .whereNotEqualTo("currentFlashDeal", null)
-                    .limit(5)
-                    .get()
-                    .await()
-                val flashDeals = flashSnapshot.documents.mapNotNull { doc ->
-                    doc.toObject(Stylist::class.java)?.copy(id = doc.id)
-                }.filter { it.hasActiveFlashDeal }
+                val flashDeals = runCatching {
+                    firestore.collection("stylists")
+                        .whereNotEqualTo("currentFlashDeal", null)
+                        .limit(8)
+                        .get()
+                        .await()
+                        .documents
+                        .mapNotNull { doc -> doc.toObject(Stylist::class.java)?.copy(id = doc.id) }
+                        .filter { it.shouldShowOnCustomerDashboard && it.hasActiveFlashDeal }
+                }.onFailure {
+                    Log.w("CustomerDashboardVM", "Unable to load flash deals", it)
+                }.getOrElse { emptyList() }
 
-                // 4. Fetch Nearby Stylists (For now just top 10 online)
-                val nearbySnapshot = firestore.collection("stylists")
-                    .whereEqualTo("online", true)
-                    .limit(10)
-                    .get()
-                    .await()
-                val nearby = nearbySnapshot.documents.mapNotNull { doc ->
-                    doc.toObject(Stylist::class.java)?.copy(id = doc.id)
-                }
+                // 4. Fetch customer-visible stylists. Some profiles use `online`,
+                // others use `availableNow`; loading both prevents an empty home
+                // screen when only one availability field is populated.
+                val nearby = loadCustomerVisibleStylists()
 
                 // 5. Fetch Saved Stylists
-                val savedSnapshot = firestore.collection("users").document(uid)
-                    .collection("favorites")
-                    .orderBy("timestamp", Query.Direction.DESCENDING)
-                    .limit(5)
-                    .get()
-                    .await()
-                
-                val savedIds = savedSnapshot.documents.map { it.id }
-                val savedStylists = mutableListOf<Stylist>()
-                for (id in savedIds) {
-                    val doc = firestore.collection("stylists").document(id).get().await()
-                    doc.toObject(Stylist::class.java)?.copy(id = doc.id)?.let { savedStylists.add(it) }
-                }
+                val savedStylists = runCatching {
+                    val savedSnapshot = firestore.collection("users").document(uid)
+                        .collection("favorites")
+                        .orderBy("timestamp", Query.Direction.DESCENDING)
+                        .limit(5)
+                        .get()
+                        .await()
+
+                    savedSnapshot.documents.mapNotNull { favorite ->
+                        val doc = firestore.collection("stylists").document(favorite.id).get().await()
+                        doc.toObject(Stylist::class.java)
+                            ?.copy(id = doc.id)
+                            ?.takeIf { it.shouldShowOnCustomerDashboard }
+                    }
+                }.onFailure {
+                    Log.w("CustomerDashboardVM", "Unable to load saved stylists", it)
+                }.getOrElse { emptyList() }
 
                 _uiState.value = _uiState.value.copy(
                     upcomingBooking = upcoming,
@@ -116,4 +121,63 @@ class CustomerDashboardViewModel @Inject constructor(
             }
         }
     }
+
+    private suspend fun loadCustomerVisibleStylists(): List<Stylist> {
+        val selected = linkedMapOf<String, Stylist>()
+
+        suspend fun addQuery(field: String, value: Any, limit: Long = 20) {
+            runCatching {
+                firestore.collection("stylists")
+                    .whereEqualTo(field, value)
+                    .limit(limit)
+                    .get()
+                    .await()
+                    .documents
+                    .mapNotNull { doc -> doc.toObject(Stylist::class.java)?.copy(id = doc.id) }
+                    .forEach { stylist ->
+                        if (stylist.shouldShowOnCustomerDashboard) {
+                            selected[stylist.id.ifBlank { stylist.name }] = stylist
+                        }
+                    }
+            }.onFailure {
+                Log.w("CustomerDashboardVM", "Unable to load stylists where $field == $value", it)
+            }
+        }
+
+        addQuery("availableNow", true)
+        addQuery("online", true)
+        addQuery("verified", true)
+        addQuery("isVerified", true)
+        addQuery("featured", true)
+
+        if (selected.isEmpty()) {
+            runCatching {
+                firestore.collection("stylists")
+                    .limit(40)
+                    .get()
+                    .await()
+                    .documents
+                    .mapNotNull { doc -> doc.toObject(Stylist::class.java)?.copy(id = doc.id) }
+                    .forEach { stylist ->
+                        if (stylist.shouldShowOnCustomerDashboard) {
+                            selected[stylist.id.ifBlank { stylist.name }] = stylist
+                        }
+                    }
+            }.onFailure {
+                Log.w("CustomerDashboardVM", "Unable to load fallback stylists", it)
+            }
+        }
+
+        return selected.values
+            .sortedWith(
+                compareByDescending<Stylist> { it.isOnline == true || it.isCurrentlyAvailable }
+                    .thenByDescending { it.isFeatured == true }
+                    .thenByDescending { it.rating }
+                    .thenBy { it.name }
+            )
+            .take(20)
+    }
+
+    private val Stylist.shouldShowOnCustomerDashboard: Boolean
+        get() = isVerifiedStylist && hasPublicProfileSetup
 }

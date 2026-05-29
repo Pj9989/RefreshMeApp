@@ -43,7 +43,7 @@ dependencies:
 
 | Key | Value |
 |-----|-------|
-| Publishable Key (live) | `pk_live_51SPX9JQgZH4F30tQK5oSYs2lkbu5JnPQjGGZJwVYyFash0HKLGCmgzPoJ1HMnhofVIL7vFqr658VjKIp2uQe9YxF007oV37c7C` |
+| Publishable Key (live) | Store outside source control and inject at build/runtime. |
 | Mode | **Live** (not test) |
 | Platform fee | 10% taken automatically via Stripe Connect |
 
@@ -51,7 +51,7 @@ Initialize Stripe in `main.dart`:
 ```dart
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  Stripe.publishableKey = 'pk_live_51SPX9JQ...'; // full key above
+  Stripe.publishableKey = stripePublishableKey;
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const RefreshMeApp());
 }
@@ -175,6 +175,9 @@ class Stylist {
   String? specialty;
   String? stripeAccountId;       // Stripe Connect account ID (set after onboarding)
   String? stripeAccountStatus;   // "active" | "pending" | null
+  bool? stripeChargesEnabled;
+  bool? stripePayoutsEnabled;
+  bool? stripeOnboardingComplete;
   // ... other fields
 }
 ```
@@ -217,6 +220,8 @@ Customer selects stylist + service
     ↓
 Call createBookingPaymentIntent (passes stripeAccountId of stylist)
     ↓
+Backend verifies the stylist's Connect account can receive transfers/payouts
+    ↓
 Firebase Function creates PaymentIntent with:
   - amount = service price × 20% (deposit)
   - application_fee_amount = deposit × 10% (RefreshMe cut)
@@ -228,7 +233,7 @@ Customer pays → Stripe routes:
   - 90% → stylist's Stripe account (automatic payout)
   - 10% → RefreshMe's Stripe account (platform fee)
     ↓
-stripeWebhook confirms payment → updates booking status in Firestore
+stripeWebhook handles payment_intent.succeeded → updates booking status to DEPOSIT_PAID
 ```
 
 ---

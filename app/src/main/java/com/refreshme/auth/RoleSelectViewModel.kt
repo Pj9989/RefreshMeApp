@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +36,32 @@ class RoleSelectViewModel : ViewModel() {
 
                 // Use merge to prevent overwriting an existing user document entirely
                 userDoc.set(mapOf("role" to role), SetOptions.merge()).await()
+
+                if (role == "STYLIST") {
+                    val firebaseUser = auth.currentUser
+                    val displayName = firebaseUser?.displayName?.takeIf { it.isNotBlank() } ?: "Stylist"
+                    firestore.collection("stylists").document(userId).set(
+                        mapOf(
+                            "name" to displayName,
+                            "email" to (firebaseUser?.email ?: ""),
+                            "role" to role,
+                            "online" to false,
+                            "availableNow" to false,
+                            "available" to false,
+                            "subscriptionActive" to false,
+                            "services" to emptyList<Map<String, Any>>(),
+                            "categories" to listOf("hair"),
+                            "servesGender" to listOf("Men", "Women", "Non-binary"),
+                            "serviceLocationType" to "mobile",
+                            "offersAtHomeService" to true,
+                            "atHomeServiceFee" to 20.0,
+                            "maxTravelRangeKm" to 15,
+                            "createdAt" to FieldValue.serverTimestamp(),
+                            "updatedAt" to FieldValue.serverTimestamp()
+                        ),
+                        SetOptions.merge()
+                    ).await()
+                }
                 
                 _roleSelectState.value = RoleSelectState.Success
                 onSuccess()

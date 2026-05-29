@@ -79,6 +79,12 @@ class StylistDashboardViewModel : ViewModel() {
     private val _currentFlashDeal = MutableStateFlow<FlashDeal?>(null)
     val currentFlashDeal: StateFlow<FlashDeal?> = _currentFlashDeal
 
+    private val _isProfileReady = MutableStateFlow(false)
+    val isProfileReady: StateFlow<Boolean> = _isProfileReady.asStateFlow()
+
+    private val _profileError = MutableStateFlow<String?>(null)
+    val profileError: StateFlow<String?> = _profileError.asStateFlow()
+
     private val _reviews = MutableStateFlow<List<Review>>(emptyList())
     val reviews: StateFlow<List<Review>> = _reviews
 
@@ -121,10 +127,14 @@ class StylistDashboardViewModel : ViewModel() {
             .addSnapshotListener { snapshot, e ->
                 if (e != null) {
                     Log.e("StylistDashboardViewModel", "Error listening to stylist data", e)
+                    _isProfileReady.value = true
+                    _profileError.value = "We couldn't load your stylist profile. Please check your connection and try again."
                     return@addSnapshotListener
                 }
 
                 if (snapshot != null && snapshot.exists()) {
+                    _isProfileReady.value = true
+                    _profileError.value = null
                     val map = snapshot.data ?: return@addSnapshotListener
                     
                     _stylistName.value = map["name"] as? String ?: "Stylist"
@@ -167,6 +177,9 @@ class StylistDashboardViewModel : ViewModel() {
                     } else {
                         _currentFlashDeal.value = null
                     }
+                } else if (snapshot != null) {
+                    _isProfileReady.value = true
+                    _profileError.value = "Your stylist profile is still being created. Please reopen the app in a moment."
                 }
             }
     }

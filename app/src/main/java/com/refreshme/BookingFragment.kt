@@ -74,7 +74,7 @@ class BookingFragment : Fragment() {
                                 onAsapClick = {
                                     val calendar = Calendar.getInstance()
                                     calendar.add(Calendar.HOUR_OF_DAY, 1)
-                                    viewModel.selectDate(calendar.time)
+                                    viewModel.selectDate(calendar.time, isEmergencyAsap = true)
                                 },
                                 onPaymentRequired = { clientSecret, _ ->
                                     val config = PaymentSheet.Configuration(

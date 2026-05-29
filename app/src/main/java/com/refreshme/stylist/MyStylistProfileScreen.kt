@@ -23,8 +23,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
+import com.refreshme.BuildConfig
 import com.refreshme.R
 import com.refreshme.User
+import com.refreshme.ui.components.rememberFirebaseImageModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +76,7 @@ fun MyStylistProfileScreen(
                 ) {
                     Image(
                         painter = rememberAsyncImagePainter(
-                            model = user.profileImageUrl ?: "https://via.placeholder.com/150",
+                            model = rememberFirebaseImageModel(user.profileImageUrl),
                             placeholder = rememberAsyncImagePainter(R.drawable.ic_profile),
                             error = rememberAsyncImagePainter(R.drawable.ic_profile)
                         ),
@@ -184,7 +186,7 @@ fun MyStylistProfileScreen(
                 ProfileSectionTitle("Support & Legal")
                 ProfileMenuItem(Icons.Default.Help, "Help Center", "Stylist support and FAQs", { openUrl(helpCenterUrl) })
                 ProfileMenuItem(Icons.Default.Policy, "Privacy Policy", "Review our data usage policy", { openUrl(privacyPolicyUrl) })
-                ProfileMenuItem(Icons.Default.Info, "About RefreshMe", "Version 3.0.0", { openUrl(aboutUrl) })
+                ProfileMenuItem(Icons.Default.Info, "About RefreshMe", "Version ${BuildConfig.VERSION_NAME}", { openUrl(aboutUrl) })
                 Spacer(modifier = Modifier.height(32.dp))
             }
             

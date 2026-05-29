@@ -36,6 +36,7 @@ import androidx.navigation.fragment.findNavController
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
 import com.refreshme.R
+import com.refreshme.ui.components.rememberFirebaseImageModel
 import com.refreshme.ui.theme.RefreshMeTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -135,7 +136,7 @@ fun StylistHomeScreen(
             
             val fallbackPainter = rememberVectorPainter(Icons.Default.Person)
             AsyncImage(
-                model = profileUrl,
+                model = rememberFirebaseImageModel(profileUrl),
                 contentDescription = "Profile",
                 placeholder = fallbackPainter,
                 error = fallbackPainter,

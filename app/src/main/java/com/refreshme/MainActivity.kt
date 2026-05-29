@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
@@ -20,6 +21,8 @@ import androidx.navigation.ui.setupWithNavController
 import com.google.firebase.auth.FirebaseAuth
 import com.refreshme.auth.RoleSelectActivity
 import com.refreshme.databinding.ActivityMainBinding
+import com.refreshme.util.RoleBasedNavigationManager
+import com.refreshme.util.RoleBasedNavigationManager.UserRole
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -36,11 +39,23 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        WindowCompat.getInsetsController(window, binding.root).isAppearanceLightStatusBars = true
+        WindowCompat.getInsetsController(window, binding.root).isAppearanceLightNavigationBars = true
 
         if (auth.currentUser == null) {
             startActivity(Intent(this, RoleSelectActivity::class.java))
             finish()
             return
+        }
+
+        RoleBasedNavigationManager.getUserRole { role ->
+            if (isFinishing || role == UserRole.CUSTOMER) return@getUserRole
+            if (role == UserRole.UNKNOWN) {
+                startActivity(Intent(this, RoleSelectActivity::class.java))
+            } else {
+                RoleBasedNavigationManager.navigateToDashboard(this, role)
+            }
+            finish()
         }
 
         askNotificationPermission()
@@ -80,7 +95,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleIntent(intent: Intent?) {
         val type = intent?.getStringExtra("notification_type")
-        val targetId = intent?.getStringExtra("target_id") ?: intent?.getStringExtra("chat_id")
+        val targetId = if (type == "chat") {
+            intent.getStringExtra("other_user_id")
+                ?: intent.getStringExtra("sender_id")
+                ?: resolveChatPartnerId(intent.getStringExtra("target_id") ?: intent.getStringExtra("chat_id"))
+        } else {
+            intent?.getStringExtra("target_id") ?: intent?.getStringExtra("chat_id")
+        }
         val stylistId = intent?.getStringExtra("stylistId")
         
         Log.d("MainActivity", "Handling intent: type=$type, targetId=$targetId, stylistId=$stylistId")
@@ -98,6 +119,12 @@ class MainActivity : AppCompatActivity() {
                 bundleOf("stylistId" to stylistId)
             )
         }
+    }
+
+    private fun resolveChatPartnerId(chatId: String?): String? {
+        val currentUserId = auth.currentUser?.uid ?: return chatId
+        val parts = chatId?.split("_") ?: return null
+        return parts.firstOrNull { it.isNotBlank() && it != currentUserId } ?: chatId
     }
 
     private fun askNotificationPermission() {

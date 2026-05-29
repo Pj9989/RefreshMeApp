@@ -15,16 +15,29 @@ import 'payout_account_screen.dart';
 class PayoutAccountTile extends StatelessWidget {
   /// Pass the stylist's stripeAccountStatus from Firestore ("active", "pending", or null)
   final String? stripeAccountStatus;
+  final bool? stripeChargesEnabled;
+  final bool? stripePayoutsEnabled;
+  final bool? stripeOnboardingComplete;
 
   const PayoutAccountTile({
     super.key,
     this.stripeAccountStatus,
+    this.stripeChargesEnabled,
+    this.stripePayoutsEnabled,
+    this.stripeOnboardingComplete,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isActive = stripeAccountStatus == 'active';
-    final isPending = stripeAccountStatus == 'pending';
+    final isActive =
+        stripeAccountStatus == 'active' ||
+        stripeOnboardingComplete == true ||
+        (stripeChargesEnabled == true && stripePayoutsEnabled == true);
+    final isPending =
+        !isActive &&
+        (stripeAccountStatus == 'pending' ||
+            stripeChargesEnabled == true ||
+            stripePayoutsEnabled == true);
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -49,15 +62,15 @@ class PayoutAccountTile extends StatelessWidget {
         isActive
             ? 'Active — earnings go to your bank'
             : isPending
-                ? 'Pending — finish setup'
-                : 'Not set up — tap to connect',
+            ? 'Pending — finish setup'
+            : 'Not set up — tap to connect',
         style: TextStyle(
           fontSize: 12,
           color: isActive
               ? const Color(0xFF2E7D52)
               : isPending
-                  ? const Color(0xFFF59E0B)
-                  : Colors.grey,
+              ? const Color(0xFFF59E0B)
+              : Colors.grey,
         ),
       ),
       trailing: Row(
@@ -65,8 +78,7 @@ class PayoutAccountTile extends StatelessWidget {
         children: [
           if (isActive)
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: const Color(0xFFEBF7F0),
                 borderRadius: BorderRadius.circular(20),
@@ -82,8 +94,7 @@ class PayoutAccountTile extends StatelessWidget {
             )
           else if (isPending)
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: const Color(0xFFFFF8E1),
                 borderRadius: BorderRadius.circular(20),
@@ -104,9 +115,7 @@ class PayoutAccountTile extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => const PayoutAccountScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const PayoutAccountScreen()),
         );
       },
     );

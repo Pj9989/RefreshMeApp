@@ -138,15 +138,21 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                 val stylist = allStylists.find { it.name == marker.title }
 
                 if (stylist?.id != null) {
-                    findNavController().navigate(
-                        R.id.action_map_to_details,
-                        bundleOf("stylistId" to stylist.id)
-                    )
-                } else if (stylist?.location != null) {
-                    val gmmIntentUri = Uri.parse("google.navigation:q=${stylist.location.latitude},${stylist.location.longitude}")
-                    val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
-                    mapIntent.setPackage("com.google.android.apps.maps")
-                    startActivity(mapIntent)
+                    val navController = findNavController()
+                    if (navController.currentDestination?.id == R.id.mapFragment) {
+                        navController.navigate(
+                            R.id.action_map_to_details,
+                            bundleOf("stylistId" to stylist.id)
+                        )
+                    }
+                } else {
+                    val stylistLoc = stylist?.location
+                    if (stylistLoc != null) {
+                        val gmmIntentUri = Uri.parse("google.navigation:q=${stylistLoc.latitude},${stylistLoc.longitude}")
+                        val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                        mapIntent.setPackage("com.google.android.apps.maps")
+                        startActivity(mapIntent)
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -201,7 +207,9 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                 allStylists.clear()
                 for (document in documents) {
                     val stylist = document.toObject(Stylist::class.java).copy(id = document.id)
-                    allStylists.add(stylist)
+                    if (stylist.isDiscoverable) {
+                        allStylists.add(stylist)
+                    }
                 }
                 applyFilters()
             }
@@ -239,9 +247,10 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             val boundsBuilder = LatLngBounds.builder()
             var hasLocations = false
             for (stylist in stylists) {
-                if (stylist.location != null) {
+                val stylistLoc = stylist.location
+                if (stylistLoc != null) {
                     hasLocations = true
-                    val latLng = LatLng(stylist.location.latitude, stylist.location.longitude)
+                    val latLng = LatLng(stylistLoc.latitude, stylistLoc.longitude)
                     val markerOptions = MarkerOptions().position(latLng).title(stylist.name)
                     
                     if (stylist.isOnline == true) {

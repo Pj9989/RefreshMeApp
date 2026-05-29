@@ -4,8 +4,10 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.SetOptions
 import com.refreshme.data.Stylist
 import com.refreshme.data.StylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -78,9 +81,46 @@ class StylistProfileViewModel @Inject constructor(
                         )
                     }
                 } else {
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = "Stylist profile not found")
+                    createStarterStylistProfile(uid)
                 }
             }
+    }
+
+    private fun createStarterStylistProfile(uid: String) {
+        val user = auth.currentUser
+        val displayName = user?.displayName?.takeIf { it.isNotBlank() } ?: "Stylist"
+
+        viewModelScope.launch {
+            try {
+                firestore.collection("stylists").document(uid).set(
+                    mapOf(
+                        "name" to displayName,
+                        "email" to (user?.email ?: ""),
+                        "role" to "STYLIST",
+                        "online" to false,
+                        "availableNow" to false,
+                        "available" to false,
+                        "subscriptionActive" to false,
+                        "services" to emptyList<Map<String, Any>>(),
+                        "categories" to listOf("hair"),
+                        "servesGender" to listOf("Men", "Women", "Non-binary"),
+                        "serviceLocationType" to "mobile",
+                        "offersAtHomeService" to true,
+                        "atHomeServiceFee" to 20.0,
+                        "maxTravelRangeKm" to 15,
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    ),
+                    SetOptions.merge()
+                ).await()
+            } catch (e: Exception) {
+                Log.e("StylistProfileVM", "Failed to create starter stylist profile", e)
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "We couldn't create your stylist profile. Please try again."
+                )
+            }
+        }
     }
 
     fun toggleOnlineStatus(online: Boolean) {

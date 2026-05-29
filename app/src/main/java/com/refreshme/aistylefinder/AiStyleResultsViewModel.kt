@@ -94,7 +94,7 @@ class AiStyleResultsViewModel : ViewModel() {
                 } catch (e: Exception) {
                     null
                 }
-            }
+            }.filter { it.isDiscoverable }
 
             // Filter logic
             val matchingStylists = allStylists.filter { stylist ->

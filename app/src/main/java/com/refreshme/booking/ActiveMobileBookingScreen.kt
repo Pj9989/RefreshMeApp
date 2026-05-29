@@ -38,9 +38,11 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.functions.FirebaseFunctions
 import com.google.maps.android.compose.*
 import com.refreshme.data.Booking
 import com.refreshme.data.BookingStatus
+import com.refreshme.ui.components.rememberFirebaseImageModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -55,6 +57,7 @@ fun ActiveMobileBookingScreen(
 ) {
     val context = LocalContext.current
     val db = FirebaseFirestore.getInstance()
+    val functions = FirebaseFunctions.getInstance()
     var booking by remember { mutableStateOf<Booking?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     
@@ -172,7 +175,7 @@ fun ActiveMobileBookingScreen(
                         // Customer Marker
                         if (b.customerLat != null && b.customerLng != null) {
                             Marker(
-                                state = MarkerState(position = LatLng(b.customerLat, b.customerLng)),
+                                state = rememberMarkerState(position = LatLng(b.customerLat, b.customerLng)),
                                 title = "Destination",
                                 icon = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE)
                             )
@@ -181,7 +184,7 @@ fun ActiveMobileBookingScreen(
                         // Stylist Live Marker
                         if (b.stylistLat != null && b.stylistLng != null) {
                             Marker(
-                                state = MarkerState(position = LatLng(b.stylistLat, b.stylistLng)),
+                                state = rememberMarkerState(position = LatLng(b.stylistLat, b.stylistLng)),
                                 title = b.stylistName,
                                 icon = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_ORANGE)
                             )
@@ -228,7 +231,7 @@ fun ActiveMobileBookingScreen(
                                 val displayName = if (isStylist) b.customerName else b.stylistName
                                 
                                 AsyncImage(
-                                    model = photoUrl ?: "https://via.placeholder.com/150",
+                                    model = rememberFirebaseImageModel(photoUrl),
                                     contentDescription = null,
                                     modifier = Modifier.size(50.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha=0.1f))
                                 )
@@ -282,7 +285,7 @@ fun ActiveMobileBookingScreen(
                                     BookingStatus.IN_PROGRESS.name -> {
                                         Button(
                                             onClick = { 
-                                                updateBookingStatus(db, bookingId, BookingStatus.COMPLETED)
+                                                requestBookingCompletion(functions, bookingId)
                                                 onFinish()
                                             },
                                             modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -291,8 +294,17 @@ fun ActiveMobileBookingScreen(
                                         ) {
                                             Icon(Icons.Default.CheckCircle, contentDescription = null)
                                             Spacer(Modifier.width(8.dp))
-                                            Text("Complete Appointment", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                            Text("Send for Client Confirmation", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                         }
+                                    }
+                                    BookingStatus.AWAITING_CUSTOMER_CONFIRMATION.name -> {
+                                        Text(
+                                            "Awaiting client confirmation. If they do not respond, this will auto-confirm in 24 hours.",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 14.sp,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textAlign = TextAlign.Center
+                                        )
                                     }
                                 }
                             } else {
@@ -318,9 +330,22 @@ fun ActiveMobileBookingScreen(
 }
 
 private fun updateBookingStatus(db: FirebaseFirestore, bookingId: String, status: BookingStatus) {
-    db.collection("bookings").document(bookingId)
-        .update("status", status.name)
+    val bookingRef = db.collection("bookings").document(bookingId)
+    bookingRef.update(
+        mapOf(
+            "status" to status.name,
+            "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+        )
+    )
         .addOnFailureListener { e ->
             android.util.Log.e("TrackingScreen", "Failed to update status", e)
+        }
+}
+
+private fun requestBookingCompletion(functions: FirebaseFunctions, bookingId: String) {
+    functions.getHttpsCallable("requestBookingCompletion")
+        .call(hashMapOf("bookingId" to bookingId))
+        .addOnFailureListener { e ->
+            android.util.Log.e("TrackingScreen", "Failed to request completion", e)
         }
 }

@@ -107,9 +107,31 @@
             </div>
         </div>
 
-        <a href="https://play.google.com/store" class="btn">Download on Android</a>
-        <a href="refreshme://home" class="btn btn-outline">Open in App</a>
+        <a id="download-link" href="https://play.google.com/store/apps/details?id=com.refreshmeapp.stylist" class="btn">Download RefreshMe</a>
+        <a id="open-link" href="https://play.google.com/store/apps/details?id=com.refreshmeapp.stylist" class="btn btn-outline">Open in App</a>
         <p class="note">Already have the app? Tap "Open in App" above.</p>
     </div>
+
+    <script>
+        const androidPackage = 'com.refreshmeapp.stylist';
+        const androidStoreUrl = 'https://play.google.com/store/apps/details?id=' + androidPackage;
+        const iosStoreUrl = 'https://apps.apple.com/app/id6761734264';
+        const userAgent = navigator.userAgent || '';
+        const isAndroid = /Android/i.test(userAgent);
+        const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
+        const storeUrl = isIOS ? iosStoreUrl : androidStoreUrl;
+
+        document.getElementById('download-link').href = storeUrl;
+
+        const openLink = document.getElementById('open-link');
+        if (isAndroid) {
+            openLink.href = `intent://home#Intent;scheme=refreshme;package=${androidPackage};S.browser_fallback_url=${encodeURIComponent(androidStoreUrl)};end`;
+        } else if (isIOS) {
+            openLink.href = iosStoreUrl;
+            openLink.textContent = 'Download on iPhone';
+        } else {
+            openLink.href = storeUrl;
+        }
+    </script>
 </body>
 </html>
