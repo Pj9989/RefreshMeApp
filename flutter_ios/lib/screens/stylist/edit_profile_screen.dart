@@ -29,6 +29,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String serviceLocationType = "mobile";
   int serviceRadius = 9;
   double atHomeServiceFee = 20.0;
+  bool isShopProfile = false;
+  String? shopId;
+  String? businessName;
+  String? businessBio;
+  String? businessAddress;
+  String? businessPhone;
+  String? businessWebsite;
   bool _isLoadingProfile = true;
   String? _profileLoadError;
 
@@ -71,6 +78,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           serviceRadius = (data['maxTravelRangeKm'] ?? 15) ~/ 1.60934;
           atHomeServiceFee =
               (data['atHomeServiceFee'] as num?)?.toDouble() ?? 20.0;
+          shopId = data['shopId'] as String?;
+          businessName = data['businessName'] as String?;
+          businessBio = data['businessBio'] as String?;
+          businessAddress = data['businessAddress'] as String?;
+          businessPhone = data['businessPhone'] as String?;
+          businessWebsite = data['businessWebsite'] as String?;
+          isShopProfile =
+              data['isShopProfile'] == true ||
+              (businessName?.trim().isNotEmpty ?? false);
           _isLoadingProfile = false;
           _profileLoadError = null;
         });
@@ -162,6 +178,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
 
     final radiusKm = (serviceRadius * 1.60934).round();
+    final trimmedBusinessName = businessName?.trim() ?? '';
+    final enabledShopProfile = isShopProfile && trimmedBusinessName.isNotEmpty;
+    final currentShopId = shopId?.trim().isNotEmpty == true
+        ? shopId!.trim()
+        : _firestore.collection('shops').doc().id;
+
     await _firestore.collection('stylists').doc(uid).set({
       'name': name ?? _auth.currentUser?.displayName ?? 'Stylist',
       'email': _auth.currentUser?.email ?? '',
@@ -172,8 +194,36 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       'atHomeServiceFee': serviceLocationType == 'mobile'
           ? atHomeServiceFee
           : 0.0,
+      'shopId': enabledShopProfile ? currentShopId : shopId,
+      'businessName': trimmedBusinessName,
+      'businessBio': businessBio?.trim() ?? '',
+      'businessAddress': businessAddress?.trim() ?? '',
+      'businessPhone': businessPhone?.trim() ?? '',
+      'businessWebsite': businessWebsite?.trim() ?? '',
+      'isShopProfile': enabledShopProfile,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+
+    if (enabledShopProfile) {
+      await _firestore.collection('shops').doc(currentShopId).set({
+        'ownerId': uid,
+        'name': trimmedBusinessName,
+        'bio': businessBio?.trim() ?? '',
+        'address': businessAddress?.trim() ?? '',
+        'phone': businessPhone?.trim() ?? '',
+        'website': businessWebsite?.trim() ?? '',
+        'stylistIds': FieldValue.arrayUnion([uid]),
+        'isPublic': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      shopId = currentShopId;
+    } else if (shopId?.trim().isNotEmpty == true) {
+      await _firestore.collection('shops').doc(shopId!.trim()).set({
+        'isPublic': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
 
     if (serviceLocationType == 'mobile') {
       await _firestore.collection('stylists').doc(uid).update({
@@ -205,272 +255,371 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       body: _isLoadingProfile
           ? Center(child: CircularProgressIndicator())
           : _profileLoadError != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Text(
-                      _profileLoadError!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey[700]),
-                    ),
-                  ),
-                )
-              : SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Profile Image
-              Center(
-                child: Stack(
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Text(
+                  _profileLoadError!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey[700]),
+                ),
+              ),
+            )
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundImage: profileImageUrl != null
-                          ? NetworkImage(profileImageUrl!)
-                          : null,
-                      child: profileImageUrl == null
-                          ? Icon(Icons.person, size: 60)
-                          : null,
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: CircleAvatar(
-                        backgroundColor: Colors.black,
-                        radius: 20,
-                        child: Icon(Icons.star, color: Colors.amber, size: 24),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 20),
-
-              // Name
-              Center(
-                child: Text(
-                  name ?? 'Stylist Name',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-              ),
-
-              SizedBox(height: 30),
-              Center(
-                child: Text(
-                  "PROFESSIONAL DASHBOARD",
-                  style: TextStyle(
-                    color: primaryColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ),
-              SizedBox(height: 20),
-
-              // Bio Card
-              Card(
-                elevation: 0,
-                color: Colors.grey[100],
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Professional Bio",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      SizedBox(height: 12),
-                      Container(
-                        padding: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey[300]!),
-                        ),
-                        child: Text(
-                          bio ?? "Add a bio...",
-                          style: TextStyle(fontSize: 16, height: 1.4),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: 16),
-
-              // Location Card
-              Card(
-                elevation: 0,
-                color: Colors.grey[100],
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    // Profile Image
+                    Center(
+                      child: Stack(
                         children: [
-                          Row(
-                            children: [
-                              Radio<String>(
-                                value: "fixed",
-                                groupValue: serviceLocationType,
-                                onChanged: (v) =>
-                                    setState(() => serviceLocationType = v!),
-                              ),
-                              Text("Fixed\nLocation"),
-                            ],
+                          CircleAvatar(
+                            radius: 60,
+                            backgroundImage: profileImageUrl != null
+                                ? NetworkImage(profileImageUrl!)
+                                : null,
+                            child: profileImageUrl == null
+                                ? Icon(Icons.person, size: 60)
+                                : null,
                           ),
-                          Row(
-                            children: [
-                              Radio<String>(
-                                value: "mobile",
-                                groupValue: serviceLocationType,
-                                onChanged: (v) =>
-                                    setState(() => serviceLocationType = v!),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: CircleAvatar(
+                              backgroundColor: Colors.black,
+                              radius: 20,
+                              child: Icon(
+                                Icons.star,
+                                color: Colors.amber,
+                                size: 24,
                               ),
-                              Text("Mobile (I\ntravel to\nclients)"),
-                            ],
+                            ),
                           ),
                         ],
                       ),
-                      if (serviceLocationType == 'mobile') ...[
-                        SizedBox(height: 12),
-                        TextFormField(
-                          initialValue: serviceRadius.toString(),
-                          decoration: InputDecoration(
-                            labelText: "Service Radius (miles)",
-                          ),
-                          keyboardType: TextInputType.number,
-                          onChanged: (value) {
-                            serviceRadius =
-                                int.tryParse(value.trim()) ?? serviceRadius;
-                          },
-                        ),
-                        SizedBox(height: 12),
-                        TextFormField(
-                          initialValue: atHomeServiceFee.toStringAsFixed(2),
-                          decoration: InputDecoration(
-                            labelText: "At-home travel fee (\$)",
-                          ),
-                          keyboardType: TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          onChanged: (value) {
-                            atHomeServiceFee =
-                                double.tryParse(value.trim()) ??
-                                atHomeServiceFee;
-                          },
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: 16),
+                    ),
+                    SizedBox(height: 20),
 
-              // License & Identity Card
-              Card(
-                elevation: 0,
-                color: Colors.grey[100],
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "License & Identity",
+                    // Name
+                    Center(
+                      child: Text(
+                        name ?? 'Stylist Name',
                         style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: 30),
+                    Center(
+                      child: Text(
+                        "PROFESSIONAL DASHBOARD",
+                        style: TextStyle(
+                          color: primaryColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
+                          letterSpacing: 1.2,
                         ),
                       ),
-                      SizedBox(height: 16),
-                      if (licenseImageUrl != null)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            licenseImageUrl!,
-                            height: 180,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      if (licenseImageUrl != null) SizedBox(height: 16),
+                    ),
+                    SizedBox(height: 20),
 
-                      Center(
-                        child: Text(
-                          isVerified
-                              ? "Status: Verified Stylist"
-                              : "Status: $verificationStatus",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: isVerified ? Colors.green : Colors.red,
-                          ),
-                        ),
+                    // Bio Card
+                    Card(
+                      elevation: 0,
+                      color: Colors.grey[100],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
-
-                      if (!isVerified) ...[
-                        SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Professional Bio",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
                               ),
                             ),
-                            onPressed: _verifyWithStripe,
-                            child: Text("Verify with Stripe"),
+                            SizedBox(height: 12),
+                            Container(
+                              padding: EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey[300]!),
+                              ),
+                              child: Text(
+                                bio ?? "Add a bio...",
+                                style: TextStyle(fontSize: 16, height: 1.4),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 16),
+
+                    // Location Card
+                    Card(
+                      elevation: 0,
+                      color: Colors.grey[100],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                Row(
+                                  children: [
+                                    Radio<String>(
+                                      value: "fixed",
+                                      groupValue: serviceLocationType,
+                                      onChanged: (v) => setState(
+                                        () => serviceLocationType = v!,
+                                      ),
+                                    ),
+                                    Text("Fixed\nLocation"),
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    Radio<String>(
+                                      value: "mobile",
+                                      groupValue: serviceLocationType,
+                                      onChanged: (v) => setState(
+                                        () => serviceLocationType = v!,
+                                      ),
+                                    ),
+                                    Text("Mobile (I\ntravel to\nclients)"),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            if (serviceLocationType == 'mobile') ...[
+                              SizedBox(height: 12),
+                              TextFormField(
+                                initialValue: serviceRadius.toString(),
+                                decoration: InputDecoration(
+                                  labelText: "Service Radius (miles)",
+                                ),
+                                keyboardType: TextInputType.number,
+                                onChanged: (value) {
+                                  serviceRadius =
+                                      int.tryParse(value.trim()) ??
+                                      serviceRadius;
+                                },
+                              ),
+                              SizedBox(height: 12),
+                              TextFormField(
+                                initialValue: atHomeServiceFee.toStringAsFixed(
+                                  2,
+                                ),
+                                decoration: InputDecoration(
+                                  labelText: "At-home travel fee (\$)",
+                                ),
+                                keyboardType: TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                onChanged: (value) {
+                                  atHomeServiceFee =
+                                      double.tryParse(value.trim()) ??
+                                      atHomeServiceFee;
+                                },
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 16),
+
+                    // Shop / Business Listing Card
+                    Card(
+                      elevation: 0,
+                      color: Colors.grey[100],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "Shop / Business Listing",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                Switch(
+                                  value: isShopProfile,
+                                  onChanged: (value) =>
+                                      setState(() => isShopProfile = value),
+                                ),
+                              ],
+                            ),
+                            if (isShopProfile) ...[
+                              SizedBox(height: 12),
+                              TextFormField(
+                                initialValue: businessName,
+                                decoration: InputDecoration(
+                                  labelText: "Business or shop name",
+                                ),
+                                textCapitalization: TextCapitalization.words,
+                                onChanged: (value) => businessName = value,
+                              ),
+                              SizedBox(height: 12),
+                              TextFormField(
+                                initialValue: businessBio,
+                                decoration: InputDecoration(
+                                  labelText: "Short shop description",
+                                ),
+                                minLines: 2,
+                                maxLines: 3,
+                                onChanged: (value) => businessBio = value,
+                              ),
+                              SizedBox(height: 12),
+                              TextFormField(
+                                initialValue: businessAddress,
+                                decoration: InputDecoration(
+                                  labelText: "Address",
+                                ),
+                                onChanged: (value) => businessAddress = value,
+                              ),
+                              SizedBox(height: 12),
+                              TextFormField(
+                                initialValue: businessPhone,
+                                decoration: InputDecoration(labelText: "Phone"),
+                                keyboardType: TextInputType.phone,
+                                onChanged: (value) => businessPhone = value,
+                              ),
+                              SizedBox(height: 12),
+                              TextFormField(
+                                initialValue: businessWebsite,
+                                decoration: InputDecoration(
+                                  labelText: "Website",
+                                ),
+                                keyboardType: TextInputType.url,
+                                onChanged: (value) => businessWebsite = value,
+                              ),
+                            ] else
+                              Text(
+                                "Turn this on to publish a shop listing clients can discover.",
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 16),
+
+                    // License & Identity Card
+                    Card(
+                      elevation: 0,
+                      color: Colors.grey[100],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "License & Identity",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            if (licenseImageUrl != null)
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  licenseImageUrl!,
+                                  height: 180,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            if (licenseImageUrl != null) SizedBox(height: 16),
+
+                            Center(
+                              child: Text(
+                                isVerified
+                                    ? "Status: Verified Stylist"
+                                    : "Status: $verificationStatus",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: isVerified ? Colors.green : Colors.red,
+                                ),
+                              ),
+                            ),
+
+                            if (!isVerified) ...[
+                              SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 50,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: primaryColor,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  onPressed: _verifyWithStripe,
+                                  child: Text("Verify with Stripe"),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: 40),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 60,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
                           ),
                         ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 40),
-              SizedBox(
-                width: double.infinity,
-                height: 60,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                        onPressed: _saveChanges,
+                        child: Text(
+                          "SAVE CHANGES",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                  onPressed: _saveChanges,
-                  child: Text(
-                    "SAVE CHANGES",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+                    SizedBox(height: 20),
+                  ],
                 ),
               ),
-              SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

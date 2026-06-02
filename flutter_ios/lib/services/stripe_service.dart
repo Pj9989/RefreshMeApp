@@ -38,6 +38,9 @@ class StripeService {
     required String serviceName,
     required double servicePrice,
     required DateTime bookingDate,
+    String serviceId = '',
+    List<String> addOnServiceIds = const [],
+    List<String> addOnServiceNames = const [],
     bool isMobile = false,
     bool isEvent = false,
     int groupSize = 1,
@@ -56,7 +59,11 @@ class StripeService {
     final callable = _functions.httpsCallable('createBookingPaymentIntent');
     final result = await callable.call(<String, dynamic>{
       'stylistId': stylistId,
+      'serviceId': serviceId,
       'serviceName': serviceName,
+      'selectedServiceName': serviceName,
+      'addOnServiceIds': addOnServiceIds,
+      'addOnServiceNames': addOnServiceNames,
       'bookingDate': bookingDate.millisecondsSinceEpoch,
       'date': bookingDate.millisecondsSinceEpoch,
       'isMobile': isMobile,

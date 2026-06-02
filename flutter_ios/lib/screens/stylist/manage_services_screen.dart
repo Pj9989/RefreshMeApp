@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+enum _MenuItemType { service, addOn, bundle }
+
 class Service {
   String id;
   String name;
@@ -9,6 +11,7 @@ class Service {
   double price;
   int durationMinutes;
   bool isBundle;
+  bool isAddOn;
 
   Service({
     required this.id,
@@ -17,6 +20,7 @@ class Service {
     required this.price,
     required this.durationMinutes,
     required this.isBundle,
+    this.isAddOn = false,
   });
 
   factory Service.fromMap(Map<String, dynamic> data, String docId) {
@@ -27,6 +31,10 @@ class Service {
       price: (data['price'] ?? 0.0).toDouble(),
       durationMinutes: data['durationMinutes'] ?? 0,
       isBundle: data['isBundle'] ?? data['bundle'] ?? false,
+      isAddOn:
+          data['isAddOn'] ??
+          data['addOn'] ??
+          _looksLikeAddOn(data['name'] ?? ''),
     );
   }
 
@@ -39,7 +47,16 @@ class Service {
       'durationMinutes': durationMinutes,
       'isBundle': isBundle,
       'bundle': isBundle,
+      'isAddOn': isAddOn,
+      'addOn': isAddOn,
     };
+  }
+
+  bool get isAddOnCandidate => isAddOn || _looksLikeAddOn(name);
+
+  static bool _looksLikeAddOn(String name) {
+    final lower = name.toLowerCase();
+    return lower.contains('add-on') || lower.contains('addon');
   }
 }
 
@@ -85,10 +102,10 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
       ),
       backgroundColor: Colors.white,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showServiceDialog(uid: uid),
+        onPressed: () => _showCreateMenu(uid),
         backgroundColor: Theme.of(context).primaryColor,
         icon: Icon(Icons.add),
-        label: Text("Add Service/Add-on"),
+        label: Text("Add Menu Item"),
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: _firestore.collection('stylists').doc(uid).snapshots(),
@@ -125,7 +142,12 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
               .map((e) => Service.fromMap(e, e['id'] ?? ''))
               .toList();
 
-          final aLaCarte = services.where((s) => !s.isBundle).toList();
+          final aLaCarte = services
+              .where((s) => !s.isBundle && !s.isAddOnCandidate)
+              .toList();
+          final addOns = services
+              .where((s) => !s.isBundle && s.isAddOnCandidate)
+              .toList();
           final bundles = services.where((s) => s.isBundle).toList();
 
           if (services.isEmpty) {
@@ -172,6 +194,15 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
                 SizedBox(height: 12),
                 ...aLaCarte.map((s) => _buildServiceTile(s)).toList(),
               ],
+              if (addOns.isNotEmpty) ...[
+                SizedBox(height: 24),
+                Text(
+                  "Add-ons",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                SizedBox(height: 12),
+                ...addOns.map((s) => _buildServiceTile(s)).toList(),
+              ],
             ],
           );
         },
@@ -182,7 +213,11 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
   Widget _buildServiceTile(Service service) {
     return Card(
       elevation: 0,
-      color: service.isBundle ? Colors.purple[50] : Colors.grey[100],
+      color: service.isBundle
+          ? Colors.purple[50]
+          : service.isAddOnCandidate
+          ? Colors.green[50]
+          : Colors.grey[100],
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -192,10 +227,20 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
             CircleAvatar(
               backgroundColor: service.isBundle
                   ? Colors.purple[100]
+                  : service.isAddOnCandidate
+                  ? Colors.green[100]
                   : Colors.blue[100],
               child: Icon(
-                service.isBundle ? Icons.card_giftcard : Icons.content_cut,
-                color: service.isBundle ? Colors.purple : Colors.blue,
+                service.isBundle
+                    ? Icons.card_giftcard
+                    : service.isAddOnCandidate
+                    ? Icons.add_circle_outline
+                    : Icons.content_cut,
+                color: service.isBundle
+                    ? Colors.purple
+                    : service.isAddOnCandidate
+                    ? Colors.green
+                    : Colors.blue,
               ),
             ),
             SizedBox(width: 16),
@@ -207,7 +252,8 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
                     service.name,
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
-                  if (service.isBundle && service.description.isNotEmpty)
+                  if ((service.isBundle || service.isAddOnCandidate) &&
+                      service.description.isNotEmpty)
                     Text(
                       service.description,
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
@@ -215,7 +261,7 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   Text(
-                    "${service.durationMinutes} mins • \$${service.price.toStringAsFixed(2)}",
+                    "${service.isAddOnCandidate ? 'Add-on • ' : ''}${service.durationMinutes} mins • \$${service.price.toStringAsFixed(2)}",
                     style: TextStyle(color: Colors.grey[600], fontSize: 13),
                   ),
                 ],
@@ -282,9 +328,51 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
     }, SetOptions(merge: true));
   }
 
+  Future<void> _showCreateMenu(String uid) async {
+    final type = await showModalBottomSheet<_MenuItemType>(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.content_cut),
+                title: Text('Service'),
+                subtitle: Text('A main bookable item clients can choose'),
+                onTap: () => Navigator.pop(context, _MenuItemType.service),
+              ),
+              ListTile(
+                leading: Icon(Icons.add_circle_outline),
+                title: Text('Add-on'),
+                subtitle: Text('Optional upgrade shown after a service'),
+                onTap: () => Navigator.pop(context, _MenuItemType.addOn),
+              ),
+              ListTile(
+                leading: Icon(Icons.card_giftcard),
+                title: Text('Package'),
+                subtitle: Text('A bundle of services sold together'),
+                onTap: () => Navigator.pop(context, _MenuItemType.bundle),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (type == null) return;
+    await _showServiceDialog(
+      uid: uid,
+      initialIsBundle: type == _MenuItemType.bundle,
+      initialIsAddOn: type == _MenuItemType.addOn,
+    );
+  }
+
   Future<void> _showServiceDialog({
     required String uid,
     Service? existingService,
+    bool initialIsBundle = false,
+    bool initialIsAddOn = false,
   }) async {
     final nameController = TextEditingController(
       text: existingService?.name ?? '',
@@ -300,7 +388,8 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
     final durationController = TextEditingController(
       text: existingService?.durationMinutes.toString() ?? '60',
     );
-    var isBundle = existingService?.isBundle ?? false;
+    var isBundle = existingService?.isBundle ?? initialIsBundle;
+    var isAddOn = existingService?.isAddOnCandidate ?? initialIsAddOn;
 
     final saved = await showDialog<Service>(
       context: context,
@@ -308,9 +397,7 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: Text(
-                existingService == null ? 'Add Service' : 'Edit Service',
-              ),
+              title: Text(_dialogTitle(existingService, isBundle, isAddOn)),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -318,7 +405,11 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
                     TextField(
                       controller: nameController,
                       decoration: InputDecoration(
-                        labelText: 'Service or add-on name',
+                        labelText: isBundle
+                            ? 'Package name'
+                            : isAddOn
+                            ? 'Add-on name'
+                            : 'Service name',
                       ),
                       textCapitalization: TextCapitalization.words,
                     ),
@@ -346,8 +437,20 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
                       contentPadding: EdgeInsets.zero,
                       title: Text('Package or bundle'),
                       value: isBundle,
-                      onChanged: (value) =>
-                          setDialogState(() => isBundle = value),
+                      onChanged: (value) => setDialogState(() {
+                        isBundle = value;
+                        if (value) isAddOn = false;
+                      }),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text('Add-on'),
+                      subtitle: Text('Shown after a main service is selected'),
+                      value: isAddOn,
+                      onChanged: (value) => setDialogState(() {
+                        isAddOn = value;
+                        if (value) isBundle = false;
+                      }),
                     ),
                   ],
                 ),
@@ -376,6 +479,7 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
                         price: price,
                         durationMinutes: duration,
                         isBundle: isBundle,
+                        isAddOn: isAddOn,
                       ),
                     );
                   },
@@ -395,6 +499,13 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
 
     if (saved == null) return;
     await _upsertService(uid, saved);
+  }
+
+  String _dialogTitle(Service? service, bool isBundle, bool isAddOn) {
+    final action = service == null ? 'Add' : 'Edit';
+    if (isBundle) return '$action Package';
+    if (isAddOn) return '$action Add-on';
+    return '$action Service';
   }
 
   Future<void> _upsertService(String uid, Service service) async {

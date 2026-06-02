@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>RefreshMe for Barbers &amp; Stylists — Keep 90%. Book Yourself Solid.</title>
+<meta name="description" content="Keep 90% of every booking. 10% flat, no chair rent. Work from home, your shop, or on the go. Join RefreshMe as a pro." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&amp;family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple:#7B2FBE; --purple-2:#9b4dd6;
+    --gold:#F5A623; --navy:#1A1A2E; --green:#17c964;
+    --ink:#0a0414;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{ background:var(--ink); color:#fff; font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; scroll-behavior:smooth }
+
+  /* sticky nav */
+  .nav{
+    position:sticky; top:0; z-index:50;
+    backdrop-filter: blur(14px);
+    background: rgba(10,4,20,.72);
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .nav-inner{
+    max-width:1200px; margin:0 auto;
+    padding:1rem 1.5rem;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .logo{ display:flex; align-items:center; gap:.6rem }
+  .mark{
+    width:2.4rem; height:2.4rem; border-radius:.6rem;
+    background:linear-gradient(135deg, var(--purple), var(--purple-2));
+    display:grid; place-items:center;
+    font-family:'Bebas Neue'; font-size:1.5rem;
+    box-shadow:0 .3rem 1rem rgba(123,47,190,.4);
+  }
+  .logo-text{ display:flex; flex-direction:column; line-height:1 }
+  .logo-text .brand{ font-family:'Bebas Neue'; font-size:1.4rem; letter-spacing:.06em }
+  .logo-text .tag{ font-size:.62rem; letter-spacing:.28em; color:rgba(255,255,255,.55); text-transform:uppercase; margin-top:.2rem }
+  .nav-cta{
+    padding:.75rem 1.4rem;
+    border-radius:999px;
+    background: linear-gradient(90deg, var(--green), #0ea558);
+    color:#00210e; font-weight:800;
+    text-decoration:none;
+    font-size:.85rem;
+    letter-spacing:.05em;
+    box-shadow:0 .3rem 1rem rgba(23,201,100,.35);
+    transition: transform .15s ease;
+  }
+  .nav-cta:hover{ transform:translateY(-1px) }
+
+  /* hero */
+  .hero{
+    position:relative;
+    padding: 6rem 1.5rem 5rem;
+    overflow:hidden;
+  }
+  .hero::before{
+    content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
+    background:
+      radial-gradient(ellipse at 20% 10%, rgba(123,47,190,.35), transparent 50%),
+      radial-gradient(ellipse at 90% 80%, rgba(245,166,35,.18), transparent 45%),
+      radial-gradient(ellipse at 70% 20%, rgba(23,201,100,.2), transparent 45%);
+  }
+  .hero-inner{
+    max-width:1200px; margin:0 auto;
+    display:grid; grid-template-columns: 1.1fr 1fr; gap:4rem; align-items:center;
+    position:relative; z-index:1;
+  }
+  .eyebrow{
+    display:inline-block;
+    padding:.5rem 1rem;
+    border:1px solid rgba(23,201,100,.45);
+    background:rgba(23,201,100,.08);
+    color:var(--green);
+    font-size:.72rem; letter-spacing:.3em; text-transform:uppercase;
+    border-radius:999px; margin-bottom:1.5rem; font-weight:700;
+  }
+  h1{
+    font-family:'Bebas Neue'; font-size: clamp(3rem, 7vw, 6rem);
+    line-height:.92; text-transform:uppercase; letter-spacing:.01em;
+  }
+  h1 .acc{ color:var(--gold) }
+  h1 .gr{ color:var(--green) }
+  .lede{
+    font-size:1.2rem; line-height:1.55; color:rgba(255,255,255,.8);
+    margin-top:1.5rem; max-width:30rem;
+  }
+  .hero-cta{
+    display:flex; gap:1rem; margin-top:2.2rem; flex-wrap:wrap;
+  }
+  .btn{
+    padding:1rem 1.6rem; border-radius:.7rem; text-decoration:none; font-weight:800;
+    font-size:.95rem; letter-spacing:.05em; transition: transform .15s ease;
+    display:inline-flex; align-items:center; gap:.6rem;
+  }
+  .btn:hover{ transform:translateY(-2px) }
+  .btn-primary{ background:linear-gradient(90deg,var(--green),#0ea558); color:#00210e; box-shadow:0 .5rem 1.5rem rgba(23,201,100,.35) }
+  .btn-ghost{ background:rgba(255,255,255,.06); color:#fff; border:1px solid rgba(255,255,255,.15) }
+  .micro{ font-size:.78rem; color:rgba(255,255,255,.55); margin-top:1rem; letter-spacing:.05em }
+  .micro b{ color:var(--gold); font-weight:700 }
+
+  /* hero right — payout visual */
+  .visual{ position:relative; justify-self:center }
+  .payoutring{
+    width:22rem; height:22rem; border-radius:50%;
+    background: conic-gradient(var(--green) 0deg 324deg, rgba(255,255,255,.08) 324deg 360deg);
+    display:grid; place-items:center; position:relative;
+    box-shadow: 0 2rem 6rem rgba(23,201,100,.2);
+  }
+  .payoutring::after{
+    content:""; position:absolute; inset:2rem; border-radius:50%;
+    background:radial-gradient(circle at 50% 30%, #1a0a2e 0%, #0a0414 75%);
+  }
+  .payoutring .pct{ position:relative; z-index:1; text-align:center }
+  .payoutring .pct .n{ font-family:'Bebas Neue'; font-size:7rem; color:var(--green); line-height:1 }
+  .payoutring .pct .l{ font-size:.8rem; letter-spacing:.3em; color:rgba(255,255,255,.7); text-transform:uppercase; margin-top:.5rem }
+  .payoutring .pct .s{ font-size:.72rem; color:rgba(255,255,255,.5); letter-spacing:.1em; margin-top:.6rem }
+  .floatstat{
+    position:absolute; padding:1rem 1.2rem; border-radius:1rem;
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12);
+    backdrop-filter: blur(10px);
+    display:flex; flex-direction:column; gap:.3rem;
+    box-shadow: 0 1rem 3rem rgba(0,0,0,.5);
+  }
+  .floatstat .n{ font-family:'Bebas Neue'; font-size:1.8rem; line-height:1; color:var(--gold) }
+  .floatstat .l{ font-size:.7rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(255,255,255,.7) }
+  .fs1{ top:1rem; right:-2rem }
+  .fs2{ bottom:2.5rem; left:-3rem }
+
+  /* sections */
+  section{ padding:5rem 1.5rem; }
+  .wrap{ max-width:1200px; margin:0 auto }
+  h2{
+    font-family:'Bebas Neue'; font-size: clamp(2.5rem, 5vw, 4rem);
+    line-height:.95; text-transform:uppercase; margin-bottom:1rem;
+  }
+  h2 .acc{ color:var(--gold) }
+  .sec-sub{ font-size:1.05rem; color:rgba(255,255,255,.7); max-width:36rem; line-height:1.5 }
+
+  /* why grid */
+  .why{ background: linear-gradient(180deg, transparent, rgba(123,47,190,.06)) }
+  .why-grid{
+    display:grid; grid-template-columns:repeat(3, 1fr); gap:1.5rem; margin-top:3rem;
+  }
+  .card{
+    padding:2rem 1.6rem; border-radius:1.2rem;
+    background:rgba(255,255,255,.03);
+    border:1px solid rgba(255,255,255,.08);
+    transition: transform .2s ease, border-color .2s ease;
+  }
+  .card:hover{ transform:translateY(-4px); border-color:rgba(245,166,35,.3) }
+  .card .ic{
+    width:3rem; height:3rem; border-radius:.8rem; margin-bottom:1.2rem;
+    background:linear-gradient(135deg, var(--purple), var(--purple-2));
+    display:grid; place-items:center;
+    font-family:'Bebas Neue'; font-size:1.5rem;
+    box-shadow: 0 .5rem 1rem rgba(123,47,190,.35);
+  }
+  .card h3{ font-family:'Bebas Neue'; font-size:1.7rem; letter-spacing:.03em; margin-bottom:.6rem }
+  .card p{ font-size:.95rem; color:rgba(255,255,255,.7); line-height:1.55 }
+  .card .hl{ color:var(--green); font-weight:700 }
+
+  /* how it works */
+  .how{ background: linear-gradient(180deg, rgba(245,166,35,.04), transparent) }
+  .steps{ display:grid; grid-template-columns:repeat(4,1fr); gap:1.5rem; margin-top:3rem }
+  .step{ position:relative; padding-top:2rem }
+  .step .n{
+    position:absolute; top:-.5rem; left:-.2rem;
+    font-family:'Bebas Neue'; font-size:5rem; line-height:.8;
+    color:rgba(245,166,35,.18);
+  }
+  .step h4{ font-family:'Bebas Neue'; font-size:1.6rem; letter-spacing:.03em; margin-bottom:.5rem; position:relative }
+  .step p{ font-size:.92rem; color:rgba(255,255,255,.7); line-height:1.5; position:relative }
+
+  /* money comparison */
+  .money{
+    background: radial-gradient(ellipse at 50% 0%, rgba(23,201,100,.12), transparent 60%);
+  }
+  .compare{
+    display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-top:3rem;
+  }
+  .compare .col{
+    padding:2rem; border-radius:1.2rem;
+    border:1px solid rgba(255,255,255,.1);
+  }
+  .compare .old{ background:rgba(255,255,255,.02) }
+  .compare .new{
+    background:linear-gradient(180deg, rgba(23,201,100,.1), rgba(23,201,100,.02));
+    border-color:rgba(23,201,100,.35);
+    box-shadow:0 1rem 3rem rgba(23,201,100,.08);
+  }
+  .compare h3{ font-family:'Bebas Neue'; font-size:2rem; letter-spacing:.03em; margin-bottom:.5rem }
+  .compare .old h3{ color:rgba(255,255,255,.55) }
+  .compare .new h3{ color:var(--green) }
+  .compare ul{ list-style:none; margin-top:1.2rem; display:flex; flex-direction:column; gap:.8rem }
+  .compare li{ font-size:.96rem; color:rgba(255,255,255,.85); display:flex; gap:.7rem; align-items:flex-start }
+  .compare li::before{ content:"—"; color:rgba(255,255,255,.3); flex-shrink:0 }
+  .compare .new li::before{ content:"✓"; color:var(--green); font-weight:900 }
+  .compare .num{
+    margin-top:1.4rem; font-family:'Bebas Neue';
+    font-size:3rem; line-height:1;
+  }
+  .compare .old .num{ color:rgba(255,255,255,.4) }
+  .compare .new .num{ color:var(--green) }
+  .compare .numlabel{ font-size:.72rem; letter-spacing:.25em; text-transform:uppercase; color:rgba(255,255,255,.55); margin-top:.5rem }
+
+  /* faq */
+  .faq{ background: linear-gradient(180deg, transparent, rgba(123,47,190,.06)) }
+  .faq-list{ margin-top:2.5rem; display:flex; flex-direction:column; gap:.8rem }
+  details{
+    padding:1.4rem 1.6rem; border-radius:.9rem;
+    background:rgba(255,255,255,.03);
+    border:1px solid rgba(255,255,255,.08);
+    cursor:pointer;
+    transition: border-color .2s ease;
+  }
+  details[open]{ border-color:rgba(245,166,35,.35) }
+  summary{
+    font-family:'Inter'; font-weight:700; font-size:1.05rem;
+    list-style:none; display:flex; justify-content:space-between; align-items:center;
+    color:#fff;
+  }
+  summary::-webkit-details-marker{ display:none }
+  summary::after{
+    content:"+"; font-size:1.8rem; color:var(--gold); font-weight:300;
+    transition: transform .2s ease;
+  }
+  details[open] summary::after{ content:"–"; transform:rotate(180deg) }
+  details p{ margin-top:.9rem; color:rgba(255,255,255,.72); font-size:.95rem; line-height:1.6 }
+
+  /* signup */
+  .signup{
+    background:
+      radial-gradient(ellipse at 30% 0%, rgba(23,201,100,.2), transparent 55%),
+      radial-gradient(ellipse at 70% 100%, rgba(123,47,190,.2), transparent 50%),
+      #0a0414;
+    text-align:center;
+  }
+  .signup-inner{ max-width:640px; margin:0 auto }
+  .signup h2{ margin-bottom:1rem }
+  .signup .sec-sub{ margin:0 auto 2.5rem }
+  form{
+    display:grid; gap:.9rem;
+    padding:2rem; border-radius:1.4rem;
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.12);
+    backdrop-filter: blur(10px);
+    text-align:left;
+  }
+  .row{ display:grid; grid-template-columns:1fr 1fr; gap:.9rem }
+  label{ font-size:.72rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(255,255,255,.65); font-weight:600; display:block; margin-bottom:.4rem }
+  input,select,textarea{
+    width:100%; padding:.9rem 1rem; border-radius:.6rem;
+    background:rgba(0,0,0,.35); color:#fff;
+    border:1px solid rgba(255,255,255,.15);
+    font:inherit; font-size:.95rem;
+    transition: border-color .15s ease;
+  }
+  input:focus,select:focus,textarea:focus{ outline:none; border-color:var(--green); box-shadow:0 0 0 3px rgba(23,201,100,.15) }
+  .submit{
+    padding:1.1rem; border-radius:.7rem;
+    background:linear-gradient(90deg,var(--green),#0ea558);
+    color:#00210e; border:none; font-weight:800; font-size:1rem;
+    letter-spacing:.05em; cursor:pointer; margin-top:.5rem;
+    box-shadow:0 .5rem 1.5rem rgba(23,201,100,.35);
+    transition: transform .15s ease;
+  }
+  .submit:hover{ transform:translateY(-2px) }
+  .disclaimer{ font-size:.72rem; color:rgba(255,255,255,.5); text-align:center; margin-top:.8rem; letter-spacing:.05em }
+  .success{
+    display:none;
+    padding:2rem; border-radius:1rem; text-align:center;
+    background:linear-gradient(180deg, rgba(23,201,100,.15), rgba(23,201,100,.03));
+    border:1px solid rgba(23,201,100,.35);
+  }
+  .success.show{ display:block }
+  .success h3{ font-family:'Bebas Neue'; font-size:2rem; color:var(--green); margin-bottom:.5rem }
+
+  /* footer */
+  footer{
+    padding:3rem 1.5rem 2rem; border-top:1px solid rgba(255,255,255,.08);
+    background:#05020a;
+  }
+  .foot-inner{
+    max-width:1200px; margin:0 auto;
+    display:flex; justify-content:space-between; align-items:center; gap:2rem; flex-wrap:wrap;
+  }
+  .foot-links{ display:flex; gap:1.6rem; font-size:.85rem }
+  .foot-links a{ color:rgba(255,255,255,.6); text-decoration:none; transition: color .15s }
+  .foot-links a:hover{ color:var(--gold) }
+  .copyright{ font-size:.75rem; color:rgba(255,255,255,.4); letter-spacing:.05em }
+
+  /* responsive */
+  @media (max-width: 880px){
+    .hero-inner, .compare{ grid-template-columns:1fr }
+    .why-grid{ grid-template-columns:1fr }
+    .steps{ grid-template-columns:1fr 1fr; gap:2rem }
+    .row{ grid-template-columns:1fr }
+    .payoutring{ width:18rem; height:18rem }
+    .payoutring .pct .n{ font-size:5.5rem }
+    .fs1, .fs2{ display:none }
+    .nav-cta{ padding:.6rem 1rem; font-size:.75rem }
+  }
+</style>
+
+<!-- ─── Google Analytics 4 ─── (replace G-XXXXXXXXXX with your measurement ID) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXXXXX', { send_page_view: true });
+</script>
+
+<!-- ─── Meta Pixel ─── (replace XXXXXXXXXXXXXXXX with your Pixel ID) -->
+<script>
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+  n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+  document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', 'XXXXXXXXXXXXXXXX');
+  fbq('track', 'PageView');
+</script>
+
+<!-- Firebase SDK (compat build — works without bundler) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+  // RefreshMe Firebase config (public — safe to ship in client code)
+  const firebaseConfig = {
+    apiKey: "AIzaSyAihgs5zYHjrxJDGHqDaDwDqeBsYwKnuHc",
+    authDomain: "refreshme-74f79.firebaseapp.com",
+    projectId: "refreshme-74f79",
+    storageBucket: "refreshme-74f79.firebasestorage.app",
+    messagingSenderId: "12424011789",
+    appId: "1:12424011789:web:bc6d05cddc3731c8bef544"
+  };
+  firebase.initializeApp(firebaseConfig);
+  window.__rmDb = firebase.firestore();
+</script>
+</head>
+<body>
+<!-- Meta Pixel <noscript> fallback (must be in body per HTML5 spec) -->
+<noscript><img height="1" width="1" style="display:none" alt=""
+  src="https://www.facebook.com/tr?id=XXXXXXXXXXXXXXXX&amp;ev=PageView&amp;noscript=1"/></noscript>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="logo" style="text-decoration:none;color:#fff">
+      <div class="mark">R</div>
+      <div class="logo-text">
+        <span class="brand">RefreshMe</span>
+        <span class="tag">For Pros</span>
+      </div>
+    </a>
+    <a href="#apply" class="nav-cta">Apply as a Pro</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div>
+      <span class="eyebrow">For Barbers &amp; Stylists</span>
+      <h1>Keep <span class="gr">90%.</span><br/>Book yourself <span class="acc">solid.</span></h1>
+      <p class="lede">Your clients. Your schedule. Your rates. We bring the bookings — you keep the money. No chair rent. No monthly fees. Just one flat 10%.</p>
+      <div class="hero-cta">
+        <a href="#apply" class="btn btn-primary">Apply as a Pro →</a>
+        <a href="#how" class="btn btn-ghost">How it works</a>
+      </div>
+      <div class="micro"><b>Android live now.</b> iOS launching July 2026.</div>
+    </div>
+    <div class="visual">
+      <div class="payoutring">
+        <div class="pct">
+          <div class="n">90%</div>
+          <div class="l">is yours</div>
+          <div class="s">10% flat · no hidden fees</div>
+        </div>
+      </div>
+      <div class="floatstat fs1"><div class="n">$0</div><div class="l">Chair rent</div></div>
+      <div class="floatstat fs2"><div class="n">$0</div><div class="l">Monthly fees</div></div>
+    </div>
+  </div>
+</header>
+
+<section class="why">
+  <div class="wrap">
+    <h2>Why pros <span class="acc">are switching.</span></h2>
+    <p class="sec-sub">The chair-rent model was built for a different era. RefreshMe is built for the way you actually want to work now.</p>
+
+    <div class="why-grid">
+      <div class="card">
+        <div class="ic">$</div>
+        <h3>Keep what you earn</h3>
+        <p><span class="hl">90% payout, every cut.</span> 10% flat platform fee — no chair rent, no monthly, no surprise deductions. You set your own rates.</p>
+      </div>
+      <div class="card">
+        <div class="ic">⌁</div>
+        <h3>Bookings on tap</h3>
+        <p>We drive the demand. <span class="hl">You drive the chair.</span> Customers find you by location, style, reviews, and availability — you decide which you accept.</p>
+      </div>
+      <div class="card">
+        <div class="ic">◌</div>
+        <h3>Work where you want</h3>
+        <p>From home. From your shop. On the go. <span class="hl">Your calendar, your rules.</span> Go live when you want to work. Go invisible when you don't.</p>
+      </div>
+      <div class="card">
+        <div class="ic">★</div>
+        <h3>Build your brand</h3>
+        <p>Your own profile, portfolio, and reviews travel with you. <span class="hl">Build a following that's yours</span> — not the shop's.</p>
+      </div>
+      <div class="card">
+        <div class="ic">↻</div>
+        <h3>Fast payouts</h3>
+        <p>Get paid on a schedule that works for you. <span class="hl">No more chasing tips or waiting on the shop.</span> The money hits your account.</p>
+      </div>
+      <div class="card">
+        <div class="ic">✦</div>
+        <h3>Barbers &amp; stylists both</h3>
+        <p>Cuts, fades, locs, braids, color, blowouts, nails — <span class="hl">RefreshMe is for every kind of pro.</span> If you've got a skill, we've got a client.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="how" id="how">
+  <div class="wrap">
+    <h2>How it <span class="acc">works.</span></h2>
+    <p class="sec-sub">Four steps from application to your first booking. Most pros get their first client inside a week.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="n">1</div>
+        <h4>Apply</h4>
+        <p>Fill out the form below. We'll verify your license (or portfolio if you're unlicensed in your state) and background.</p>
+      </div>
+      <div class="step">
+        <div class="n">2</div>
+        <h4>Build your profile</h4>
+        <p>Set your services, prices, schedule, and location radius. Upload work photos. Our team helps you look your best.</p>
+      </div>
+      <div class="step">
+        <div class="n">3</div>
+        <h4>Flip the switch</h4>
+        <p>Toggle yourself live. Clients in your area see you, book you, and pay through the app. You just show up and do great work.</p>
+      </div>
+      <div class="step">
+        <div class="n">4</div>
+        <h4>Get paid</h4>
+        <p>90% hits your account on your payout schedule. Tips go straight to you. Reviews stack up. Bookings compound.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="money">
+  <div class="wrap">
+    <h2>The math is <span class="acc">different.</span></h2>
+    <p class="sec-sub">On a $50 cut, booth rent and salon splits eat 30–50% before you see a dollar. Here's how it looks side by side.</p>
+
+    <div class="compare">
+      <div class="col old">
+        <h3>The old way</h3>
+        <ul>
+          <li>$200–$400/week chair rent, whether you work or not</li>
+          <li>Salon commission splits of 40–60%</li>
+          <li>You find your own clients</li>
+          <li>Shop owns your reviews and following</li>
+          <li>Limited to whoever walks in the door</li>
+        </ul>
+        <div class="num">$30</div>
+        <div class="numlabel">Take-home per $50 cut (40% split)</div>
+      </div>
+      <div class="col new">
+        <h3>RefreshMe</h3>
+        <ul>
+          <li>$0 chair rent · $0 monthly · $0 hidden fees</li>
+          <li>Flat 10% — you keep 90%</li>
+          <li>We drive clients to you</li>
+          <li>Your profile, your reviews, your following</li>
+          <li>Work from anywhere you want</li>
+        </ul>
+        <div class="num">$45</div>
+        <div class="numlabel">Take-home per $50 cut</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="faq">
+  <div class="wrap">
+    <h2>Questions, <span class="acc">answered.</span></h2>
+    <p class="sec-sub">Everything pros ask before signing up. If it's not here, hit us when you apply and we'll answer.</p>
+
+    <div class="faq-list">
+      <details>
+        <summary>How much does it cost to join?</summary>
+        <p>Nothing. No sign-up fee, no monthly, no chair rent. RefreshMe only takes 10% of bookings you actually complete. If you don't work, you don't pay.</p>
+      </details>
+      <details>
+        <summary>Do I need to be licensed?</summary>
+        <p>We follow state regulations. In most states you'll need a current cosmetology or barbering license. We verify before you go live. If you're in a state without licensing requirements for what you do, a strong portfolio works.</p>
+      </details>
+      <details>
+        <summary>Do I bring my own chair and tools?</summary>
+        <p>Yes — you bring your kit. We bring the clients and the platform. Many pros work out of their own home studio, their existing shop, or travel to the client's location.</p>
+      </details>
+      <details>
+        <summary>Can I still work at my shop?</summary>
+        <p>Absolutely. RefreshMe is built to fit around your existing schedule. Go live on slow days, after hours, or weekends. Many pros use it to fill empty slots.</p>
+      </details>
+      <details>
+        <summary>How do I get paid?</summary>
+        <p>Clients pay in-app. We route 90% to your connected bank account on your chosen payout schedule (daily, weekly, or instant). Tips are 100% yours and passed straight through.</p>
+      </details>
+      <details>
+        <summary>What about insurance and safety?</summary>
+        <p>Every client on RefreshMe is verified. You control who you accept and where. We're working on liability insurance partnerships for pros — details coming before iOS launch.</p>
+      </details>
+      <details>
+        <summary>When does iOS launch?</summary>
+        <p>July 2026. Android is live now, so you can start taking bookings today. Apply below and we'll get you onboarded for the app you prefer.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="signup" id="apply">
+  <div class="signup-inner">
+    <h2>Ready to <span class="acc">flip the switch?</span></h2>
+    <p class="sec-sub">Apply in 60 seconds. We'll get back to you within 48 hours with next steps.</p>
+
+    <form id="proForm" onsubmit="return handleSubmit(event)">
+      <div class="row">
+        <div><label for="fname">First name</label><input id="fname" name="fname" required autocomplete="given-name" /></div>
+        <div><label for="lname">Last name</label><input id="lname" name="lname" required autocomplete="family-name" /></div>
+      </div>
+      <div class="row">
+        <div><label for="email">Email</label><input id="email" name="email" type="email" required autocomplete="email" /></div>
+        <div><label for="phone">Phone</label><input id="phone" name="phone" type="tel" required autocomplete="tel" /></div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="role">What do you do?</label>
+          <select id="role" name="role" required>
+            <option value="">Select…</option>
+            <option>Barber</option>
+            <option>Hair Stylist</option>
+            <option>Loctician / Braider</option>
+            <option>Nail Tech</option>
+            <option>Makeup Artist</option>
+            <option>Multiple services</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div>
+          <label for="city">City &amp; State</label>
+          <input id="city" name="city" required placeholder="e.g. Charlotte, NC" />
+        </div>
+      </div>
+      <div>
+        <label for="ig">Instagram (optional)</label>
+        <input id="ig" name="ig" placeholder="@yourhandle" />
+      </div>
+      <div>
+        <label for="notes">Anything we should know? (optional)</label>
+        <textarea id="notes" name="notes" rows="3" placeholder="Years of experience, current shop, specialties…"></textarea>
+      </div>
+      <button type="submit" class="submit">Apply to Join →</button>
+      <p class="disclaimer">By applying you agree to our terms. We don't share your info. Ever.</p>
+    </form>
+
+    <div class="success" id="success">
+      <h3>You're in the pipeline.</h3>
+      <p>We'll review your application and reach out within 48 hours. Keep an eye on your email and texts.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="foot-inner">
+    <div class="logo">
+      <div class="mark">R</div>
+      <div class="logo-text">
+        <span class="brand">RefreshMe</span>
+        <span class="tag">On-Demand Cuts &amp; Styling</span>
+      </div>
+    </div>
+    <div class="foot-links">
+      <a href="/">For Customers</a>
+      <a href="#apply">Become a Pro</a>
+      <a href="mailto:hello@refreshme.app">Contact</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+    </div>
+    <div class="copyright">© 2026 RefreshMe. All rights reserved.</div>
+  </div>
+</footer>
+
+<script>
+  async function handleSubmit(e){
+    e.preventDefault();
+    const form = e.target;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalLabel = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting…';
+
+    // Collect form data
+    const data = {
+      firstName: form.fname.value.trim(),
+      lastName:  form.lname.value.trim(),
+      email:     form.email.value.trim().toLowerCase(),
+      phone:     form.phone.value.trim(),
+      role:      form.role.value,
+      city:      form.city.value.trim(),
+      instagram: form.ig.value.trim().replace(/^@/, ''),
+      notes:     form.notes.value.trim(),
+      status:    'new',
+      source:    'stylist_landing',
+      userAgent: navigator.userAgent,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    try {
+      await window.__rmDb.collection('stylist_applications').add(data);
+
+      // Analytics conversion events
+      if (typeof gtag === 'function') gtag('event', 'stylist_apply', {
+        method: 'landing_page',
+        role:   data.role,
+        city:   data.city
+      });
+      if (typeof fbq === 'function') fbq('track', 'CompleteRegistration', {
+        content_name: 'stylist_application',
+        status: data.role
+      });
+
+      document.getElementById('proForm').style.display = 'none';
+      document.getElementById('success').classList.add('show');
+      document.getElementById('success').scrollIntoView({behavior:'smooth', block:'center'});
+    } catch (err) {
+      console.error('Application submit failed:', err);
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalLabel;
+      alert("Hmm, couldn't send that. Check your connection and try again — or email hello@refreshme.app.");
+    }
+    return false;
+  }
+</script>
+
+</body>
+</html>

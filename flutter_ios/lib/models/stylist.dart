@@ -193,33 +193,55 @@ class Stylist {
 }
 
 class Service {
+  final String id;
   final String name;
   final double price;
   final int durationMinutes;
   final String? description;
+  final bool isBundle;
+  final bool isAddOn;
 
   const Service({
+    this.id = '',
     required this.name,
     required this.price,
     this.durationMinutes = 60,
     this.description,
+    this.isBundle = false,
+    this.isAddOn = false,
   });
 
   factory Service.fromMap(Map<String, dynamic> map) {
     return Service(
+      id: map['id'] as String? ?? '',
       name: map['name'] as String? ?? '',
       price: (map['price'] as num?)?.toDouble() ?? 0.0,
       durationMinutes: map['durationMinutes'] as int? ?? 60,
       description: map['description'] as String?,
+      isBundle: map['isBundle'] as bool? ?? map['bundle'] as bool? ?? false,
+      isAddOn:
+          map['isAddOn'] as bool? ??
+          map['addOn'] as bool? ??
+          _looksLikeAddOn(map['name'] as String? ?? ''),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'name': name,
       'price': price,
       'durationMinutes': durationMinutes,
       'description': description,
+      'isBundle': isBundle,
+      'bundle': isBundle,
+      'isAddOn': isAddOn,
+      'addOn': isAddOn,
     };
+  }
+
+  static bool _looksLikeAddOn(String name) {
+    final lower = name.toLowerCase();
+    return lower.contains('add-on') || lower.contains('addon');
   }
 }

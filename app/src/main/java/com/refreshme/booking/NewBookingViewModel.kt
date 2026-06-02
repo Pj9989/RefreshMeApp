@@ -158,7 +158,7 @@ class NewBookingViewModel @Inject constructor(
         // If they pick a new primary service, make sure it's not in the add-ons list anymore
         _selectedAddOns.update { currentAddOns ->
             val updated = currentAddOns.toMutableList()
-            updated.removeAll { it.name == service.name }
+            updated.removeAll { it.id == service.id || it.name == service.name }
             updated
         }
         
@@ -170,8 +170,8 @@ class NewBookingViewModel @Inject constructor(
     fun toggleAddOn(service: Service) {
         _selectedAddOns.update { currentAddOns ->
             val updated = currentAddOns.toMutableList()
-            if (updated.any { it.name == service.name }) {
-                updated.removeAll { it.name == service.name }
+            if (updated.any { it.id == service.id || it.name == service.name }) {
+                updated.removeAll { it.id == service.id || it.name == service.name }
             } else {
                 updated.add(service)
             }

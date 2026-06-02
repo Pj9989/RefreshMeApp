@@ -287,12 +287,14 @@ fun BookingScreen(
                     }
                 } else {
                     val services = stylist?.services ?: emptyList()
-                    if (services.isNotEmpty()) {
+                    val bookableServices = services.filter { !it.isAddOnCandidate() }
+                        .ifEmpty { services }
+                    if (bookableServices.isNotEmpty()) {
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             contentPadding = PaddingValues(vertical = 8.dp)
                         ) {
-                            items(services) { service ->
+                            items(bookableServices) { service ->
                                 FilterChip(
                                     selected = false,
                                     onClick = { viewModel.selectService(service) },
@@ -326,6 +328,24 @@ fun BookingScreen(
                                         fontSize = 13.sp
                                     )
                                 }
+                            }
+                        }
+                    }
+                }
+
+                val addOnOptions = stylist?.services.orEmpty()
+                    .filter { it.isAddOnCandidate() && it.name != selectedService?.name }
+                AnimatedVisibility(visible = selectedService != null && addOnOptions.isNotEmpty()) {
+                    Column {
+                        Spacer(Modifier.height(16.dp))
+                        SectionTitle("Add-ons")
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            addOnOptions.forEach { addOn ->
+                                AddOnOptionRow(
+                                    service = addOn,
+                                    selected = selectedAddOns.any { it.id == addOn.id || it.name == addOn.name },
+                                    onToggle = { viewModel.toggleAddOn(addOn) }
+                                )
                             }
                         }
                     }
@@ -680,6 +700,14 @@ fun StylistSummaryCard(stylist: Stylist) {
             Column {
                 Text(stylist.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
                 Text(stylist.specialty ?: "Stylist", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                if (stylist.instantBookingEnabled == true) {
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.FlashOn, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Instant — confirmed when you pay", color = Color(0xFFF59E0B), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
         }
     }
@@ -713,6 +741,70 @@ fun ServiceSummaryCard(service: Service, onClear: () -> Unit) {
             IconButton(onClick = onClear) {
                 Icon(Icons.Default.Close, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
             }
+        }
+    }
+}
+
+@Composable
+fun AddOnOptionRow(
+    service: Service,
+    selected: Boolean,
+    onToggle: () -> Unit
+) {
+    Surface(
+        onClick = onToggle,
+        color = if (selected) {
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        },
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(
+            width = if (selected) 2.dp else 1.dp,
+            color = if (selected) {
+                MaterialTheme.colorScheme.secondary
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+            }
+        )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (selected) Icons.Default.CheckCircle else Icons.Default.AddCircleOutline,
+                contentDescription = null,
+                tint = if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    service.name,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 15.sp
+                )
+                val details = buildList {
+                    add("${service.durationMinutes ?: 0} mins")
+                    if (service.description.isNotBlank()) add(service.description)
+                }.joinToString(" • ")
+                if (details.isNotBlank()) {
+                    Text(
+                        details,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        maxLines = 2
+                    )
+                }
+            }
+            Text(
+                "+$${String.format(Locale.US, "%.2f", service.price)}",
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 16.sp
+            )
         }
     }
 }
@@ -793,6 +885,9 @@ fun DateTimeSelectionCard(
         }
     }
 }
+
+private fun Service.isAddOnCandidate(): Boolean =
+    isAddOn || name.contains("add-on", ignoreCase = true) || name.contains("addon", ignoreCase = true)
 
 @Composable
 fun AsapButton(selected: Boolean, onClick: () -> Unit) {

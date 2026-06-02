@@ -59,8 +59,8 @@ android {
         applicationId = "com.refreshmeapp.stylist"
         minSdk = 24
         targetSdk = 35
-        versionCode = 77
-        versionName = "3.0.22"
+        versionCode = 82
+        versionName = "3.0.27"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         

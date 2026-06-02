@@ -64,6 +64,9 @@ class StylistDashboardViewModel : ViewModel() {
     private val _offersEvents = MutableStateFlow(false)
     val offersEvents: StateFlow<Boolean> = _offersEvents.asStateFlow()
 
+    private val _instantBooking = MutableStateFlow(false)
+    val instantBooking: StateFlow<Boolean> = _instantBooking.asStateFlow()
+
     private val _stylistName = MutableStateFlow("Stylist")
     val stylistName: StateFlow<String> = _stylistName
 
@@ -152,6 +155,7 @@ class StylistDashboardViewModel : ViewModel() {
 
                     val event = map["offersEventBooking"] as? Boolean ?: false
                     _offersEvents.value = event
+                    _instantBooking.value = map["instantBookingEnabled"] as? Boolean ?: false
                     
                     _rating.value = (map["rating"] as? Number)?.toDouble() ?: 0.0
                     _reviewCount.value = (map["reviewCount"] as? Number)?.toInt() ?: 0
@@ -341,6 +345,17 @@ class StylistDashboardViewModel : ViewModel() {
             .update("offersAtHomeService", isMobile)
             .addOnFailureListener {
                 _isMobile.value = !isMobile
+            }
+    }
+
+    fun toggleInstantBooking(enabled: Boolean) {
+        val uid = auth.currentUser?.uid ?: return
+        _instantBooking.value = enabled
+
+        firestore.collection("stylists").document(uid)
+            .update("instantBookingEnabled", enabled)
+            .addOnFailureListener {
+                _instantBooking.value = !enabled
             }
     }
 

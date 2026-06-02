@@ -17,6 +17,8 @@ Copy each file to the matching path in your Flutter project:
 | `lib/screens/booking/booking_completion_controls.dart` | `lib/screens/booking/booking_completion_controls.dart` |
 | `lib/screens/stylist/payout_account_screen.dart` | `lib/screens/stylist/payout_account_screen.dart` |
 | `lib/screens/stylist/stylist_profile_menu.dart` | `lib/screens/stylist/stylist_profile_menu.dart` |
+| `lib/screens/stylist/manage_portfolio_screen.dart` | `lib/screens/stylist/manage_portfolio_screen.dart` |
+| `lib/screens/stylist/manage_before_after_screen.dart` | `lib/screens/stylist/manage_before_after_screen.dart` |
 | `lib/services/role_navigation_service.dart` | `lib/services/role_navigation_service.dart` |
 | `lib/screens/profile/stylist_dashboard_switch_tile.dart` | `lib/screens/profile/stylist_dashboard_switch_tile.dart` |
 | `lib/models/stylist.dart` | `lib/models/stylist.dart` (merge with existing) |
@@ -32,6 +34,7 @@ dependencies:
   firebase_auth: ^5.3.1
   cloud_firestore: ^5.4.4
   cloud_functions: ^5.1.3
+  firebase_storage: ^12.3.4
   firebase_app_check: ^0.3.1+4
 
   # Stripe
@@ -183,6 +186,18 @@ PayoutAccountTile(
   stripeOnboardingComplete: stylist.stripeOnboardingComplete,
 ),
 ```
+
+Add the portfolio entry point in the same stylist profile/menu area:
+
+```dart
+import '../stylist/stylist_profile_menu.dart';
+
+const PortfolioManagementTile(),
+```
+
+`ManagePortfolioScreen` includes the regular photo/video portfolio uploader plus a visible
+Before & After button. Both upload flows send Firebase Storage content metadata so the
+shared Android/iOS storage rules allow the upload.
 
 ---
 

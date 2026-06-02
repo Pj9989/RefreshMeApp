@@ -74,7 +74,9 @@ data class Stylist(
 
     @get:PropertyName("offersAtHomeService") @set:PropertyName("offersAtHomeService") var offersAtHomeService: Boolean? = false,
     @get:PropertyName("maxTravelRangeKm") @set:PropertyName("maxTravelRangeKm") var maxTravelRangeKm: Int? = 15,
-    @get:PropertyName("online") @set:PropertyName("online") var isOnline: Boolean? = false, 
+    @get:PropertyName("online") @set:PropertyName("online") var isOnline: Boolean? = false,
+    // Instant + travels-anywhere booking opt-in (auto-confirm on payment). Same key as iOS/backend.
+    @get:PropertyName("instantBookingEnabled") @set:PropertyName("instantBookingEnabled") var instantBookingEnabled: Boolean? = false,
     @get:PropertyName("offersEventBooking") @set:PropertyName("offersEventBooking") var offersEventBooking: Boolean? = false,
 
     var serviceType: ServiceType = ServiceType.IN_SALON,

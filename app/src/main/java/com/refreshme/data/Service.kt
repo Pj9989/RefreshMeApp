@@ -20,7 +20,10 @@ data class Service(
     var durationMinutes: Int? = 0,
     
     @get:PropertyName("isBundle") @set:PropertyName("isBundle")
-    var isBundle: Boolean = false
+    var isBundle: Boolean = false,
+
+    @get:PropertyName("isAddOn") @set:PropertyName("isAddOn")
+    var isAddOn: Boolean = false
 ) : Parcelable {
     
     @get:PropertyName("isOnSale")
@@ -35,4 +38,12 @@ data class Service(
 
     @PropertyName("bundle")
     fun getBundleLegacy(): Boolean = isBundle
+
+    @PropertyName("addOn")
+    fun setAddOnLegacy(value: Boolean) {
+        this.isAddOn = value
+    }
+
+    @PropertyName("addOn")
+    fun getAddOnLegacy(): Boolean = isAddOn
 }

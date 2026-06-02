@@ -38,6 +38,7 @@ fun ManageServicesScreen(
     var showEditDialog by remember { mutableStateOf(false) }
     var serviceToEdit by remember { mutableStateOf<Service?>(null) }
     var isCreatingBundle by remember { mutableStateOf(false) }
+    var isCreatingAddOn by remember { mutableStateOf(false) }
 
     // Categorised suggestions so the screen caters to all stylists
     data class SuggestionGroup(val label: String, val services: List<Service>)
@@ -76,14 +77,14 @@ fun ManageServicesScreen(
             Service(name = "Classic Pedicure", price = 35.0, durationMinutes = 45),
             Service(name = "Gel Pedicure", price = 50.0, durationMinutes = 60),
             Service(name = "Acrylic Full Set", price = 65.0, durationMinutes = 90),
-            Service(name = "Nail Art (Add-on)", price = 15.0, durationMinutes = 20),
+            Service(name = "Nail Art", price = 15.0, durationMinutes = 20, isAddOn = true),
         )),
         SuggestionGroup("Special / Add-ons", listOf(
-            Service(name = "Travel Prep Add-on", price = 15.0, durationMinutes = 15),
-            Service(name = "Extra Length / Density", price = 25.0, durationMinutes = 30),
-            Service(name = "After-Hours Appointment", price = 30.0, durationMinutes = 0),
+            Service(name = "Travel Prep", price = 15.0, durationMinutes = 15, isAddOn = true),
+            Service(name = "Extra Length / Density", price = 25.0, durationMinutes = 30, isAddOn = true),
+            Service(name = "After-Hours Appointment", price = 30.0, durationMinutes = 0, isAddOn = true),
             Service(name = "Color Correction Consult", price = 40.0, durationMinutes = 30),
-            Service(name = "Bridal Trial Add-on", price = 75.0, durationMinutes = 60),
+            Service(name = "Bridal Trial", price = 75.0, durationMinutes = 60, isAddOn = true),
         )),
     )
     Scaffold(
@@ -112,10 +113,25 @@ fun ManageServicesScreen(
                             expanded = false
                             serviceToEdit = null
                             isCreatingBundle = false
+                            isCreatingAddOn = false
                             showEditDialog = true 
                         },
                         icon = { Icon(Icons.Default.ContentCut, "Service") },
-                        text = { Text("Service/Add-on") },
+                        text = { Text("Service") },
+                        modifier = Modifier.padding(bottom = 8.dp),
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+
+                    ExtendedFloatingActionButton(
+                        onClick = {
+                            expanded = false
+                            serviceToEdit = null
+                            isCreatingBundle = false
+                            isCreatingAddOn = true
+                            showEditDialog = true
+                        },
+                        icon = { Icon(Icons.Default.AddCircleOutline, "Add-on") },
+                        text = { Text("Add-on") },
                         modifier = Modifier.padding(bottom = 8.dp),
                         containerColor = MaterialTheme.colorScheme.secondaryContainer
                     )
@@ -125,6 +141,7 @@ fun ManageServicesScreen(
                             expanded = false
                             serviceToEdit = null
                             isCreatingBundle = true
+                            isCreatingAddOn = false
                             showEditDialog = true 
                         },
                         icon = { Icon(Icons.Default.CardGiftcard, "Bundle") },
@@ -166,9 +183,11 @@ fun ManageServicesScreen(
                 }
             }
             is ServicesUiState.Success -> {
-                val singleServices = state.services.filter { !it.isBundle }
+                val singleServices = state.services.filter { !it.isBundle && !it.isAddOnCandidate() }
+                val addOns = state.services.filter { !it.isBundle && it.isAddOnCandidate() }
                 val bundles = state.services.filter { it.isBundle }
                 val distinctServices = singleServices.distinctBy { "${it.name}_${it.price}_${it.durationMinutes}" }
+                val distinctAddOns = addOns.distinctBy { "${it.name}_${it.price}_${it.durationMinutes}" }
 
                 LazyColumn(
                     modifier = Modifier.padding(padding).fillMaxSize(),
@@ -249,6 +268,7 @@ fun ManageServicesScreen(
                                         onEdit = {
                                             serviceToEdit = bundle
                                             isCreatingBundle = true
+                                            isCreatingAddOn = false
                                             showEditDialog = true
                                         },
                                         onDelete = { viewModel.deleteService(bundle.id) }
@@ -274,10 +294,39 @@ fun ManageServicesScreen(
                                         onEdit = {
                                             serviceToEdit = service
                                             isCreatingBundle = false
+                                            isCreatingAddOn = false
                                             showEditDialog = true
                                         },
                                         onDelete = {
                                             viewModel.deleteService(service.id)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        if (distinctAddOns.isNotEmpty()) {
+                            item {
+                                Text(
+                                    "Add-ons",
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 8.dp)
+                                )
+                            }
+                            items(distinctAddOns) { addOn ->
+                                Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
+                                    ServiceManagementItem(
+                                        service = addOn,
+                                        onEdit = {
+                                            serviceToEdit = addOn
+                                            isCreatingBundle = false
+                                            isCreatingAddOn = true
+                                            showEditDialog = true
+                                        },
+                                        onDelete = {
+                                            viewModel.deleteService(addOn.id)
                                         }
                                     )
                                 }
@@ -292,6 +341,7 @@ fun ManageServicesScreen(
             ServiceEditDialog(
                 service = serviceToEdit,
                 isBundle = isCreatingBundle,
+                isAddOn = isCreatingAddOn,
                 onDismiss = { showEditDialog = false },
                 onConfirm = { service ->
                     if (serviceToEdit == null) {
@@ -310,12 +360,21 @@ fun ManageServicesScreen(
 fun SuggestionChip(service: Service, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.clickable { onClick() },
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = if (service.isAddOnCandidate()) {
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        },
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
     ) {
         Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.AddCircleOutline, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+            Icon(
+                if (service.isAddOnCandidate()) Icons.Default.AddCircleOutline else Icons.Default.ContentCut,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
             Spacer(Modifier.width(8.dp))
             Text(service.name, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Medium)
         }
@@ -324,9 +383,22 @@ fun SuggestionChip(service: Service, onClick: () -> Unit) {
 
 @Composable
 fun ServiceManagementItem(service: Service, onEdit: () -> Unit, onDelete: () -> Unit) {
-    val containerColor = if (service.isBundle) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceVariant
-    val iconColor = if (service.isBundle) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
-    val icon = if (service.isBundle) Icons.Default.CardGiftcard else Icons.Default.ContentCut
+    val isAddOn = service.isAddOnCandidate()
+    val containerColor = when {
+        service.isBundle -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+        isAddOn -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val iconColor = when {
+        service.isBundle -> MaterialTheme.colorScheme.tertiary
+        isAddOn -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.primary
+    }
+    val icon = when {
+        service.isBundle -> Icons.Default.CardGiftcard
+        isAddOn -> Icons.Default.AddCircleOutline
+        else -> Icons.Default.ContentCut
+    }
 
     val titleCasedName = service.name.split(" ").joinToString(" ") { 
         it.replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString() } 
@@ -362,10 +434,14 @@ fun ServiceManagementItem(service: Service, onEdit: () -> Unit, onDelete: () -> 
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (service.description.isNotBlank() && service.isBundle) {
+                if (service.description.isNotBlank() && (service.isBundle || isAddOn)) {
                     Text(service.description, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
-                Text("${service.durationMinutes} mins • $${String.format(Locale.US, "%.2f", service.price)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                Text(
+                    "${if (isAddOn) "Add-on • " else ""}${service.durationMinutes} mins • $${String.format(Locale.US, "%.2f", service.price)}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp
+                )
             }
             Spacer(Modifier.width(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
@@ -399,6 +475,7 @@ fun EmptyServicesView() {
 fun ServiceEditDialog(
     service: Service?,
     isBundle: Boolean,
+    isAddOn: Boolean,
     onDismiss: () -> Unit,
     onConfirm: (Service) -> Unit
 ) {
@@ -408,9 +485,17 @@ fun ServiceEditDialog(
     var duration by remember { mutableStateOf(service?.durationMinutes?.toString() ?: "") }
 
     val title = if (service == null) {
-        if (isBundle) "Create Package" else "New Service"
+        when {
+            isBundle -> "Create Package"
+            isAddOn -> "New Add-on"
+            else -> "New Service"
+        }
     } else {
-        if (isBundle) "Edit Package" else "Edit Service"
+        when {
+            isBundle -> "Edit Package"
+            isAddOn -> "Edit Add-on"
+            else -> "Edit Service"
+        }
     }
 
     AlertDialog(
@@ -420,9 +505,17 @@ fun ServiceEditDialog(
         title = { 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = if (isBundle) Icons.Default.CardGiftcard else Icons.Default.ContentCut,
+                    imageVector = when {
+                        isBundle -> Icons.Default.CardGiftcard
+                        isAddOn -> Icons.Default.AddCircleOutline
+                        else -> Icons.Default.ContentCut
+                    },
                     contentDescription = null,
-                    tint = if (isBundle) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+                    tint = when {
+                        isBundle -> MaterialTheme.colorScheme.tertiary
+                        isAddOn -> MaterialTheme.colorScheme.secondary
+                        else -> MaterialTheme.colorScheme.primary
+                    },
                     modifier = Modifier.size(24.dp).padding(end = 8.dp)
                 )
                 Text(title)
@@ -436,23 +529,45 @@ fun ServiceEditDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                } else if (isAddOn) {
+                    Text(
+                        "Add-ons appear after a client chooses a main service and are priced into the deposit automatically.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 
                 OutlinedTextField(
                     value = name, 
                     onValueChange = { name = it }, 
-                    label = { Text(if (isBundle) "Package Name (e.g. The Ultimate Refresh)" else "Service or Add-on Name") },
+                    label = {
+                        Text(
+                            when {
+                                isBundle -> "Package Name (e.g. The Ultimate Refresh)"
+                                isAddOn -> "Add-on Name (e.g. Nail Art)"
+                                else -> "Service Name"
+                            }
+                        )
+                    },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = MaterialTheme.colorScheme.onSurface,
                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
                 
-                if (isBundle) {
+                if (isBundle || isAddOn) {
                     OutlinedTextField(
                         value = description, 
                         onValueChange = { description = it }, 
-                        label = { Text("What's included? (e.g. Cut + Wash + Hot Towel Shave)") },
+                        label = {
+                            Text(
+                                if (isBundle) {
+                                    "What's included? (e.g. Cut + Wash + Hot Towel Shave)"
+                                } else {
+                                    "Short description"
+                                }
+                            )
+                        },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = MaterialTheme.colorScheme.onSurface,
                             unfocusedTextColor = MaterialTheme.colorScheme.onSurface
@@ -499,7 +614,8 @@ fun ServiceEditDialog(
                             description = description,
                             price = p, 
                             durationMinutes = d,
-                            isBundle = isBundle
+                            isBundle = isBundle,
+                            isAddOn = isAddOn
                         ))
                     }
                 }
@@ -512,3 +628,6 @@ fun ServiceEditDialog(
         }
     )
 }
+
+private fun Service.isAddOnCandidate(): Boolean =
+    isAddOn || name.contains("add-on", ignoreCase = true) || name.contains("addon", ignoreCase = true)

@@ -92,6 +92,14 @@ data class VirtualTryOnState(
 )
 
 class VirtualTryOnViewModel(application: Application) : AndroidViewModel(application) {
+    private companion object {
+        const val DEFAULT_MODEL_VERSION = "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b"
+        const val NEGATIVE_PROMPT = "different face, altered facial features, face swap, changed identity, " +
+            "changed expression, professional studio portrait, painting, illustration, fake, 3d render, " +
+            "morphed, changed background, changed clothing, blur, oversaturated, beauty filter, " +
+            "plastic skin, watermark, text"
+    }
+
     private val _uiState = MutableStateFlow(VirtualTryOnState())
     val uiState: StateFlow<VirtualTryOnState> = _uiState.asStateFlow()
     private val functions = FirebaseFunctions.getInstance()
@@ -159,7 +167,9 @@ class VirtualTryOnViewModel(application: Application) : AndroidViewModel(applica
             .call(
                 mapOf(
                     "base64Image" to base64Image,
-                    "prompt" to prompt
+                    "prompt" to prompt,
+                    "modelVersion" to DEFAULT_MODEL_VERSION,
+                    "negativePrompt" to NEGATIVE_PROMPT
                 )
             )
             .await()

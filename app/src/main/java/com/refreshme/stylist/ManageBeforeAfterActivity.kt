@@ -32,6 +32,7 @@ import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
 import com.refreshme.data.BeforeAfter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -168,11 +169,14 @@ class ManageBeforeAfterActivity : ComponentActivity() {
                                     val id = UUID.randomUUID().toString()
                                     val beforeRef = storage.reference.child("before_after/$stylistUid/${id}_before.jpg")
                                     val afterRef = storage.reference.child("before_after/$stylistUid/${id}_after.jpg")
+                                    val imageMetadata = StorageMetadata.Builder()
+                                        .setContentType("image/jpeg")
+                                        .build()
                                     
-                                    beforeRef.putFile(beforeUri).await()
+                                    beforeRef.putFile(beforeUri, imageMetadata).await()
                                     val beforeUrl = beforeRef.downloadUrl.await().toString()
                                     
-                                    afterRef.putFile(afterUri).await()
+                                    afterRef.putFile(afterUri, imageMetadata).await()
                                     val afterUrl = afterRef.downloadUrl.await().toString()
                                     
                                     val newItem = mapOf(

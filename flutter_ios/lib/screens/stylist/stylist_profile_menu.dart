@@ -8,6 +8,7 @@
 /// ListTile with the PayoutAccountTile widget below.
 
 import 'package:flutter/material.dart';
+import 'manage_portfolio_screen.dart';
 import 'payout_account_screen.dart';
 
 /// Replace your existing subscription tile with this widget.
@@ -116,6 +117,47 @@ class PayoutAccountTile extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const PayoutAccountScreen()),
+        );
+      },
+    );
+  }
+}
+
+/// Opens the stylist portfolio manager. The manager includes photo/video upload
+/// plus a visible Before & After entry point.
+class PortfolioManagementTile extends StatelessWidget {
+  const PortfolioManagementTile({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: const BoxDecoration(
+          color: Color(0xFFF5F0FF),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.photo_library_rounded,
+          color: Color(0xFF6B3FA0),
+          size: 22,
+        ),
+      ),
+      title: const Text(
+        'My Portfolio',
+        style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+      ),
+      subtitle: const Text(
+        'Upload photos, videos, and before & after work',
+        style: TextStyle(fontSize: 12, color: Colors.grey),
+      ),
+      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ManagePortfolioScreen()),
         );
       },
     );

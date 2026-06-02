@@ -60,6 +60,7 @@ fun StylistDashboardScreen(
     val isOnline by viewModel.isOnline.collectAsState()
     val isMobile by viewModel.isMobile.collectAsState()
     val offersEvents by viewModel.offersEvents.collectAsState()
+    val instantBooking by viewModel.instantBooking.collectAsState()
     val currentFlashDeal by viewModel.currentFlashDeal.collectAsState()
     val stylistName by viewModel.stylistName.collectAsState()
     val profileImageUrl by viewModel.profileImageUrl.collectAsState()
@@ -383,6 +384,25 @@ fun StylistDashboardScreen(
                     
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                     
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.FlashOn, contentDescription = null, tint = Color(0xFFF59E0B))
+                            Spacer(Modifier.width(12.dp))
+                            Text("Instant Booking", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                        }
+                        Switch(
+                            checked = instantBooking,
+                            onCheckedChange = { viewModel.toggleInstantBooking(it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFF59E0B))
+                        )
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,

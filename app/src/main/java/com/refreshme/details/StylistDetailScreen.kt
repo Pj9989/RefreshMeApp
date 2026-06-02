@@ -317,6 +317,22 @@ fun StylistDetailScreen(
                                 if (s.isVerifiedStylist) {
                                     AnimatedVerifiedBadge()
                                 }
+                                if (s.instantBookingEnabled == true) {
+                                    Spacer(Modifier.height(6.dp))
+                                    Surface(
+                                        color = Color(0xFFF59E0B),
+                                        shape = RoundedCornerShape(20.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        ) {
+                                            Icon(Icons.Default.FlashOn, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("INSTANT • ANYWHERE", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                                        }
+                                    }
+                                }
                                 Spacer(Modifier.height(8.dp))
                                 Text(
                                     s.name, 

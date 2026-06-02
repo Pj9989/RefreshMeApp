@@ -1,5 +1,6 @@
 package com.refreshme.stylist
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -18,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Compare
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material3.*
@@ -37,6 +39,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -92,15 +95,25 @@ class ManagePortfolioActivity : ComponentActivity() {
                         isUploading = true
                         coroutineScope.launch(Dispatchers.IO) {
                             try {
-                                val isVideo = context.contentResolver.getType(uri)?.contains("video") == true
-                                val extension = if (isVideo) "mp4" else "jpg"
+                                val contentType = context.contentResolver.getType(uri)
+                                val isVideo = contentType?.startsWith("video/") == true
+                                val extension = when {
+                                    isVideo -> "mp4"
+                                    contentType == "image/png" -> "png"
+                                    contentType == "image/webp" -> "webp"
+                                    contentType == "image/heic" -> "heic"
+                                    else -> "jpg"
+                                }
                                 val folder = if (isVideo) "portfolio_videos" else "portfolio_images"
                                 val field = if (isVideo) "portfolioVideos" else "portfolioImages"
+                                val metadata = StorageMetadata.Builder()
+                                    .setContentType(contentType ?: if (isVideo) "video/mp4" else "image/jpeg")
+                                    .build()
                                 
                                 val filename = "${System.currentTimeMillis()}.$extension"
                                 val storageRef = storage.reference.child("$folder/$stylistUid/$filename")
                                 
-                                storageRef.putFile(uri).await()
+                                storageRef.putFile(uri, metadata).await()
                                 val downloadUrl = storageRef.downloadUrl.await().toString()
 
                                 firestore.collection("stylists").document(stylistUid)
@@ -130,6 +143,15 @@ class ManagePortfolioActivity : ComponentActivity() {
                                 IconButton(onClick = { finish() }) {
                                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                                 }
+                            },
+                            actions = {
+                                IconButton(
+                                    onClick = {
+                                        context.startActivity(Intent(context, ManageBeforeAfterActivity::class.java))
+                                    }
+                                ) {
+                                    Icon(Icons.Default.Compare, contentDescription = "Before & After")
+                                }
                             }
                         )
                     },
@@ -153,7 +175,8 @@ class ManagePortfolioActivity : ComponentActivity() {
                         } else if (portfolioImages.isEmpty() && portfolioVideos.isEmpty()) {
                             Column(
                                 modifier = Modifier.align(Alignment.Center),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 Text(
                                     text = "No portfolio media yet.\nTap + to add photos and videos!",
@@ -161,80 +184,108 @@ class ManagePortfolioActivity : ComponentActivity() {
                                     textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.bodyLarge
                                 )
+                                OutlinedButton(
+                                    onClick = {
+                                        context.startActivity(Intent(context, ManageBeforeAfterActivity::class.java))
+                                    }
+                                ) {
+                                    Icon(Icons.Default.Compare, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Before & After")
+                                }
                             }
                         } else {
-                            LazyVerticalGrid(
-                                columns = GridCells.Fixed(3),
-                                contentPadding = PaddingValues(8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            Column(
                                 modifier = Modifier.fillMaxSize()
                             ) {
-                                // Videos first
-                                items(portfolioVideos) { videoUrl ->
-                                    Box(
-                                        modifier = Modifier
-                                            .aspectRatio(1f)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable { itemToDelete = Pair(videoUrl, true) }
-                                    ) {
-                                        // Simple placeholder for video
-                                        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.8f)), contentAlignment = Alignment.Center) {
-                                            Icon(Icons.Default.PlayCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(40.dp))
-                                            Text("REEL", color = Color.White, fontSize = 10.sp, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp))
-                                        }
-                                        
-                                        // Delete Icon Overlay
-                                        Box(
-                                            modifier = Modifier
-                                                .align(Alignment.TopEnd)
-                                                .padding(4.dp)
-                                                .size(24.dp)
-                                                .clip(CircleShape)
-                                                .background(Color.Black.copy(alpha = 0.5f)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = "Delete",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                        }
-                                    }
+                                TextButton(
+                                    onClick = {
+                                        context.startActivity(Intent(context, ManageBeforeAfterActivity::class.java))
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.End)
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.Default.Compare, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Before & After")
                                 }
 
-                                // Images
-                                items(portfolioImages) { imageUrl ->
-                                    Box(
-                                        modifier = Modifier
-                                            .aspectRatio(1f)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable { itemToDelete = Pair(imageUrl, false) }
-                                    ) {
-                                        AsyncImage(
-                                            model = imageUrl,
-                                            contentDescription = "Portfolio Image",
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                        
-                                        // Delete Icon Overlay
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(3),
+                                    contentPadding = PaddingValues(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f)
+                                ) {
+                                    // Videos first
+                                    items(portfolioVideos) { videoUrl ->
                                         Box(
                                             modifier = Modifier
-                                                .align(Alignment.TopEnd)
-                                                .padding(4.dp)
-                                                .size(24.dp)
-                                                .clip(CircleShape)
-                                                .background(Color.Black.copy(alpha = 0.5f)),
-                                            contentAlignment = Alignment.Center
+                                                .aspectRatio(1f)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable { itemToDelete = Pair(videoUrl, true) }
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = "Delete",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(14.dp)
+                                            // Simple placeholder for video
+                                            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.8f)), contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Default.PlayCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(40.dp))
+                                                Text("REEL", color = Color.White, fontSize = 10.sp, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp))
+                                            }
+
+                                            // Delete Icon Overlay
+                                            Box(
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .padding(4.dp)
+                                                    .size(24.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color.Black.copy(alpha = 0.5f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Delete",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Images
+                                    items(portfolioImages) { imageUrl ->
+                                        Box(
+                                            modifier = Modifier
+                                                .aspectRatio(1f)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable { itemToDelete = Pair(imageUrl, false) }
+                                        ) {
+                                            AsyncImage(
+                                                model = imageUrl,
+                                                contentDescription = "Portfolio Image",
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop
                                             )
+
+                                            // Delete Icon Overlay
+                                            Box(
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .padding(4.dp)
+                                                    .size(24.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color.Black.copy(alpha = 0.5f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Delete",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }

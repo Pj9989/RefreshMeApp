@@ -33,13 +33,15 @@ class RoleSelectViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val userDoc = firestore.collection("users").document(userId)
+                val firebaseUser = auth.currentUser
+                val displayName = firebaseUser?.displayName?.takeIf { it.isNotBlank() }
+                    ?: firebaseUser?.email?.substringBefore("@")?.takeIf { it.isNotBlank() }
+                    ?: "RefreshMe Pro"
 
                 // Use merge to prevent overwriting an existing user document entirely
                 userDoc.set(mapOf("role" to role), SetOptions.merge()).await()
 
                 if (role == "STYLIST") {
-                    val firebaseUser = auth.currentUser
-                    val displayName = firebaseUser?.displayName?.takeIf { it.isNotBlank() } ?: "Stylist"
                     firestore.collection("stylists").document(userId).set(
                         mapOf(
                             "name" to displayName,
@@ -57,6 +59,42 @@ class RoleSelectViewModel : ViewModel() {
                             "atHomeServiceFee" to 20.0,
                             "maxTravelRangeKm" to 15,
                             "createdAt" to FieldValue.serverTimestamp(),
+                            "updatedAt" to FieldValue.serverTimestamp()
+                        ),
+                        SetOptions.merge()
+                    ).await()
+                } else if (role == "SALON_OWNER") {
+                    val existingUser = userDoc.get().await()
+                    val shopId = existingUser.getString("shopId")
+                        ?: firestore.collection("shops").document().id
+                    val shopName = if (displayName.endsWith("Salon", ignoreCase = true) ||
+                        displayName.endsWith("Studio", ignoreCase = true)
+                    ) {
+                        displayName
+                    } else {
+                        "$displayName Studio"
+                    }
+
+                    firestore.collection("shops").document(shopId).set(
+                        mapOf(
+                            "ownerId" to userId,
+                            "name" to shopName,
+                            "bio" to "",
+                            "address" to "",
+                            "phone" to "",
+                            "website" to "",
+                            "stylistIds" to listOf(userId),
+                            "isPublic" to false,
+                            "createdAt" to FieldValue.serverTimestamp(),
+                            "updatedAt" to FieldValue.serverTimestamp()
+                        ),
+                        SetOptions.merge()
+                    ).await()
+
+                    userDoc.set(
+                        mapOf(
+                            "shopId" to shopId,
+                            "businessName" to shopName,
                             "updatedAt" to FieldValue.serverTimestamp()
                         ),
                         SetOptions.merge()

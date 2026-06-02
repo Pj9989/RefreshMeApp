@@ -16,6 +16,9 @@ class PaymentScreen extends StatefulWidget {
   final String serviceName;
   final double servicePrice;
   final DateTime bookingDate;
+  final String serviceId;
+  final List<String> addOnServiceIds;
+  final List<String> addOnServiceNames;
   final bool isMobile;
 
   const PaymentScreen({
@@ -27,6 +30,9 @@ class PaymentScreen extends StatefulWidget {
     required this.serviceName,
     required this.servicePrice,
     required this.bookingDate,
+    this.serviceId = '',
+    this.addOnServiceIds = const [],
+    this.addOnServiceNames = const [],
     this.isMobile = false,
   });
 
@@ -64,6 +70,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         serviceName: widget.serviceName,
         servicePrice: widget.servicePrice,
         bookingDate: widget.bookingDate,
+        serviceId: widget.serviceId,
+        addOnServiceIds: widget.addOnServiceIds,
+        addOnServiceNames: widget.addOnServiceNames,
         isMobile: widget.isMobile,
       );
 

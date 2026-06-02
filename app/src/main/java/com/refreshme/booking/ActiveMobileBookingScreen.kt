@@ -309,14 +309,49 @@ fun ActiveMobileBookingScreen(
                                 }
                             } else {
                                 // Client View
-                                if (b.status == BookingStatus.ON_THE_WAY.name) {
-                                    Text(
-                                        "Sit tight! Your stylist's location is updating live on the map.",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 14.sp,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        textAlign = TextAlign.Center
-                                    )
+                                when (b.status) {
+                                    BookingStatus.ON_THE_WAY.name -> {
+                                        Text(
+                                            "Sit tight! Your stylist's location is updating live on the map.",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 14.sp,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                    BookingStatus.AWAITING_CUSTOMER_CONFIRMATION.name -> {
+                                        Text(
+                                            "Your stylist marked this session complete. Confirm it so payout can move forward, or report an issue before it auto-confirms in 24 hours.",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 14.sp,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(Modifier.height(12.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            OutlinedButton(
+                                                onClick = {
+                                                    disputeBookingCompletion(functions, bookingId, context, onFinish)
+                                                },
+                                                modifier = Modifier.weight(1f).height(52.dp),
+                                                shape = RoundedCornerShape(16.dp)
+                                            ) {
+                                                Text("Report Issue")
+                                            }
+                                            Button(
+                                                onClick = {
+                                                    confirmBookingCompletion(functions, bookingId, context, onFinish)
+                                                },
+                                                modifier = Modifier.weight(1f).height(52.dp),
+                                                shape = RoundedCornerShape(16.dp)
+                                            ) {
+                                                Text("Confirm")
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             
@@ -347,5 +382,46 @@ private fun requestBookingCompletion(functions: FirebaseFunctions, bookingId: St
         .call(hashMapOf("bookingId" to bookingId))
         .addOnFailureListener { e ->
             android.util.Log.e("TrackingScreen", "Failed to request completion", e)
+        }
+}
+
+private fun confirmBookingCompletion(
+    functions: FirebaseFunctions,
+    bookingId: String,
+    context: Context,
+    onSuccess: () -> Unit
+) {
+    functions.getHttpsCallable("confirmBookingCompletion")
+        .call(hashMapOf("bookingId" to bookingId))
+        .addOnSuccessListener {
+            Toast.makeText(context, "Session confirmed", Toast.LENGTH_SHORT).show()
+            onSuccess()
+        }
+        .addOnFailureListener { e ->
+            Toast.makeText(context, "Could not confirm session", Toast.LENGTH_SHORT).show()
+            android.util.Log.e("TrackingScreen", "Failed to confirm completion", e)
+        }
+}
+
+private fun disputeBookingCompletion(
+    functions: FirebaseFunctions,
+    bookingId: String,
+    context: Context,
+    onSuccess: () -> Unit
+) {
+    functions.getHttpsCallable("disputeBookingCompletion")
+        .call(
+            hashMapOf(
+                "bookingId" to bookingId,
+                "reason" to "Customer reported an issue from active session"
+            )
+        )
+        .addOnSuccessListener {
+            Toast.makeText(context, "Issue reported", Toast.LENGTH_SHORT).show()
+            onSuccess()
+        }
+        .addOnFailureListener { e ->
+            Toast.makeText(context, "Could not report issue", Toast.LENGTH_SHORT).show()
+            android.util.Log.e("TrackingScreen", "Failed to dispute completion", e)
         }
 }

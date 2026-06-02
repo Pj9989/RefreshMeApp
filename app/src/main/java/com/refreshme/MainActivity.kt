@@ -53,7 +53,14 @@ class MainActivity : AppCompatActivity() {
             if (role == UserRole.UNKNOWN) {
                 startActivity(Intent(this, RoleSelectActivity::class.java))
             } else {
-                RoleBasedNavigationManager.navigateToDashboard(this, role)
+                val dashboardIntent = Intent(
+                    this,
+                    RoleBasedNavigationManager.getDashboardActivity(role)
+                ).apply {
+                    putExtras(intent)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                }
+                startActivity(dashboardIntent)
             }
             finish()
         }

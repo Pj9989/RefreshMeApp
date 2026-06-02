@@ -510,6 +510,7 @@ export const onFlashDealCreated = onDocumentUpdated("stylists/{stylistId}", asyn
 // --- STRIPE CONNECT & PAYMENTS ---
 
 const PLATFORM_FEE_PERCENT = 0.10; // RefreshMe takes 10% of every booking
+const STYLIST_PAYOUT_PERCENT = 1 - PLATFORM_FEE_PERCENT;
 // Production callables require App Check. Keep Firebase Console enrollment in
 // sync with every shipped bundle/package before deploying changes here.
 const CALLABLE_APP_CHECK_OPTIONS = { enforceAppCheck: true };
@@ -522,6 +523,8 @@ type ServiceCatalogItem = {
   durationMinutes?: number;
   isBundle?: boolean;
   bundle?: boolean;
+  isAddOn?: boolean;
+  addOn?: boolean;
 };
 
 type PreparedBooking = {
@@ -605,6 +608,123 @@ function friendlyStripeBookingError(error: any): functions.https.HttpsError {
     "internal",
     "Payment setup failed. Please try again in a moment.",
   );
+}
+
+function bookingDepositAmountCents(booking: Record<string, any>): number {
+  const storedDeposit = Number(booking.depositAmount);
+  const servicePrice = Number(booking.servicePrice);
+  const fallbackDeposit = Number.isFinite(servicePrice) ? servicePrice * DEPOSIT_RATE : 0;
+  const depositDollars = Number.isFinite(storedDeposit) && storedDeposit > 0
+    ? storedDeposit
+    : fallbackDeposit;
+  return Math.round(depositDollars * 100);
+}
+
+async function paymentIntentIdForBooking(
+  stripe: Stripe,
+  booking: Record<string, any>,
+): Promise<string> {
+  const paymentIntentId = stringValue(booking.paymentIntentId);
+  if (paymentIntentId) return paymentIntentId;
+
+  const checkoutSessionId = stringValue(booking.checkoutSessionId);
+  if (!checkoutSessionId) return "";
+
+  const session = await stripe.checkout.sessions.retrieve(checkoutSessionId);
+  return typeof session.payment_intent === "string"
+    ? session.payment_intent
+    : session.payment_intent?.id || "";
+}
+
+async function releaseStylistPayoutForCompletedBooking(
+  bookingId: string,
+  booking: Record<string, any>,
+  stripe: Stripe,
+): Promise<void> {
+  const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
+  if (stringValue(booking.payoutTransferId)) return;
+
+  const destination = stringValue(booking.stripeAccountId);
+  if (!destination) {
+    await bookingRef.update({
+      payoutStatus: "release_failed",
+      payoutFailureMessage: "Missing stylist Stripe account",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "The stylist payout account is missing for this booking.",
+    );
+  }
+
+  const paymentIntentId = await paymentIntentIdForBooking(stripe, booking);
+  if (!paymentIntentId) {
+    await bookingRef.update({
+      payoutStatus: "release_failed",
+      payoutFailureMessage: "Missing payment intent",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "The payment record is missing for this booking.",
+    );
+  }
+
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
+    expand: ["latest_charge"],
+  });
+
+  if (paymentIntent.transfer_data?.destination) {
+    await bookingRef.update({
+      payoutStatus: "released_legacy_destination_charge",
+      payoutTransferDestination: String(paymentIntent.transfer_data.destination),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return;
+  }
+
+  const latestCharge = paymentIntent.latest_charge;
+  const sourceTransaction = typeof latestCharge === "string" ? latestCharge : latestCharge?.id;
+  const payoutAmountCents = Math.round(bookingDepositAmountCents(booking) * STYLIST_PAYOUT_PERCENT);
+
+  if (!sourceTransaction || payoutAmountCents <= 0) {
+    await bookingRef.update({
+      payoutStatus: "release_failed",
+      payoutFailureMessage: "Invalid payout source or amount",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "This booking payment cannot be released yet.",
+    );
+  }
+
+  const transfer = await stripe.transfers.create(
+    {
+      amount: payoutAmountCents,
+      currency: stringValue(booking.currency) || "usd",
+      destination,
+      source_transaction: sourceTransaction,
+      transfer_group: `booking_${bookingId}`,
+      metadata: {
+        bookingId,
+        customerId: stringValue(booking.customerId) || stringValue(booking.userId),
+        stylistId: stringValue(booking.stylistId),
+        paymentIntentId,
+        releaseReason: stringValue(booking.autoConfirmedAt) ? "auto_confirmed" : "customer_confirmed",
+      },
+    },
+    { idempotencyKey: `booking-payout-release-${bookingId}` },
+  );
+
+  await bookingRef.update({
+    payoutStatus: "paid",
+    payoutReleasedAt: admin.firestore.FieldValue.serverTimestamp(),
+    payoutTransferId: transfer.id,
+    payoutAmountCents,
+    payoutTransferDestination: destination,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
 }
 
 async function retrieveReadyConnectAccount(
@@ -1108,10 +1228,8 @@ export const createBookingPaymentIntent = onCall({ ...CALLABLE_APP_CHECK_OPTIONS
         promoCode: prepared.bookingData.promoCode || "",
         promoDiscountApplied: String(prepared.bookingData.promoDiscountApplied || 0),
       },
+      transfer_group: `booking_${bookingRef.id}`,
     };
-
-    paymentIntentParams.application_fee_amount = Math.round(prepared.depositAmountCents * PLATFORM_FEE_PERCENT);
-    paymentIntentParams.transfer_data = { destination: prepared.stylistStripeAccountId };
 
     let paymentIntent: Stripe.PaymentIntent;
     try {
@@ -1123,6 +1241,7 @@ export const createBookingPaymentIntent = onCall({ ...CALLABLE_APP_CHECK_OPTIONS
     const bookingData = {
       ...prepared.bookingData,
       paymentIntentId: paymentIntent.id,
+      payoutStatus: "held_until_customer_confirmation",
     };
 
     await bookingRef.set(bookingData);
@@ -1280,7 +1399,7 @@ export const requestBookingCompletion = onCall(CALLABLE_APP_CHECK_OPTIONS, async
   return { status: "AWAITING_CUSTOMER_CONFIRMATION", autoConfirmAt: completionAutoConfirmAt.toMillis() };
 });
 
-export const confirmBookingCompletion = onCall(CALLABLE_APP_CHECK_OPTIONS, async (request) => {
+export const confirmBookingCompletion = onCall({ ...CALLABLE_APP_CHECK_OPTIONS, secrets: [stripeSecretKey] }, async (request) => {
   if (!request.auth) throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
 
   const bookingId = stringValue(request.data?.bookingId);
@@ -1290,6 +1409,7 @@ export const confirmBookingCompletion = onCall(CALLABLE_APP_CHECK_OPTIONS, async
 
   const db = admin.firestore();
   const bookingRef = db.collection("bookings").doc(bookingId);
+  let confirmedBooking: Record<string, any> | null = null;
 
   await db.runTransaction(async (txn) => {
     const bookingSnap = await txn.get(bookingRef);
@@ -1304,7 +1424,15 @@ export const confirmBookingCompletion = onCall(CALLABLE_APP_CHECK_OPTIONS, async
     }
 
     const status = normalizedStatus(booking.status);
-    if (status === "COMPLETED") return;
+    if (status === "COMPLETED") {
+      if (
+        !stringValue(booking.payoutTransferId) &&
+        !["paid", "released_legacy_destination_charge"].includes(stringValue(booking.payoutStatus))
+      ) {
+        confirmedBooking = booking;
+      }
+      return;
+    }
     if (status !== "AWAITING_CUSTOMER_CONFIRMATION") {
       throw new functions.https.HttpsError("failed-precondition", "This booking is not awaiting customer confirmation");
     }
@@ -1314,11 +1442,24 @@ export const confirmBookingCompletion = onCall(CALLABLE_APP_CHECK_OPTIONS, async
       customerConfirmedAt: admin.firestore.FieldValue.serverTimestamp(),
       customerConfirmedBy: uid,
       completedAt: admin.firestore.FieldValue.serverTimestamp(),
-      payoutStatus: "eligible",
+      payoutStatus: "release_pending",
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+    confirmedBooking = {
+      ...booking,
+      status: "COMPLETED",
+      customerConfirmedBy: uid,
+    };
   });
 
+  if (confirmedBooking) {
+    const stripe = new Stripe(stripeSecretKey.value().trim(), {});
+    try {
+      await releaseStylistPayoutForCompletedBooking(bookingId, confirmedBooking, stripe);
+    } catch (error) {
+      console.error(`Payout release failed for booking ${bookingId}; scheduled retry can pick it up.`, error);
+    }
+  }
   await awardLoyaltyPointsForCompletedBooking(bookingId);
   return { status: "COMPLETED" };
 });
@@ -1364,8 +1505,11 @@ export const disputeBookingCompletion = onCall(CALLABLE_APP_CHECK_OPTIONS, async
   return { status: "COMPLETION_DISPUTED" };
 });
 
-export const autoConfirmPendingBookingCompletions = onSchedule("every 30 minutes", async () => {
+export const autoConfirmPendingBookingCompletions = onSchedule(
+  { schedule: "every 30 minutes", secrets: [stripeSecretKey] },
+  async () => {
   const db = admin.firestore();
+  const stripe = new Stripe(stripeSecretKey.value().trim(), {});
   const now = admin.firestore.Timestamp.now();
   const snapshot = await db.collection("bookings")
     .where("status", "==", "AWAITING_CUSTOMER_CONFIRMATION")
@@ -1373,23 +1517,45 @@ export const autoConfirmPendingBookingCompletions = onSchedule("every 30 minutes
     .limit(100)
     .get();
 
-  const batch = db.batch();
-  snapshot.docs.forEach((doc) => {
-    batch.update(doc.ref, {
+  await Promise.all(snapshot.docs.map(async (doc) => {
+    const booking = doc.data();
+    await doc.ref.update({
       status: "COMPLETED",
       autoConfirmedAt: admin.firestore.FieldValue.serverTimestamp(),
       completedAt: admin.firestore.FieldValue.serverTimestamp(),
-      payoutStatus: "eligible",
+      payoutStatus: "release_pending",
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-  });
 
-  if (!snapshot.empty) {
-    await batch.commit();
-    await Promise.all(snapshot.docs.map((doc) => awardLoyaltyPointsForCompletedBooking(doc.id)));
-  }
+    try {
+      await releaseStylistPayoutForCompletedBooking(
+        doc.id,
+        { ...booking, status: "COMPLETED", autoConfirmedAt: true },
+        stripe,
+      );
+    } catch (error) {
+      console.error(`Auto-confirmed booking ${doc.id}, but payout release failed.`, error);
+    }
+    await awardLoyaltyPointsForCompletedBooking(doc.id);
+  }));
 
-  console.log(`Auto-confirmed ${snapshot.size} pending booking completions.`);
+  const pendingReleaseSnapshot = await db.collection("bookings")
+    .where("status", "==", "COMPLETED")
+    .where("payoutStatus", "==", "release_pending")
+    .limit(100)
+    .get();
+
+  await Promise.all(pendingReleaseSnapshot.docs.map(async (doc) => {
+    try {
+      await releaseStylistPayoutForCompletedBooking(doc.id, doc.data(), stripe);
+    } catch (error) {
+      console.error(`Scheduled payout release retry failed for booking ${doc.id}.`, error);
+    }
+  }));
+
+  console.log(
+    `Auto-confirmed ${snapshot.size} pending booking completions; retried ${pendingReleaseSnapshot.size} pending payout releases.`,
+  );
 });
 
 
@@ -1436,8 +1602,13 @@ export const createCheckoutSession = onCall({ ...CALLABLE_APP_CHECK_OPTIONS, inv
     };
 
     sessionParams.payment_intent_data = {
-      application_fee_amount: Math.round(prepared.depositAmountCents * PLATFORM_FEE_PERCENT),
-      transfer_data: { destination: prepared.stylistStripeAccountId },
+      transfer_group: `booking_${bookingId}`,
+      metadata: {
+        bookingId,
+        userId: request.auth.uid,
+        stylistId: prepared.bookingData.stylistId,
+        paymentType: "deposit",
+      },
     };
 
     let session: Stripe.Checkout.Session;
@@ -1450,6 +1621,7 @@ export const createCheckoutSession = onCall({ ...CALLABLE_APP_CHECK_OPTIONS, inv
     const bookingData = {
       ...prepared.bookingData,
       checkoutSessionId: session.id,
+      payoutStatus: "held_until_customer_confirmation",
     };
 
     await bookingRef.set(bookingData);
