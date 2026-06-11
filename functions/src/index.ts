@@ -472,20 +472,47 @@ export const onConversationMessageCreated = onDocumentCreated("conversations/{ch
                     sourceConversationId: chatId,
                 }, { merge: true });
 
+                // Pre-fetch names for both participants so inbox rows always have otherUserName
+                const nameCache: Record<string, { name: string; photoUrl: string }> = {};
+                for (const uid of participants) {
+                    try {
+                        const stylistSnap = await admin.firestore().collection("stylists").doc(uid).get();
+                        if (stylistSnap.exists) {
+                            const d = stylistSnap.data()!;
+                            nameCache[uid] = { name: d.name || d.displayName || "", photoUrl: d.profileImageUrl || d.imageUrl || "" };
+                            continue;
+                        }
+                        const userSnap = await admin.firestore().collection("users").doc(uid).get();
+                        if (userSnap.exists) {
+                            const d = userSnap.data()!;
+                            nameCache[uid] = { name: d.name || d.displayName || d.fullName || "", photoUrl: d.profileImageUrl || d.imageUrl || d.photoUrl || "" };
+                            continue;
+                        }
+                        // Fall back to Firebase Auth record
+                        const authUser = await admin.auth().getUser(uid).catch(() => null);
+                        nameCache[uid] = { name: authUser?.displayName || authUser?.email?.split("@")[0] || "", photoUrl: authUser?.photoURL || "" };
+                    } catch {
+                        nameCache[uid] = { name: "", photoUrl: "" };
+                    }
+                }
                 for (const participantId of participants) {
                     const otherUserId = participantId === senderId ? recipientId : senderId;
+                    const otherInfo = nameCache[otherUserId] || { name: "", photoUrl: "" };
+                    const inboxPayload: Record<string, unknown> = {
+                        otherUserId,
+                        lastMessage: message.text || "Sent a message",
+                        lastMessageTime: admin.firestore.FieldValue.serverTimestamp(),
+                        lastSenderId: senderId,
+                    };
+                    if (otherInfo.name) inboxPayload.otherUserName = otherInfo.name;
+                    if (otherInfo.photoUrl) inboxPayload.otherUserProfileImageUrl = otherInfo.photoUrl;
                     transaction.set(
                         admin.firestore()
                             .collection("users")
                             .doc(participantId)
                             .collection("conversations")
                             .doc(otherUserId),
-                        {
-                            otherUserId,
-                            lastMessage: message.text || "Sent a message",
-                            lastMessageTime: admin.firestore.FieldValue.serverTimestamp(),
-                            lastSenderId: senderId,
-                        },
+                        inboxPayload,
                         { merge: true }
                     );
                 }
@@ -1992,6 +2019,78 @@ export const summarizeStylistReviews = onCall(CALLABLE_APP_CHECK_OPTIONS, async 
         throw new functions.https.HttpsError("internal", "Failed to generate summary.");
     }
 });
+
+// ── BACKFILL: repair inbox rows where otherUserName is missing or a placeholder ──
+export const backfillConversationNames = onRequest(
+    { invoker: "public", timeoutSeconds: 540 },
+    async (req, res) => {
+        const secret = req.query.secret as string;
+        if (secret !== "rm-chat-backfill-2026") {
+            res.status(403).send("Forbidden");
+            return;
+        }
+        const PLACEHOLDER_NAMES = new Set(["Customer", "Someone", "Stylist", ""]);
+        const usersSnap = await admin.firestore().collection("users").get();
+        let fixed = 0;
+        let skipped = 0;
+        const nameCache: Record<string, { name: string; photoUrl: string }> = {};
+
+        async function resolveName(uid: string): Promise<{ name: string; photoUrl: string }> {
+            if (nameCache[uid]) return nameCache[uid];
+            try {
+                const stylistSnap = await admin.firestore().collection("stylists").doc(uid).get();
+                if (stylistSnap.exists) {
+                    const d = stylistSnap.data()!;
+                    const result = { name: d.name || d.displayName || "", photoUrl: d.profileImageUrl || d.imageUrl || "" };
+                    nameCache[uid] = result;
+                    return result;
+                }
+                const userSnap = await admin.firestore().collection("users").doc(uid).get();
+                if (userSnap.exists) {
+                    const d = userSnap.data()!;
+                    const result = { name: d.name || d.displayName || d.fullName || "", photoUrl: d.profileImageUrl || d.imageUrl || d.photoUrl || "" };
+                    nameCache[uid] = result;
+                    return result;
+                }
+                // Fall back to Firebase Auth record
+                const authUser = await admin.auth().getUser(uid).catch(() => null);
+                const result = { name: authUser?.displayName || authUser?.email?.split("@")[0] || "", photoUrl: authUser?.photoURL || "" };
+                nameCache[uid] = result;
+                return result;
+            } catch {
+                nameCache[uid] = { name: "", photoUrl: "" };
+                return nameCache[uid];
+            }
+        }
+
+        for (const userDoc of usersSnap.docs) {
+            const uid = userDoc.id;
+            const convsSnap = await admin.firestore()
+                .collection("users").doc(uid)
+                .collection("conversations").get();
+            for (const convDoc of convsSnap.docs) {
+                const data = convDoc.data();
+                const currentName: string = data.otherUserName || "";
+                if (currentName && !PLACEHOLDER_NAMES.has(currentName)) {
+                    skipped++;
+                    continue;
+                }
+                const otherUserId: string = data.otherUserId || convDoc.id;
+                const info = await resolveName(otherUserId);
+                if (!info.name || PLACEHOLDER_NAMES.has(info.name)) {
+                    skipped++;
+                    continue;
+                }
+                const update: Record<string, unknown> = { otherUserName: info.name };
+                if (info.photoUrl) update.otherUserProfileImageUrl = info.photoUrl;
+                await convDoc.ref.update(update);
+                fixed++;
+                console.log(`[backfill] Fixed ${uid}/conversations/${convDoc.id} -> ${info.name}`);
+            }
+        }
+        res.json({ fixed, skipped, total: fixed + skipped });
+    }
+);
 
 // onAppointmentCancelled - notifies waitlisted users when a booking is deleted
 export const onAppointmentCancelled = onDocumentDeleted(
