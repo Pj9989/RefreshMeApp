@@ -286,6 +286,11 @@ export const onBookingCreated = onDocumentCreated("bookings/{bookingId}", async 
     if (!snapshot) return;
     const booking = snapshot.data();
 
+    // Only notify stylist after payment is confirmed.
+    // If status is pending_payment, the Stripe webhook will update it to
+    // DEPOSIT_PAID and onBookingUpdated will send the notification then.
+    if (booking.status === "pending_payment") return;
+
     const stylistId = booking.stylistId;
     const customerName = booking.customerName || "A customer";
 
@@ -336,12 +341,15 @@ export const onBookingUpdated = onDocumentUpdated("bookings/{bookingId}", async 
             );
             return;
         } else if (newData.status === "DEPOSIT_PAID" || newData.status === "paid") {
-            // Stylist might want to know
+            // Payment confirmed — now notify the stylist with a booking request
+            // (this handles the case where booking was created as pending_payment
+            // and the Stripe webhook updated it to DEPOSIT_PAID)
+            const customerName = newData.customerName || "A customer";
             await sendPushNotification(
                 newData.stylistId,
-                "Deposit Paid! ??",
-                `The deposit for ${newData.customerName}'s appointment has been confirmed.`,
-                { type: "booking", targetId: event.params.bookingId }
+                "New Booking Request! ??",
+                `${customerName} requested an appointment for ${newData.serviceName}.`,
+                { type: "booking_request", targetId: event.params.bookingId }
             );
             return;
         }
