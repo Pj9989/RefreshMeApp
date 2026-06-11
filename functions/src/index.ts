@@ -30,41 +30,94 @@ const generativeModel = vertexAi.getGenerativeModel({ model: "gemini-1.5-flash-0
 
 // --- PUSH NOTIFICATION HELPERS ---
 
+/** Extract all FCM tokens from a Firestore document.
+ * Supports both:
+ *   fcmToken: "abc123"          (single string)
+ *   fcmTokens: {"abc123": true} (map — used by iOS Flutter)
+ */
+function extractFcmTokens(docData: any): string[] {
+    const tokens: string[] = [];
+    // Single token field
+    if (typeof docData?.fcmToken === "string" && docData.fcmToken) {
+        tokens.push(docData.fcmToken);
+    }
+    // Map of tokens (iOS Flutter saves tokens as {token: true})
+    if (docData?.fcmTokens && typeof docData.fcmTokens === "object") {
+        for (const [token, active] of Object.entries(docData.fcmTokens)) {
+            if (active === true && token && !tokens.includes(token)) {
+                tokens.push(token);
+            }
+        }
+    }
+    return tokens;
+}
+
 async function sendPushNotification(userId: string, title: string, body: string, data?: any) {
     try {
-        const userDoc = await admin.firestore().collection("users").doc(userId).get();
-        let fcmToken = userDoc.data()?.fcmToken;
+        const [userDoc, stylistDoc] = await Promise.all([
+            admin.firestore().collection("users").doc(userId).get(),
+            admin.firestore().collection("stylists").doc(userId).get(),
+        ]);
 
-        if (!fcmToken) {
-            // Check stylist doc too
-            const stylistDoc = await admin.firestore().collection("stylists").doc(userId).get();
-            fcmToken = stylistDoc.data()?.fcmToken;
-        }
+        // Collect tokens from both docs, deduplicated
+        const allTokens = [
+            ...extractFcmTokens(userDoc.data()),
+            ...extractFcmTokens(stylistDoc.data()),
+        ].filter((t, i, arr) => arr.indexOf(t) === i);
 
-        if (!fcmToken) {
-            console.log(`No FCM token for user ${userId}, skipping notification.`);
+        if (allTokens.length === 0) {
+            console.log(`[push] No FCM tokens found for user ${userId} — skipping.`);
             return;
         }
 
-        const message: admin.messaging.Message = {
-            token: fcmToken,
-            notification: {
-                title: title,
-                body: body,
-            },
-            data: data || {},
-            android: {
-                priority: "high",
-                notification: {
-                    channelId: notificationChannelForType(data?.type),
-                }
-            }
-        };
+        console.log(`[push] Sending to ${allTokens.length} token(s) for user ${userId}`);
 
-        await admin.messaging().send(message);
-        console.log(`Notification sent to user ${userId}`);
-    } catch (error) {
-        console.error(`Error sending notification to user ${userId}:`, error);
+        const stringData: Record<string, string> = {};
+        if (data) {
+            for (const [k, v] of Object.entries(data)) {
+                stringData[k] = String(v);
+            }
+        }
+
+        const sendResults = await Promise.allSettled(
+            allTokens.map(async (token) => {
+                // Detect platform: iOS tokens are typically longer and contain no colons
+                const isIos = !token.includes(":");
+                const message: admin.messaging.Message = {
+                    token,
+                    notification: { title, body },
+                    data: stringData,
+                    android: {
+                        priority: "high",
+                        notification: { channelId: notificationChannelForType(data?.type) },
+                    },
+                    ...(isIos ? {
+                        apns: {
+                            payload: {
+                                aps: {
+                                    alert: { title, body },
+                                    sound: "default",
+                                    badge: 1,
+                                    "content-available": 1,
+                                },
+                            },
+                            headers: { "apns-priority": "10" },
+                        },
+                    } : {}),
+                };
+                return admin.messaging().send(message);
+            })
+        );
+
+        sendResults.forEach((result, i) => {
+            if (result.status === "fulfilled") {
+                console.log(`[push] Delivered to token[${i}] for user ${userId}: ${result.value}`);
+            } else {
+                console.error(`[push] FAILED token[${i}] for user ${userId}:`, result.reason?.message || result.reason);
+            }
+        });
+    } catch (error: any) {
+        console.error(`[push] Unexpected error for user ${userId}:`, error?.message || error);
     }
 }
 
